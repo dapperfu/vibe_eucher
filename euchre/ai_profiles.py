@@ -31,13 +31,13 @@ class AggressiveAI(Player):
         else:  # SPADES
             return Suit.CLUBS
         
-    def should_order_up(self, top_card: Card) -> bool:
+    def should_order_up(self, top_card: Card, is_partner_dealing: bool = False) -> bool:
         """Decide whether to order up the top card.
         
         Aggressive players use sophisticated hand evaluation to make strategic decisions.
         """
         # Use the new hand evaluation system
-        hand_strength = self._evaluate_hand_for_trump(top_card.suit, top_card)
+        hand_strength = self._evaluate_hand_for_trump(top_card.suit, top_card, is_partner_dealing)
         
         # Base threshold varies by risk tolerance
         # Conservative: 15+, Balanced: 12+, Aggressive: 8+
@@ -118,7 +118,7 @@ class AggressiveAI(Player):
                 
         return base_value
 
-    def _evaluate_hand_for_trump(self, potential_trump_suit: Suit, top_card: Card) -> float:
+    def _evaluate_hand_for_trump(self, potential_trump_suit: Suit, top_card: Card, is_partner_dealing: bool = False) -> float:
         """Evaluate the strength of the hand for a potential trump suit.
         
         This method considers:
@@ -126,6 +126,8 @@ class AggressiveAI(Player):
         - Strategic implications of the top card
         - Risk of giving dealer powerful cards
         - Overall hand strength and potential
+        - Partner dealing (partner picks up what you order)
+        - First player strategy considerations
         
         Parameters
         ----------
@@ -133,6 +135,8 @@ class AggressiveAI(Player):
             The suit being considered as trump
         top_card : Card
             The top card that could be ordered up
+        is_partner_dealing : bool
+            Whether the player's partner is the dealer
             
         Returns
         -------
@@ -146,33 +150,22 @@ class AggressiveAI(Player):
         left_bower_suit = self._get_left_bower_suit(potential_trump_suit)
         left_bower_cards = self.get_cards_of_suit(left_bower_suit)
         
-        # Evaluate trump cards quality
+        # Evaluate trump cards quality with proper suit consideration
         for card in trump_cards:
-            if card.rank == Rank.JACK:
-                score += 15.0  # Right bower is very powerful
-            elif card.rank == Rank.ACE:
-                score += 12.0
-            elif card.rank == Rank.KING:
-                score += 10.0
-            elif card.rank == Rank.QUEEN:
-                score += 8.0
-            elif card.rank == Rank.TEN:
-                score += 6.0
-            elif card.rank == Rank.NINE:
-                score += 4.0
+            score += self._evaluate_trump_card_value(card, potential_trump_suit)
                 
-        # Evaluate left bower cards quality
+        # Evaluate left bower cards quality with proper suit consideration
         for card in left_bower_cards:
-            if card.rank == Rank.JACK:
-                score += 14.0  # Left bower is second most powerful
-            else:
-                # Other cards in left bower suit are worth less
-                score += card.rank.value * 0.5
+            score += self._evaluate_left_bower_card_value(card, potential_trump_suit)
                 
         # Strategic considerations for ordering up
         if top_card.suit == potential_trump_suit:
             # We're considering ordering up the top card
-            score += self._evaluate_top_card_strategy(top_card, potential_trump_suit)
+            score += self._evaluate_top_card_strategy(top_card, potential_trump_suit, is_partner_dealing)
+            
+        # Partner dealing bonus - if partner is dealing, they pick up what you order
+        if is_partner_dealing:
+            score += self._evaluate_partner_dealing_bonus(top_card, potential_trump_suit)
             
         # Bonus for having multiple trump cards (synergy)
         total_trump_potential = len(trump_cards) + len(left_bower_cards)
@@ -183,12 +176,208 @@ class AggressiveAI(Player):
             
         # Consider off-suit strength (cards that can win non-trump tricks)
         off_suit_cards = [c for c in self.hand if c.suit not in [potential_trump_suit, left_bower_suit]]
-        off_suit_strength = sum(c.rank.value for c in off_suit_cards)
+        off_suit_strength = self._evaluate_off_suit_strength(off_suit_cards, potential_trump_suit)
         score += off_suit_strength * 0.3  # Off-suit strength is valuable but not as much as trump
+        
+        # First player strategy consideration
+        if self._is_first_player_after_dealer():
+            score += self._evaluate_first_player_strategy(potential_trump_suit, left_bower_suit)
         
         return score
         
-    def _evaluate_top_card_strategy(self, top_card: Card, potential_trump_suit: Suit) -> float:
+    def _evaluate_trump_card_value(self, card: Card, trump_suit: Suit) -> float:
+        """Evaluate the value of a trump card based on the actual trump suit.
+        
+        Parameters
+        ----------
+        card : Card
+            The card to evaluate
+        trump_suit : Suit
+            The trump suit
+            
+        Returns
+        -------
+        float
+            Card value in this trump suit
+        """
+        if card.rank == Rank.JACK:
+            return 15.0  # Right bower is always most powerful
+        elif card.rank == Rank.ACE:
+            return 12.0
+        elif card.rank == Rank.KING:
+            return 10.0
+        elif card.rank == Rank.QUEEN:
+            return 8.0
+        elif card.rank == Rank.TEN:
+            return 6.0
+        elif card.rank == Rank.NINE:
+            return 4.0
+        else:
+            return 0.0
+            
+    def _evaluate_left_bower_card_value(self, card: Card, trump_suit: Suit) -> float:
+        """Evaluate the value of a left bower card based on the actual trump suit.
+        
+        Parameters
+        ----------
+        card : Card
+            The card to evaluate
+        trump_suit : Suit
+            The trump suit
+            
+        Returns
+        -------
+        float
+            Card value as left bower
+        """
+        if card.rank == Rank.JACK:
+            return 14.0  # Left bower is second most powerful
+        else:
+            # Other cards in left bower suit are worth less
+            return card.rank.value * 0.5
+            
+    def _evaluate_off_suit_strength(self, off_suit_cards: List[Card], trump_suit: Suit) -> float:
+        """Evaluate the strength of off-suit cards considering first player strategy.
+        
+        Parameters
+        ----------
+        off_suit_cards : List[Card]
+            Cards not in trump or left bower suits
+        trump_suit : Suit
+            The trump suit
+            
+        Returns
+        -------
+        float
+            Off-suit strength score
+        """
+        if not off_suit_cards:
+            return 0.0
+            
+        # Sort cards by rank (high to low)
+        sorted_cards = sorted(off_suit_cards, key=lambda c: c.rank.value, reverse=True)
+        
+        # First player strategy: high off-suit cards are valuable for leading
+        if self._is_first_player_after_dealer():
+            # Value high cards more for leading
+            score = sum(c.rank.value * (1.0 + (i * 0.1)) for i, c in enumerate(sorted_cards))
+        else:
+            # Standard off-suit evaluation
+            score = sum(c.rank.value for c in sorted_cards)
+            
+        return score
+        
+    def _evaluate_partner_dealing_bonus(self, top_card: Card, potential_trump_suit: Suit) -> float:
+        """Evaluate the bonus for having your partner as dealer.
+        
+        When your partner is dealing, they pick up what you order, so you can
+        be more aggressive if you have strong trump potential.
+        
+        Parameters
+        ----------
+        top_card : Card
+            The top card being considered
+        potential_trump_suit : Suit
+            The potential trump suit
+            
+        Returns
+        -------
+        float
+            Bonus score for partner dealing
+        """
+        bonus = 0.0
+        
+        # If partner is dealing, they get the top card
+        if top_card.suit == potential_trump_suit:
+            # Partner gets a trump card - evaluate its value
+            if top_card.rank == Rank.JACK:
+                bonus += 8.0  # Partner gets right bower
+            elif top_card.rank == Rank.ACE:
+                bonus += 6.0  # Partner gets Ace
+            elif top_card.rank == Rank.KING:
+                bonus += 4.0  # Partner gets King
+            elif top_card.rank == Rank.QUEEN:
+                bonus += 2.0  # Partner gets Queen
+            elif top_card.rank == Rank.TEN:
+                bonus += 1.0  # Partner gets Ten
+            elif top_card.rank == Rank.NINE:
+                bonus += 0.0  # Partner gets Nine
+                
+        # Check if ordering up gives partner the left bower
+        left_bower_suit = self._get_left_bower_suit(potential_trump_suit)
+        if top_card.suit == left_bower_suit and top_card.rank == Rank.JACK:
+            # Partner gets left bower - this is good for your team
+            bonus += 10.0
+            
+        # Consider if you have strong trump cards yourself
+        trump_cards = self.get_cards_of_suit(potential_trump_suit)
+        left_bower_cards = self.get_cards_of_suit(left_bower_suit)
+        
+        # If you have strong trump, partner getting more trump is synergistic
+        if any(c.rank == Rank.JACK for c in trump_cards):  # Right bower
+            bonus += 5.0
+        if any(c.rank == Rank.JACK for c in left_bower_cards):  # Left bower
+            bonus += 4.0
+        if any(c.rank == Rank.ACE for c in trump_cards):  # Ace
+            bonus += 3.0
+            
+        return bonus
+        
+    def _evaluate_first_player_strategy(self, trump_suit: Suit, left_bower_suit: Suit) -> float:
+        """Evaluate the bonus for being first player after dealer.
+        
+        First player often leads with high off-suit cards to try to win tricks.
+        
+        Parameters
+        ----------
+        trump_suit : Suit
+            The trump suit
+        left_bower_suit : Suit
+            The left bower suit
+            
+        Returns
+        -------
+        float
+            Bonus score for first player strategy
+        """
+        bonus = 0.0
+        
+        # Get off-suit cards (not trump or left bower)
+        off_suit_cards = [c for c in self.hand if c.suit not in [trump_suit, left_bower_suit]]
+        
+        if not off_suit_cards:
+            return 0.0
+            
+        # Sort by rank (high to low)
+        sorted_cards = sorted(off_suit_cards, key=lambda c: c.rank.value, reverse=True)
+        
+        # First player strategy: high off-suit cards are valuable for leading
+        # Ace is worth 4, King 3, Queen 2, etc.
+        for i, card in enumerate(sorted_cards[:3]):  # Top 3 cards
+            if card.rank == Rank.ACE:
+                bonus += 4.0 - i
+            elif card.rank == Rank.KING:
+                bonus += 3.0 - i
+            elif card.rank == Rank.QUEEN:
+                bonus += 2.0 - i
+            elif card.rank == Rank.JACK:
+                bonus += 1.0 - i
+                
+        return bonus
+        
+    def _is_first_player_after_dealer(self) -> bool:
+        """Check if this player is the first to play after the dealer.
+        
+        Returns
+        -------
+        bool
+            True if this player is first after dealer
+        """
+        # This would need to be implemented based on game state
+        # For now, return False - this should be passed from the game logic
+        return False
+        
+    def _evaluate_top_card_strategy(self, top_card: Card, potential_trump_suit: Suit, is_partner_dealing: bool = False) -> float:
         """Evaluate the strategic implications of ordering up the top card.
         
         Parameters
@@ -197,6 +386,8 @@ class AggressiveAI(Player):
             The top card being considered for ordering up
         potential_trump_suit : Suit
             The suit that would become trump
+        is_partner_dealing : bool
+            Whether the player's partner is the dealer
             
         Returns
         -------
@@ -208,8 +399,12 @@ class AggressiveAI(Player):
         # Check if ordering up gives dealer the left bower
         left_bower_suit = self._get_left_bower_suit(potential_trump_suit)
         if top_card.suit == left_bower_suit and top_card.rank == Rank.JACK:
-            # CRITICAL: Ordering up a Jack of the left bower suit gives dealer left bower
-            score -= 25.0  # This is extremely bad strategy
+            if is_partner_dealing:
+                # Partner gets left bower - this is good for your team
+                score += 10.0
+            else:
+                # Opponent gets left bower - this is extremely bad strategy
+                score -= 25.0  # This is extremely bad strategy
         elif top_card.suit == potential_trump_suit and top_card.rank == Rank.JACK:
             # Ordering up the right bower - this is good for us
             score += 10.0
@@ -271,13 +466,13 @@ class ConservativeAI(Player):
         else:  # SPADES
             return Suit.CLUBS
         
-    def should_order_up(self, top_card: Card) -> bool:
+    def should_order_up(self, top_card: Card, is_partner_dealing: bool = False) -> bool:
         """Decide whether to order up the top card.
         
         Conservative players use sophisticated hand evaluation and are very cautious.
         """
         # Use the new hand evaluation system
-        hand_strength = self._evaluate_hand_for_trump(top_card.suit, top_card)
+        hand_strength = self._evaluate_hand_for_trump(top_card.suit, top_card, is_partner_dealing)
         
         # Conservative players have higher thresholds
         # Very conservative: 20+, Moderate: 18+, Slightly aggressive: 15+
@@ -358,7 +553,7 @@ class ConservativeAI(Player):
                 
         return base_value
 
-    def _evaluate_hand_for_trump(self, potential_trump_suit: Suit, top_card: Card) -> float:
+    def _evaluate_hand_for_trump(self, potential_trump_suit: Suit, top_card: Card, is_partner_dealing: bool = False) -> float:
         """Evaluate the strength of the hand for a potential trump suit.
         
         Conservative players are more cautious about strategic risks.
@@ -370,33 +565,22 @@ class ConservativeAI(Player):
         left_bower_suit = self._get_left_bower_suit(potential_trump_suit)
         left_bower_cards = self.get_cards_of_suit(left_bower_suit)
         
-        # Evaluate trump cards quality
+        # Evaluate trump cards quality with proper suit consideration
         for card in trump_cards:
-            if card.rank == Rank.JACK:
-                score += 15.0  # Right bower is very powerful
-            elif card.rank == Rank.ACE:
-                score += 12.0
-            elif card.rank == Rank.KING:
-                score += 10.0
-            elif card.rank == Rank.QUEEN:
-                score += 8.0
-            elif card.rank == Rank.TEN:
-                score += 6.0
-            elif card.rank == Rank.NINE:
-                score += 4.0
+            score += self._evaluate_trump_card_value(card, potential_trump_suit)
                 
-        # Evaluate left bower cards quality
+        # Evaluate left bower cards quality with proper suit consideration
         for card in left_bower_cards:
-            if card.rank == Rank.JACK:
-                score += 14.0  # Left bower is second most powerful
-            else:
-                # Other cards in left bower suit are worth less
-                score += card.rank.value * 0.5
+            score += self._evaluate_left_bower_card_value(card, potential_trump_suit)
                 
         # Strategic considerations for ordering up
         if top_card.suit == potential_trump_suit:
             # We're considering ordering up the top card
-            score += self._evaluate_top_card_strategy(top_card, potential_trump_suit)
+            score += self._evaluate_top_card_strategy(top_card, potential_trump_suit, is_partner_dealing)
+            
+        # Partner dealing bonus - if partner is dealing, they pick up what you order
+        if is_partner_dealing:
+            score += self._evaluate_partner_dealing_bonus(top_card, potential_trump_suit)
             
         # Bonus for having multiple trump cards (synergy)
         total_trump_potential = len(trump_cards) + len(left_bower_cards)
@@ -409,12 +593,127 @@ class ConservativeAI(Player):
             
         # Consider off-suit strength (cards that can win non-trump tricks)
         off_suit_cards = [c for c in self.hand if c.suit not in [potential_trump_suit, left_bower_suit]]
-        off_suit_strength = sum(c.rank.value for c in off_suit_cards)
+        off_suit_strength = self._evaluate_off_suit_strength(off_suit_cards, potential_trump_suit)
         score += off_suit_strength * 0.2  # Conservative players value off-suit less
         
         return score
         
-    def _evaluate_top_card_strategy(self, top_card: Card, potential_trump_suit: Suit) -> float:
+    def _evaluate_trump_card_value(self, card: Card, trump_suit: Suit) -> float:
+        """Evaluate the value of a trump card based on the actual trump suit."""
+        if card.rank == Rank.JACK:
+            return 15.0  # Right bower is always most powerful
+        elif card.rank == Rank.ACE:
+            return 12.0
+        elif card.rank == Rank.KING:
+            return 10.0
+        elif card.rank == Rank.QUEEN:
+            return 8.0
+        elif card.rank == Rank.TEN:
+            return 6.0
+        elif card.rank == Rank.NINE:
+            return 4.0
+        else:
+            return 0.0
+            
+    def _evaluate_left_bower_card_value(self, card: Card, trump_suit: Suit) -> float:
+        """Evaluate the value of a left bower card based on the actual trump suit."""
+        if card.rank == Rank.JACK:
+            return 14.0  # Left bower is second most powerful
+        else:
+            # Other cards in left bower suit are worth less
+            return card.rank.value * 0.5
+            
+    def _evaluate_off_suit_strength(self, off_suit_cards: List[Card], trump_suit: Suit) -> float:
+        """Evaluate the strength of off-suit cards considering first player strategy."""
+        if not off_suit_cards:
+            return 0.0
+            
+        # Sort cards by rank (high to low)
+        sorted_cards = sorted(off_suit_cards, key=lambda c: c.rank.value, reverse=True)
+        
+        # First player strategy: high off-suit cards are valuable for leading
+        if self._is_first_player_after_dealer():
+            # Value high cards more for leading
+            score = sum(c.rank.value * (1.0 + (i * 0.1)) for i, c in enumerate(sorted_cards))
+        else:
+            # Standard off-suit evaluation
+            score = sum(c.rank.value for c in sorted_cards)
+            
+        return score
+        
+    def _evaluate_partner_dealing_bonus(self, top_card: Card, potential_trump_suit: Suit) -> float:
+        """Evaluate the bonus for having your partner as dealer."""
+        bonus = 0.0
+        
+        # If partner is dealing, they get the top card
+        if top_card.suit == potential_trump_suit:
+            # Partner gets a trump card - evaluate its value
+            if top_card.rank == Rank.JACK:
+                bonus += 8.0  # Partner gets right bower
+            elif top_card.rank == Rank.ACE:
+                bonus += 6.0  # Partner gets Ace
+            elif top_card.rank == Rank.KING:
+                bonus += 4.0  # Partner gets King
+            elif top_card.rank == Rank.QUEEN:
+                bonus += 2.0  # Partner gets Queen
+            elif top_card.rank == Rank.TEN:
+                bonus += 1.0  # Partner gets Ten
+            elif top_card.rank == Rank.NINE:
+                bonus += 0.0  # Partner gets Nine
+                
+        # Check if ordering up gives partner the left bower
+        left_bower_suit = self._get_left_bower_suit(potential_trump_suit)
+        if top_card.suit == left_bower_suit and top_card.rank == Rank.JACK:
+            # Partner gets left bower - this is good for your team
+            bonus += 10.0
+            
+        # Consider if you have strong trump cards yourself
+        trump_cards = self.get_cards_of_suit(potential_trump_suit)
+        left_bower_cards = self.get_cards_of_suit(left_bower_suit)
+        
+        # If you have strong trump, partner getting more trump is synergistic
+        if any(c.rank == Rank.JACK for c in trump_cards):  # Right bower
+            bonus += 5.0
+        if any(c.rank == Rank.JACK for c in left_bower_cards):  # Left bower
+            bonus += 4.0
+        if any(c.rank == Rank.ACE for c in trump_cards):  # Ace
+            bonus += 3.0
+            
+        return bonus
+        
+    def _evaluate_first_player_strategy(self, trump_suit: Suit, left_bower_suit: Suit) -> float:
+        """Evaluate the bonus for being first player after dealer."""
+        bonus = 0.0
+        
+        # Get off-suit cards (not trump or left bower)
+        off_suit_cards = [c for c in self.hand if c.suit not in [trump_suit, left_bower_suit]]
+        
+        if not off_suit_cards:
+            return 0.0
+            
+        # Sort by rank (high to low)
+        sorted_cards = sorted(off_suit_cards, key=lambda c: c.rank.value, reverse=True)
+        
+        # First player strategy: high off-suit cards are valuable for leading
+        for i, card in enumerate(sorted_cards[:3]):  # Top 3 cards
+            if card.rank == Rank.ACE:
+                bonus += 4.0 - i
+            elif card.rank == Rank.KING:
+                bonus += 3.0 - i
+            elif card.rank == Rank.QUEEN:
+                bonus += 2.0 - i
+            elif card.rank == Rank.JACK:
+                bonus += 1.0 - i
+                
+        return bonus
+        
+    def _is_first_player_after_dealer(self) -> bool:
+        """Check if this player is the first to play after the dealer."""
+        # This would need to be implemented based on game state
+        # For now, return False - this should be passed from the game logic
+        return False
+        
+    def _evaluate_top_card_strategy(self, top_card: Card, potential_trump_suit: Suit, is_partner_dealing: bool = False) -> float:
         """Evaluate the strategic implications of ordering up the top card.
         
         Conservative players are very cautious about strategic risks.
@@ -487,13 +786,13 @@ class BalancedAI(Player):
         else:  # SPADES
             return Suit.CLUBS
         
-    def should_order_up(self, top_card: Card) -> bool:
+    def should_order_up(self, top_card: Card, is_partner_dealing: bool = False) -> bool:
         """Decide whether to order up the top card.
         
         Balanced players use sophisticated hand evaluation with moderate risk tolerance.
         """
         # Use the new hand evaluation system
-        hand_strength = self._evaluate_hand_for_trump(top_card.suit, top_card)
+        hand_strength = self._evaluate_hand_for_trump(top_card.suit, top_card, is_partner_dealing)
         
         # Balanced players have moderate thresholds
         # Conservative: 18+, Balanced: 15+, Aggressive: 12+
@@ -591,7 +890,7 @@ class BalancedAI(Player):
                 
         return base_value
 
-    def _evaluate_hand_for_trump(self, potential_trump_suit: Suit, top_card: Card) -> float:
+    def _evaluate_hand_for_trump(self, potential_trump_suit: Suit, top_card: Card, is_partner_dealing: bool = False) -> float:
         """Evaluate the strength of the hand for a potential trump suit.
         
         Balanced players consider both risk and reward equally.
@@ -629,7 +928,7 @@ class BalancedAI(Player):
         # Strategic considerations for ordering up
         if top_card.suit == potential_trump_suit:
             # We're considering ordering up the top card
-            score += self._evaluate_top_card_strategy(top_card, potential_trump_suit)
+            score += self._evaluate_top_card_strategy(top_card, potential_trump_suit, is_partner_dealing)
             
         # Bonus for having multiple trump cards (synergy)
         total_trump_potential = len(trump_cards) + len(left_bower_cards)
@@ -645,7 +944,122 @@ class BalancedAI(Player):
         
         return score
         
-    def _evaluate_top_card_strategy(self, top_card: Card, potential_trump_suit: Suit) -> float:
+    def _evaluate_trump_card_value(self, card: Card, trump_suit: Suit) -> float:
+        """Evaluate the value of a trump card based on the actual trump suit."""
+        if card.rank == Rank.JACK:
+            return 15.0  # Right bower is always most powerful
+        elif card.rank == Rank.ACE:
+            return 12.0
+        elif card.rank == Rank.KING:
+            return 10.0
+        elif card.rank == Rank.QUEEN:
+            return 8.0
+        elif card.rank == Rank.TEN:
+            return 6.0
+        elif card.rank == Rank.NINE:
+            return 4.0
+        else:
+            return 0.0
+            
+    def _evaluate_left_bower_card_value(self, card: Card, trump_suit: Suit) -> float:
+        """Evaluate the value of a left bower card based on the actual trump suit."""
+        if card.rank == Rank.JACK:
+            return 14.0  # Left bower is second most powerful
+        else:
+            # Other cards in left bower suit are worth less
+            return card.rank.value * 0.5
+            
+    def _evaluate_off_suit_strength(self, off_suit_cards: List[Card], trump_suit: Suit) -> float:
+        """Evaluate the strength of off-suit cards considering first player strategy."""
+        if not off_suit_cards:
+            return 0.0
+            
+        # Sort cards by rank (high to low)
+        sorted_cards = sorted(off_suit_cards, key=lambda c: c.rank.value, reverse=True)
+        
+        # First player strategy: high off-suit cards are valuable for leading
+        if self._is_first_player_after_dealer():
+            # Value high cards more for leading
+            score = sum(c.rank.value * (1.0 + (i * 0.1)) for i, c in enumerate(sorted_cards))
+        else:
+            # Standard off-suit evaluation
+            score = sum(c.rank.value for c in sorted_cards)
+            
+        return score
+        
+    def _evaluate_partner_dealing_bonus(self, top_card: Card, potential_trump_suit: Suit) -> float:
+        """Evaluate the bonus for having your partner as dealer."""
+        bonus = 0.0
+        
+        # If partner is dealing, they get the top card
+        if top_card.suit == potential_trump_suit:
+            # Partner gets a trump card - evaluate its value
+            if top_card.rank == Rank.JACK:
+                bonus += 8.0  # Partner gets right bower
+            elif top_card.rank == Rank.ACE:
+                bonus += 6.0  # Partner gets Ace
+            elif top_card.rank == Rank.KING:
+                bonus += 4.0  # Partner gets King
+            elif top_card.rank == Rank.QUEEN:
+                bonus += 2.0  # Partner gets Queen
+            elif top_card.rank == Rank.TEN:
+                bonus += 1.0  # Partner gets Ten
+            elif top_card.rank == Rank.NINE:
+                bonus += 0.0  # Partner gets Nine
+                
+        # Check if ordering up gives partner the left bower
+        left_bower_suit = self._get_left_bower_suit(potential_trump_suit)
+        if top_card.suit == left_bower_suit and top_card.rank == Rank.JACK:
+            # Partner gets left bower - this is good for your team
+            bonus += 10.0
+            
+        # Consider if you have strong trump cards yourself
+        trump_cards = self.get_cards_of_suit(potential_trump_suit)
+        left_bower_cards = self.get_cards_of_suit(left_bower_suit)
+        
+        # If you have strong trump, partner getting more trump is synergistic
+        if any(c.rank == Rank.JACK for c in trump_cards):  # Right bower
+            bonus += 5.0
+        if any(c.rank == Rank.JACK for c in left_bower_cards):  # Left bower
+            bonus += 4.0
+        if any(c.rank == Rank.ACE for c in trump_cards):  # Ace
+            bonus += 3.0
+            
+        return bonus
+        
+    def _evaluate_first_player_strategy(self, trump_suit: Suit, left_bower_suit: Suit) -> float:
+        """Evaluate the bonus for being first player after dealer."""
+        bonus = 0.0
+        
+        # Get off-suit cards (not trump or left bower)
+        off_suit_cards = [c for c in self.hand if c.suit not in [trump_suit, left_bower_suit]]
+        
+        if not off_suit_cards:
+            return 0.0
+            
+        # Sort by rank (high to low)
+        sorted_cards = sorted(off_suit_cards, key=lambda c: c.rank.value, reverse=True)
+        
+        # First player strategy: high off-suit cards are valuable for leading
+        for i, card in enumerate(sorted_cards[:3]):  # Top 3 cards
+            if card.rank == Rank.ACE:
+                bonus += 4.0 - i
+            elif card.rank == Rank.KING:
+                bonus += 3.0 - i
+            elif card.rank == Rank.QUEEN:
+                bonus += 2.0 - i
+            elif card.rank == Rank.JACK:
+                bonus += 1.0 - i
+                
+        return bonus
+        
+    def _is_first_player_after_dealer(self) -> bool:
+        """Check if this player is the first to play after the dealer."""
+        # This would need to be implemented based on game state
+        # For now, return False - this should be passed from the game logic
+        return False
+        
+    def _evaluate_top_card_strategy(self, top_card: Card, potential_trump_suit: Suit, is_partner_dealing: bool = False) -> float:
         """Evaluate the strategic implications of ordering up the top card.
         
         Balanced players weigh risks and rewards equally.
@@ -719,13 +1133,13 @@ class OpportunisticAI(Player):
         else:  # SPADES
             return Suit.CLUBS
         
-    def should_order_up(self, top_card: Card) -> bool:
+    def should_order_up(self, top_card: Card, is_partner_dealing: bool = False) -> bool:
         """Decide whether to order up the top card.
         
         Opportunistic players use sophisticated hand evaluation and consider game situation.
         """
         # Use the new hand evaluation system
-        hand_strength = self._evaluate_hand_for_trump(top_card.suit, top_card)
+        hand_strength = self._evaluate_hand_for_trump(top_card.suit, top_card, is_partner_dealing)
         
         # Opportunistic players have moderate thresholds that adjust based on game situation
         # Base threshold: 12-18 depending on risk ratio
@@ -829,7 +1243,7 @@ class OpportunisticAI(Player):
         """Update the number of tricks won this round."""
         self.tricks_won_this_round = tricks 
 
-    def _evaluate_hand_for_trump(self, potential_trump_suit: Suit, top_card: Card) -> float:
+    def _evaluate_hand_for_trump(self, potential_trump_suit: Suit, top_card: Card, is_partner_dealing: bool = False) -> float:
         """Evaluate the strength of the hand for a potential trump suit.
         
         Opportunistic players consider both hand strength and game situation.
@@ -841,33 +1255,22 @@ class OpportunisticAI(Player):
         left_bower_suit = self._get_left_bower_suit(potential_trump_suit)
         left_bower_cards = self.get_cards_of_suit(left_bower_suit)
         
-        # Evaluate trump cards quality
+        # Evaluate trump cards quality with proper suit consideration
         for card in trump_cards:
-            if card.rank == Rank.JACK:
-                score += 15.0  # Right bower is very powerful
-            elif card.rank == Rank.ACE:
-                score += 12.0
-            elif card.rank == Rank.KING:
-                score += 10.0
-            elif card.rank == Rank.QUEEN:
-                score += 8.0
-            elif card.rank == Rank.TEN:
-                score += 6.0
-            elif card.rank == Rank.NINE:
-                score += 4.0
+            score += self._evaluate_trump_card_value(card, potential_trump_suit)
                 
-        # Evaluate left bower cards quality
+        # Evaluate left bower cards quality with proper suit consideration
         for card in left_bower_cards:
-            if card.rank == Rank.JACK:
-                score += 14.0  # Left bower is second most powerful
-            else:
-                # Other cards in left bower suit are worth less
-                score += card.rank.value * 0.5
+            score += self._evaluate_left_bower_card_value(card, potential_trump_suit)
                 
         # Strategic considerations for ordering up
         if top_card.suit == potential_trump_suit:
             # We're considering ordering up the top card
-            score += self._evaluate_top_card_strategy(top_card, potential_trump_suit)
+            score += self._evaluate_top_card_strategy(top_card, potential_trump_suit, is_partner_dealing)
+            
+        # Partner dealing bonus - if partner is dealing, they pick up what you order
+        if is_partner_dealing:
+            score += self._evaluate_partner_dealing_bonus(top_card, potential_trump_suit)
             
         # Bonus for having multiple trump cards (synergy)
         total_trump_potential = len(trump_cards) + len(left_bower_cards)
@@ -878,7 +1281,7 @@ class OpportunisticAI(Player):
             
         # Consider off-suit strength (cards that can win non-trump tricks)
         off_suit_cards = [c for c in self.hand if c.suit not in [potential_trump_suit, left_bower_suit]]
-        off_suit_strength = sum(c.rank.value for c in off_suit_cards)
+        off_suit_strength = self._evaluate_off_suit_strength(off_suit_cards, potential_trump_suit)
         score += off_suit_strength * 0.3  # Opportunistic players value off-suit moderately
         
         # Game situation adjustments
@@ -889,9 +1292,128 @@ class OpportunisticAI(Player):
             # Behind in tricks - be more aggressive
             score *= 1.2
             
+        # First player strategy consideration
+        if self._is_first_player_after_dealer():
+            score += self._evaluate_first_player_strategy(potential_trump_suit, left_bower_suit)
+        
         return score
         
-    def _evaluate_top_card_strategy(self, top_card: Card, potential_trump_suit: Suit) -> float:
+    def _evaluate_trump_card_value(self, card: Card, trump_suit: Suit) -> float:
+        """Evaluate the value of a trump card based on the actual trump suit."""
+        if card.rank == Rank.JACK:
+            return 15.0  # Right bower is always most powerful
+        elif card.rank == Rank.ACE:
+            return 12.0
+        elif card.rank == Rank.KING:
+            return 10.0
+        elif card.rank == Rank.QUEEN:
+            return 8.0
+        elif card.rank == Rank.TEN:
+            return 6.0
+        elif card.rank == Rank.NINE:
+            return 4.0
+        else:
+            return 0.0
+            
+    def _evaluate_left_bower_card_value(self, card: Card, trump_suit: Suit) -> float:
+        """Evaluate the value of a left bower card based on the actual trump suit."""
+        if card.rank == Rank.JACK:
+            return 14.0  # Left bower is second most powerful
+        else:
+            # Other cards in left bower suit are worth less
+            return card.rank.value * 0.5
+            
+    def _evaluate_off_suit_strength(self, off_suit_cards: List[Card], trump_suit: Suit) -> float:
+        """Evaluate the strength of off-suit cards considering first player strategy."""
+        if not off_suit_cards:
+            return 0.0
+            
+        # Sort cards by rank (high to low)
+        sorted_cards = sorted(off_suit_cards, key=lambda c: c.rank.value, reverse=True)
+        
+        # First player strategy: high off-suit cards are valuable for leading
+        if self._is_first_player_after_dealer():
+            # Value high cards more for leading
+            score = sum(c.rank.value * (1.0 + (i * 0.1)) for i, c in enumerate(sorted_cards))
+        else:
+            # Standard off-suit evaluation
+            score = sum(c.rank.value for c in sorted_cards)
+            
+        return score
+        
+    def _evaluate_partner_dealing_bonus(self, top_card: Card, potential_trump_suit: Suit) -> float:
+        """Evaluate the bonus for having your partner as dealer."""
+        bonus = 0.0
+        
+        # If partner is dealing, they get the top card
+        if top_card.suit == potential_trump_suit:
+            # Partner gets a trump card - evaluate its value
+            if top_card.rank == Rank.JACK:
+                bonus += 8.0  # Partner gets right bower
+            elif top_card.rank == Rank.ACE:
+                bonus += 6.0  # Partner gets Ace
+            elif top_card.rank == Rank.KING:
+                bonus += 4.0  # Partner gets King
+            elif top_card.rank == Rank.QUEEN:
+                bonus += 2.0  # Partner gets Queen
+            elif top_card.rank == Rank.TEN:
+                bonus += 1.0  # Partner gets Ten
+            elif top_card.rank == Rank.NINE:
+                bonus += 0.0  # Partner gets Nine
+                
+        # Check if ordering up gives partner the left bower
+        left_bower_suit = self._get_left_bower_suit(potential_trump_suit)
+        if top_card.suit == left_bower_suit and top_card.rank == Rank.JACK:
+            # Partner gets left bower - this is good for your team
+            bonus += 10.0
+            
+        # Consider if you have strong trump cards yourself
+        trump_cards = self.get_cards_of_suit(potential_trump_suit)
+        left_bower_cards = self.get_cards_of_suit(left_bower_suit)
+        
+        # If you have strong trump, partner getting more trump is synergistic
+        if any(c.rank == Rank.JACK for c in trump_cards):  # Right bower
+            bonus += 5.0
+        if any(c.rank == Rank.JACK for c in left_bower_cards):  # Left bower
+            bonus += 4.0
+        if any(c.rank == Rank.ACE for c in trump_cards):  # Ace
+            bonus += 3.0
+            
+        return bonus
+        
+    def _evaluate_first_player_strategy(self, trump_suit: Suit, left_bower_suit: Suit) -> float:
+        """Evaluate the bonus for being first player after dealer."""
+        bonus = 0.0
+        
+        # Get off-suit cards (not trump or left bower)
+        off_suit_cards = [c for c in self.hand if c.suit not in [trump_suit, left_bower_suit]]
+        
+        if not off_suit_cards:
+            return 0.0
+            
+        # Sort by rank (high to low)
+        sorted_cards = sorted(off_suit_cards, key=lambda c: c.rank.value, reverse=True)
+        
+        # First player strategy: high off-suit cards are valuable for leading
+        for i, card in enumerate(sorted_cards[:3]):  # Top 3 cards
+            if card.rank == Rank.ACE:
+                bonus += 4.0 - i
+            elif card.rank == Rank.KING:
+                bonus += 3.0 - i
+            elif card.rank == Rank.QUEEN:
+                bonus += 2.0 - i
+            elif card.rank == Rank.JACK:
+                bonus += 1.0 - i
+                
+        return bonus
+        
+    def _is_first_player_after_dealer(self) -> bool:
+        """Check if this player is the first to play after the dealer."""
+        # This would need to be implemented based on game state
+        # For now, return False - this should be passed from the game logic
+        return False
+        
+    def _evaluate_top_card_strategy(self, top_card: Card, potential_trump_suit: Suit, is_partner_dealing: bool = False) -> float:
         """Evaluate the strategic implications of ordering up the top card.
         
         Opportunistic players consider both risks and game situation.

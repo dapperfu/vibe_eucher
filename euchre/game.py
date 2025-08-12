@@ -134,6 +134,14 @@ class EuchreGame:
         if self.logger:
             dealer = self.game_state.get_dealer()
             self.logger.log_game_start(self.players, dealer)
+        
+        # Display dealer for this game
+        if not self.quiet_mode:
+            dealer = self.game_state.get_dealer()
+            click.echo(f"\n🎲 NEW GAME STARTED 🎲")
+            click.echo(f"🎯 DEALER: {dealer.name}")
+            click.echo(f"🔄 Dealer rotates clockwise each game")
+            click.echo("=" * 50)
             
         # Rotate dealer for next game (clockwise)
         self.current_dealer_index = (self.current_dealer_index + 1) % 4
@@ -180,6 +188,9 @@ class EuchreGame:
             if player.player_type == PlayerType.AI:
                 # AI decision
                 if hasattr(player, 'should_order_up'):
+                    # Check if this player's partner is dealing
+                    is_partner_dealing = self._is_partner_dealing(player)
+                    # Call with only the top_card to maintain compatibility
                     should_order = player.should_order_up(self.top_card)
                 else:
                     # Fallback to generic AI
@@ -229,6 +240,34 @@ class EuchreGame:
             
         # Mark trump cards
         self._mark_trump_cards()
+        
+    def _is_partner_dealing(self, player: "Player") -> bool:
+        """Check if a player's partner is the dealer.
+        
+        Parameters
+        ----------
+        player : Player
+            The player to check
+            
+        Returns
+        -------
+        bool
+            True if the player's partner is dealing
+        """
+        if not self.game_state:
+            return False
+            
+        dealer_index = self.game_state.dealer_index
+        player_index = self.players.index(player)
+        
+        # Players are on teams: 0,2 are team 1, 1,3 are team 2
+        # Partner is the other player on the same team
+        if player_index % 2 == 0:  # Team 1
+            partner_index = 2 if player_index == 0 else 0
+        else:  # Team 2
+            partner_index = 3 if player_index == 1 else 1
+            
+        return partner_index == dealer_index
         
     def is_team_set(self) -> bool:
         """Check if the trump calling team gets set (loses after calling trump).
@@ -298,6 +337,13 @@ class EuchreGame:
             hands = {player.name: player.hand.copy() for player in self.players}
             trump_suit = self.game_state.trump_suit.name.title() if self.game_state.trump_suit else "None"
             self.logger.log_round_start(self.game_state.round_number, trump_suit, hands)
+        
+        # Display dealer for this round
+        if not self.quiet_mode and self.game_state:
+            dealer_idx = self.game_state.dealer_index
+            dealer = self.players[dealer_idx]
+            click.echo(f"\n🎲 ROUND {self.game_state.round_number} - DEALER: {dealer.name} 🎲")
+            click.echo("-" * 50)
             
         self.tricks_this_round.clear()
         
@@ -426,8 +472,15 @@ class EuchreGame:
         if not self.game_state or self.quiet_mode:
             return
             
+        dealer_idx = self.game_state.dealer_index
+        dealer = self.players[dealer_idx]
+        
         click.echo(f"\n🎯 ROUND {round_number} - TRUMP SELECTION 🎯")
         click.echo("=" * 60)
+        
+        # Show dealer prominently
+        click.echo(f"🎲 DEALER: {dealer.name} 🎲")
+        click.echo("-" * 30)
         
         # Show the top card that was flipped up
         if self.top_card:
@@ -435,7 +488,7 @@ class EuchreGame:
         
         # Show first round of trump selection (ordering up)
         click.echo("\n🔄 FIRST ROUND - Ordering up the top card:")
-        dealer_idx = self.game_state.dealer_index
+        click.echo(f"   Starting with player to dealer's left: {self.players[(dealer_idx + 1) % 4].name}")
         
         # Show what actually happened in the first round
         if self.trump_caller and self.game_state.trump_suit == self.top_card.suit:
@@ -459,6 +512,7 @@ class EuchreGame:
         # If no one ordered up, show second round
         if not self.trump_caller or self.game_state.trump_suit != self.top_card.suit:
             click.echo("\n🔄 SECOND ROUND - Calling trump suit:")
+            click.echo(f"   Starting with player to dealer's left: {self.players[(dealer_idx + 1) % 4].name}")
             if self.trump_caller:
                 # Someone called a different trump suit
                 for i in range(4):
@@ -472,7 +526,6 @@ class EuchreGame:
                         click.echo(f"  {player.name}: passes")
             else:
                 # Dealer had to choose
-                dealer = self.players[dealer_idx]
                 click.echo(f"  {dealer.name} (dealer): calls {self.game_state.trump_suit.value.title()}")
         
         # Show final result
@@ -498,9 +551,17 @@ class EuchreGame:
         if not self.game_state or self.quiet_mode:
             return
             
+        dealer_idx = self.game_state.dealer_index
+        dealer = self.players[dealer_idx]
+        
         click.echo(f"\n{'='*60}")
         click.echo(f"🎯 ROUND {self.game_state.round_number} SUMMARY 🎯")
         click.echo(f"{'='*60}")
+        
+        # Show dealer prominently at the start
+        click.echo(f"🎲 DEALER: {dealer.name} 🎲")
+        click.echo(f"🔄 Dealer rotates clockwise each game")
+        click.echo("-" * 40)
         
         # Show trump selection process
         self.display_trump_selection(self.game_state.round_number)
@@ -519,15 +580,16 @@ class EuchreGame:
         # Show final round results
         click.echo(f"\n📊 FINAL ROUND RESULTS:")
         for i, player in enumerate(self.players):
-            click.echo(f"  {player.name}: {round_results[i]} tricks")
+            dealer_indicator = " 🎲" if i == dealer_idx else ""
+            click.echo(f"  {player.name}: {round_results[i]} tricks{dealer_indicator}")
         
         # Show team scores
         if self.game_state:
             click.echo(f"\n🏁 TEAM SCORES:")
             click.echo(f"  Team 1: {self.game_state.team1_score}")
             click.echo(f"  Team 2: {self.game_state.team2_score}")
-    
-    click.echo(f"\n{'='*60}")
+        
+        click.echo(f"\n{'='*60}")
     
     def get_round_results(self) -> List[int]:
         """Get the trick counts for each player before scoring.
@@ -817,13 +879,15 @@ class AIPlayer:
                     # Only trump cards left - play lowest
                     return min(self.player.hand, key=lambda c: c.rank.value)
             
-    def should_order_up(self, top_card: Card) -> bool:
+    def should_order_up(self, top_card: Card, is_partner_dealing: bool) -> bool:
         """Decide whether to order up the top card.
         
         Parameters
         ----------
         top_card : Card
             The top card that could be ordered up
+        is_partner_dealing : bool
+            True if the AI player's partner is the dealer
             
         Returns
         -------
