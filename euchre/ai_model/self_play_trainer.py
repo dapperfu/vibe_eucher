@@ -242,7 +242,7 @@ class SelfPlayTrainer:
         
         for game_num in tqdm(range(num_games), desc="Training games"):
             # Play a single game
-            game_result = self._play_training_game(game_players, players)
+            game_result = self._play_training_game(game_players, players[:2], players[2:])
             
             # Update statistics
             self._update_training_stats(training_stats, game_result)
@@ -281,15 +281,17 @@ class SelfPlayTrainer:
         return final_stats
     
     def _play_training_game(self, game_players: Dict[str, ModelPlayer], 
-                           player_names: List[str]) -> Dict[str, Any]:
+                           team1_players: List[str], team2_players: List[str]) -> Dict[str, Any]:
         """Play a single training game.
         
         Parameters
         ----------
         game_players : Dict[str, ModelPlayer]
             Dictionary of player instances
-        player_names : List[str]
-            List of player names in order
+        team1_players : List[str]
+            List of team 1 player names
+        team2_players : List[str]
+            List of team 2 player names
             
         Returns
         -------
@@ -297,10 +299,11 @@ class SelfPlayTrainer:
             Game result data
         """
         # Create game
-        game = EuchreGame(enable_logging=False)
+        game = EuchreGame(enable_logging=False, quiet_mode=True)
         
-        # Add players in order
-        for player_name in player_names:
+        # Add players in order (team1 first, then team2)
+        all_players = team1_players + team2_players
+        for player_name in all_players:
             player = game_players[player_name]
             game.players.append(player)
         
@@ -318,15 +321,15 @@ class SelfPlayTrainer:
         team2_score = game.game_state.team2_score
         
         if team1_score > team2_score:
-            winner = "Team 1"
-            winning_players = [player_names[0], player_names[2]]  # North, South
-            losing_players = [player_names[1], player_names[3]]   # East, West
+            winner = "team1"
+            winning_players = team1_players
+            losing_players = team2_players
         elif team2_score > team1_score:
-            winner = "Team 2"
-            winning_players = [player_names[1], player_names[3]]  # East, West
-            losing_players = [player_names[0], player_names[2]]   # North, South
+            winner = "team2"
+            winning_players = team2_players
+            losing_players = team1_players
         else:
-            winner = "Tie"
+            winner = "tie"
             winning_players = []
             losing_players = []
         
@@ -335,6 +338,8 @@ class SelfPlayTrainer:
             'winner': winner,
             'team1_score': team1_score,
             'team2_score': team2_score,
+            'team1_players': team1_players,
+            'team2_players': team2_players,
             'winning_players': winning_players,
             'losing_players': losing_players,
             'game_length': round_num - 1,
@@ -342,7 +347,7 @@ class SelfPlayTrainer:
         }
         
         # Collect individual player statistics
-        for player_name in player_names:
+        for player_name in all_players:
             player = game_players[player_name]
             if hasattr(player, 'game_context'):
                 game_data['player_stats'][player_name] = {
@@ -820,7 +825,10 @@ class SelfPlayTrainer:
         total_games = 0
         training_history = []
         
-        for game_num in tqdm(range(num_games), desc=f"Training {player_name}"):
+        print(f"🎮 Training {player_name} - Each '.' = 1 hand, Each row = 1 game, '#' = game complete")
+        print("=" * 60)
+        
+        for game_num in range(num_games):
             # Randomly select opponents
             opponent_list = list(opponents.values())
             np.random.shuffle(opponent_list)
@@ -850,19 +858,44 @@ class SelfPlayTrainer:
                 'total': total_games
             })
             
+            # Show progress with dots for hands and # for game completion
+            hands_played = game_result.get('game_length', 0)
+            print('.' * hands_played + '#', end='', flush=True)
+            
+            # New line every 10 games for readability
+            if (game_num + 1) % 10 == 0:
+                print(f" ({game_num + 1}/{num_games})")
+            elif (game_num + 1) % 5 == 0:
+                print(" ", end='', flush=True)
+            
+            # Progress summary every 1000 games
+            if (game_num + 1) % 1000 == 0:
+                print(f"\n📊 Progress: {game_num + 1}/{num_games} games, Win rate: {current_win_rate:.3f}")
+            
             # Save checkpoints
             if (game_num + 1) % save_interval == 0:
                 checkpoint_path = self._save_profile_checkpoint(
                     model, player_name, risk_profile, game_num + 1, current_win_rate
                 )
-                print(f"💾 Checkpoint saved: {checkpoint_path}")
+                print(f"\n💾 Checkpoint saved: {checkpoint_path}")
                 
                 # Check GPU memory usage
                 self._check_gpu_memory()
             
             # Evaluate performance
             if (game_num + 1) % evaluation_interval == 0:
-                print(f"📊 Game {game_num + 1}: {player_name} win rate: {current_win_rate:.3f}")
+                print(f"\n📊 Game {game_num + 1}: {player_name} win rate: {current_win_rate:.3f}")
+        
+        # Final newline for clean output
+        print()
+        
+        # Training summary
+        print(f"\n🎯 Training Summary for {player_name}:")
+        print(f"   Games played: {total_games:,}")
+        print(f"   Wins: {wins:,}")
+        print(f"   Losses: {total_games - wins:,}")
+        print(f"   Final win rate: {final_win_rate*100:.1f}%")
+        print(f"   Average game length: {sum([h['game_length'] for h in training_history[-100:]]) / min(100, len(training_history)):.1f} hands")
         
         # Final evaluation and save
         final_win_rate = wins / total_games
