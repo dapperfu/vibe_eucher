@@ -6,6 +6,7 @@ from .models import (
     Player, PlayerType, Card, Suit, Rank, GameState, Trick
 )
 from .game_logger import GameLogger
+from .ai_profiles import AggressiveAI, ConservativeAI, BalancedAI, OpportunisticAI
 
 
 class EuchreGame:
@@ -32,13 +33,31 @@ class EuchreGame:
             
         self._initialize_deck()
         
-    def _initialize_deck(self) -> None:
-        """Initialize the deck with euchre cards (9-A of each suit)."""
-        self.deck.clear()
-        for suit in Suit:
-            for rank in Rank:
-                self.deck.append(Card(rank=rank, suit=suit))
-                
+    def add_ai_player(self, name: str, ai_type: str = "balanced", risk_ratio: float = 0.5) -> None:
+        """Add an AI player with a specific profile.
+        
+        Parameters
+        ----------
+        name : str
+            The player's name
+        ai_type : str
+            Type of AI: "aggressive", "conservative", "balanced", "opportunistic"
+        risk_ratio : float
+            Risk tolerance (0.0 = conservative, 1.0 = aggressive)
+        """
+        ai_type = ai_type.lower()
+        
+        if ai_type == "aggressive":
+            player = AggressiveAI(name, risk_ratio)
+        elif ai_type == "conservative":
+            player = ConservativeAI(name, risk_ratio)
+        elif ai_type == "opportunistic":
+            player = OpportunisticAI(name, risk_ratio)
+        else:  # balanced or unknown
+            player = BalancedAI(name, risk_ratio)
+            
+        self.players.append(player)
+        
     def add_player(self, name: str, player_type: PlayerType) -> None:
         """Add a player to the game.
         
@@ -86,6 +105,13 @@ class EuchreGame:
             dealer = self.game_state.get_dealer()
             self.logger.log_game_start(self.players, dealer)
             
+    def _initialize_deck(self) -> None:
+        """Initialize the deck with euchre cards (9-A of each suit)."""
+        self.deck.clear()
+        for suit in Suit:
+            for rank in Rank:
+                self.deck.append(Card(rank=rank, suit=suit))
+                
     def _deal_cards(self) -> None:
         """Deal 5 cards to each player."""
         # Shuffle deck
@@ -116,11 +142,19 @@ class EuchreGame:
         for _ in range(4):  # Each player gets one chance
             player = self.players[current_player_idx]
             if player.player_type == PlayerType.AI:
-                ai_player = AIPlayer(player)
-                if ai_player.should_order_up(self.top_card):
-                    self.game_state.trump_suit = self.top_card.suit
-                    trump_selected = True
-                    break
+                # Use the AI profile's method directly
+                if hasattr(player, 'should_order_up'):
+                    if player.should_order_up(self.top_card):
+                        self.game_state.trump_suit = self.top_card.suit
+                        trump_selected = True
+                        break
+                else:
+                    # Fallback to generic AI if not a profile
+                    ai_player = AIPlayer(player)
+                    if ai_player.should_order_up(self.top_card):
+                        self.game_state.trump_suit = self.top_card.suit
+                        trump_selected = True
+                        break
             current_player_idx = (current_player_idx + 1) % 4
             
         # If no one ordered up, dealer must choose trump
@@ -192,11 +226,19 @@ class EuchreGame:
                 current_player = self.game_state.get_current_player()
                 
                 if current_player.player_type == PlayerType.AI:
-                    ai_player = AIPlayer(current_player)
-                    card = ai_player.choose_card_to_play(
-                        self.current_trick.lead_suit,
-                        self.game_state.trump_suit
-                    )
+                    # Use the AI profile's method directly
+                    if hasattr(current_player, 'choose_card_to_play'):
+                        card = current_player.choose_card_to_play(
+                            self.current_trick.lead_suit,
+                            self.game_state.trump_suit
+                        )
+                    else:
+                        # Fallback to generic AI if not a profile
+                        ai_player = AIPlayer(current_player)
+                        card = ai_player.choose_card_to_play(
+                            self.current_trick.lead_suit,
+                            self.game_state.trump_suit
+                        )
                 else:
                     # Human player - for now, play first card
                     card = current_player.hand[0]

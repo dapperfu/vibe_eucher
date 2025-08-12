@@ -60,6 +60,75 @@ def play(player_name: str, ai_names: tuple) -> None:
 
 
 @main.command()
+@click.option("--ai-profiles", "-p", multiple=True, 
+              default=["balanced", "balanced", "balanced", "balanced"],
+              help="AI profiles: aggressive, conservative, balanced, opportunistic")
+@click.option("--risk-ratios", "-r", multiple=True, 
+              default=["0.5", "0.5", "0.5", "0.5"],
+              help="Risk ratios (0.0-1.0) for each AI player")
+@click.option("--enable-logging", "-l", is_flag=True, default=True,
+              help="Enable game logging to file")
+def ai_profiles(ai_profiles: tuple, risk_ratios: tuple, enable_logging: bool) -> None:
+    """Run a game with different AI profiles and risk ratios."""
+    try:
+        from .game import EuchreGame
+        
+        click.echo("Starting AI vs AI euchre game with custom profiles...")
+        
+        # Create game with logging
+        game = EuchreGame(enable_logging=enable_logging)
+        
+        # Convert risk ratios to floats
+        risk_values = []
+        for ratio in risk_ratios:
+            try:
+                risk_values.append(float(ratio))
+            except ValueError:
+                click.echo(f"Warning: Invalid risk ratio '{ratio}', using 0.5")
+                risk_values.append(0.5)
+        
+        # Ensure we have 4 values
+        while len(risk_values) < 4:
+            risk_values.append(0.5)
+        while len(ai_profiles) < 4:
+            ai_profiles = ai_profiles + ("balanced",)
+            
+        # Add AI players with profiles
+        player_names = ["North", "East", "South", "West"]
+        for i, (name, profile, risk) in enumerate(zip(player_names, ai_profiles, risk_values)):
+            game.add_ai_player(name, profile, risk)
+            click.echo(f"  {name}: {profile} AI (risk: {risk:.1f})")
+        
+        # Start the game
+        game.start_new_game()
+        
+        click.echo(f"Game started! Trump: {game.game_state.trump_suit.name.title()}")
+        click.echo("Playing rounds...")
+        
+        # Play rounds until game ends
+        round_num = 1
+        while not game.is_game_over():
+            click.echo(f"Playing round {round_num}...")
+            results = game.play_round()
+            click.echo(f"Round {round_num} complete. Trick counts: {results}")
+            round_num += 1
+            
+        # Show final result
+        winner = game.get_winner()
+        click.echo(f"\nGame Over! {winner} wins!")
+        click.echo(f"Final Score - Team 1: {game.game_state.team1_score}, Team 2: {game.game_state.team2_score}")
+        
+        # Show log filename
+        log_filename = game.get_log_filename()
+        if log_filename:
+            click.echo(f"\nGame log saved to: {log_filename}")
+            click.echo("You can review the detailed game log in this file.")
+        
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+
+
+@main.command()
 def logged_game() -> None:
     """Run a full AI vs AI euchre game with logging (no ncurses)."""
     try:
