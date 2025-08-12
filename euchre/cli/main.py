@@ -62,6 +62,48 @@ def ai_vs_ai(ctx: click.Context, dealer_method: str) -> None:
 
 
 @main.command()
+@click.option("--player-name", "-n", default="You", help="Your player name")
+@click.option("--your-position", "-p", 
+              type=click.Choice(["0", "1", "2", "3"]), 
+              default="0", 
+              help="Your position: 0=Alice, 1=Bob, 2=Charlie, 3=David")
+@click.option("--partner-ai-type", "-pa", 
+              type=click.Choice(["aggressive", "conservative", "balanced", "opportunistic"]),
+              default="balanced",
+              help="AI type for your partner")
+@click.option("--opponent1-ai-type", "-o1", 
+              type=click.Choice(["aggressive", "conservative", "balanced", "opportunistic"]),
+              default="balanced",
+              help="AI type for first opponent")
+@click.option("--opponent2-ai-type", "-o2", 
+              type=click.Choice(["aggressive", "conservative", "balanced", "opportunistic"]),
+              default="balanced",
+              help="AI type for second opponent")
+@click.option("--partner-risk", "-pr", 
+              type=float, default=0.5,
+              help="Risk ratio for your partner (0.0-1.0)")
+@click.option("--opponent1-risk", "-or1", 
+              type=float, default=0.5,
+              help="Risk ratio for first opponent (0.0-1.0)")
+@click.option("--opponent2-risk", "-or2", 
+              type=float, default=0.5,
+              help="Risk ratio for second opponent (0.0-1.0)")
+@click.pass_context
+def human_vs_ai(ctx: click.Context, player_name: str, your_position: str, 
+                partner_ai_type: str, opponent1_ai_type: str, opponent2_ai_type: str,
+                partner_risk: float, opponent1_risk: float, opponent2_risk: float) -> None:
+    """Play euchre as a human against AI opponents with a specified AI partner."""
+    verbose = ctx.obj.get('verbose', False)
+    very_verbose = ctx.obj.get('very_verbose', False)
+    GameCommands.human_vs_ai_game(
+        player_name, int(your_position), 
+        partner_ai_type, opponent1_ai_type, opponent2_ai_type,
+        partner_risk, opponent1_risk, opponent2_risk,
+        verbose, very_verbose
+    )
+
+
+@main.command()
 def ncurses() -> None:
     """Run AI vs AI euchre game with ncurses interface."""
     try:
