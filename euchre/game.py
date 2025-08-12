@@ -397,9 +397,10 @@ class EuchreGame:
             return
             
         dealer_index = self.game_state.dealer_index
+        trump_suit = self.game_state.trump_suit
         
         click.echo(f"\n🎴 TRICK {trick_number} COMPLETED 🎴")
-        click.echo(trick.format_as_table(dealer_index, self.players))
+        click.echo(trick.format_as_table(dealer_index, self.players, trump_suit))
         
         # Show who won the trick
         winner, winning_card = trick.get_winner(self.game_state.trump_suit)
@@ -409,6 +410,95 @@ class EuchreGame:
         click.echo("\nCurrent Trick Counts:")
         for player in self.players:
             click.echo(f"  {player.name}: {player.tricks_won} tricks")
+    
+    def display_trump_selection(self, round_number: int) -> None:
+        """Display the trump selection process for the round.
+        
+        Parameters
+        ----------
+        round_number : int
+            The current round number
+        """
+        if not self.game_state or self.quiet_mode:
+            return
+            
+        click.echo(f"\n🎯 ROUND {round_number} - TRUMP SELECTION 🎯")
+        click.echo("=" * 60)
+        
+        # Show the top card that was flipped up
+        if self.top_card:
+            click.echo(f"📋 Top card flipped up: {self.top_card}")
+        
+        # Show first round of trump selection (ordering up)
+        click.echo("\n🔄 FIRST ROUND - Ordering up the top card:")
+        dealer_idx = self.game_state.dealer_index
+        for i in range(4):
+            player_idx = (dealer_idx + 1 + i) % 4
+            player = self.players[player_idx]
+            
+            # Determine what this player would do
+            if hasattr(player, 'choose_trump_decision'):
+                # AI player with trump decision logic
+                decision = player.choose_trump_decision(self.top_card, self.game_state.trump_suit)
+                if decision:
+                    click.echo(f"  {player.name}: ORDERS UP {self.top_card}")
+                    self.trump_caller = player
+                    self.trump_caller_team = player_idx % 2
+                    break
+                else:
+                    click.echo(f"  {player.name}: passes")
+            else:
+                # Simple AI or human player - simulate decision
+                if i == 0:  # First player after dealer
+                    click.echo(f"  {player.name}: ORDERS UP {self.top_card}")
+                    self.trump_caller = player
+                    self.trump_caller_team = player_idx % 2
+                    break
+                else:
+                    click.echo(f"  {player.name}: passes")
+        
+        # If no one ordered up, show second round
+        if not self.trump_caller:
+            click.echo("\n🔄 SECOND ROUND - Calling trump suit:")
+            for i in range(4):
+                player_idx = (dealer_idx + 1 + i) % 4
+                player = self.players[player_idx]
+                
+                # Determine what this player would do
+                if hasattr(player, 'choose_trump_suit'):
+                    # AI player with trump suit selection logic
+                    chosen_suit = player.choose_trump_suit(self.top_card)
+                    if chosen_suit:
+                        click.echo(f"  {player.name}: calls {chosen_suit.value.title()}")
+                        self.trump_caller = player
+                        self.trump_caller_team = player_idx % 2
+                        break
+                    else:
+                        click.echo(f"  {player.name}: passes")
+                else:
+                    # Simple AI or human player - simulate decision
+                    if i == 1:  # Second player after dealer
+                        # Choose a random suit that's not the top card suit
+                        available_suits = [s for s in Suit if s != self.top_card.suit]
+                        chosen_suit = random.choice(available_suits)
+                        click.echo(f"  {player.name}: calls {chosen_suit.value.title()}")
+                        self.trump_caller = player
+                        self.trump_caller_team = player_idx % 2
+                        break
+                    else:
+                        click.echo(f"  {player.name}: passes")
+        
+        # Show final result
+        if self.trump_caller:
+            click.echo(f"\n✅ Trump called by: {self.trump_caller.name}")
+            if self.game_state.trump_suit:
+                click.echo(f"🎯 Trump suit: {self.game_state.trump_suit.value.title()}")
+            team_name = "Team 1" if self.trump_caller_team == 0 else "Team 2"
+            click.echo(f"🏁 {team_name} will be defending")
+        else:
+            click.echo("\n❌ No trump called - round would be redealt")
+        
+        click.echo("=" * 60)
 
     def display_round_summary(self, round_results: List[int]) -> None:
         """Display a summary of the round showing all tricks and final results.
@@ -425,11 +515,15 @@ class EuchreGame:
         click.echo(f"🎯 ROUND {self.game_state.round_number} SUMMARY 🎯")
         click.echo(f"{'='*60}")
         
+        # Show trump selection process
+        self.display_trump_selection(self.game_state.round_number)
+        
         # Show all tricks in the round
         click.echo("\n📋 ALL TRICKS IN THIS ROUND:")
+        trump_suit = self.game_state.trump_suit
         for i, trick in enumerate(self.tricks_this_round, 1):
             click.echo(f"\n🎴 Trick {i}:")
-            click.echo(trick.format_as_table(self.game_state.dealer_index, self.players))
+            click.echo(trick.format_as_table(self.game_state.dealer_index, self.players, trump_suit))
             
             # Show who won this trick
             winner, winning_card = trick.get_winner(self.game_state.trump_suit)
@@ -442,6 +536,7 @@ class EuchreGame:
         
         # Show team scores
         if self.game_state:
+            click.echo(f"\n🏁 TEAM SCORES:")
             click.echo(f"  Team 1: {self.game_state.team1_score}")
             click.echo(f"  Team 2: {self.game_state.team2_score}")
     

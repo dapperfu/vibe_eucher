@@ -117,7 +117,7 @@ class Trick:
                 
         return winner, winning_card
     
-    def format_as_table(self, dealer_index: int, players: List["Player"]) -> str:
+    def format_as_table(self, dealer_index: int, players: List["Player"], trump_suit: Optional[Suit] = None) -> str:
         """Format the trick as a table showing what each player played.
         
         Parameters
@@ -126,6 +126,8 @@ class Trick:
             Index of the dealer in the players list
         players : List[Player]
             List of all players in the game
+        trump_suit : Optional[Suit]
+            The current trump suit for highlighting trump cards
             
         Returns
         -------
@@ -144,20 +146,19 @@ class Trick:
         
         # Create the table header
         table_lines = []
-        table_lines.append("┌" + "─" * 60 + "┐")
+        table_lines.append("┌" + "─" * 50 + "┐")
         
         # Header row with player names
-        header = "│ Trick Cards Played"
+        header = "│"
         for player in player_order:
-            header += f" │ {player.name:>10}"
-        header += " │"
+            header += f" {player.name:>10} │"
         table_lines.append(header)
         
         # Separator line
-        table_lines.append("├" + "─" * 60 + "┤")
+        table_lines.append("├" + "─" * 50 + "┤")
         
-        # Row showing what each player played
-        cards_row = "│ Cards"
+        # Row showing what each player played (compact format)
+        cards_row = "│"
         for player in player_order:
             # Find what this player played in this trick
             card_played = None
@@ -167,34 +168,67 @@ class Trick:
                     break
             
             if card_played:
-                cards_row += f" │ {str(card_played):>10}"
+                compact_card = self._get_compact_card_format(card_played, trump_suit)
+                cards_row += f" {compact_card:>10} │"
             else:
-                cards_row += " │ " + " " * 10
-        cards_row += " │"
+                cards_row += " " + " " * 10 + "│"
         table_lines.append(cards_row)
         
-        # Row showing suit information
-        suits_row = "│ Suits"
-        for player in player_order:
-            # Find what this player played in this trick
-            card_played = None
-            for trick_player, card in self.cards_played:
-                if trick_player == player:
-                    card_played = card
-                    break
-            
-            if card_played:
-                suit_symbol = self._get_suit_symbol(card_played.suit)
-                suits_row += f" │ {suit_symbol:>10}"
-            else:
-                suits_row += " │ " + " " * 10
-        suits_row += " │"
-        table_lines.append(suits_row)
-        
         # Bottom border
-        table_lines.append("└" + "─" * 60 + "┘")
+        table_lines.append("└" + "─" * 50 + "┘")
         
         return "\n".join(table_lines)
+    
+    def _get_compact_card_format(self, card: Card, trump_suit: Optional[Suit] = None) -> str:
+        """Get a compact representation of the card (e.g., 'A♥', 'K♣').
+        
+        Parameters
+        ----------
+        card : Card
+            The card to format
+        trump_suit : Optional[Suit]
+            The current trump suit for highlighting trump cards
+            
+        Returns
+        -------
+        str
+            Compact card representation
+        """
+        # Get rank symbol
+        rank_symbol = self._get_rank_symbol(card.rank)
+        
+        # Get suit symbol
+        suit_symbol = self._get_suit_symbol(card.suit)
+        
+        # Add trump indicator if it's a trump card
+        trump_indicator = ""
+        if trump_suit and self._is_trump_card(card, trump_suit):
+            trump_indicator = "*"
+        
+        return f"{rank_symbol}{suit_symbol}{trump_indicator}"
+    
+    def _get_rank_symbol(self, rank: Rank) -> str:
+        """Get a symbol representation of the rank.
+        
+        Parameters
+        ----------
+        rank : Rank
+            The rank to get symbol for
+            
+        Returns
+        -------
+        str
+            Symbol representation of the rank
+        """
+        rank_symbols = {
+            Rank.NINE: "9",
+            Rank.TEN: "10",
+            Rank.JACK: "J",
+            Rank.QUEEN: "Q",
+            Rank.KING: "K",
+            Rank.ACE: "A"
+        }
+        return rank_symbols.get(rank, rank.value)
     
     def _get_suit_symbol(self, suit: Suit) -> str:
         """Get a symbol representation of the suit.
