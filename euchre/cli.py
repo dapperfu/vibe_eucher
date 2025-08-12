@@ -385,5 +385,213 @@ def demo() -> None:
         click.echo(f"Demo error: {e}", err=True)
 
 
+@click.command()
+@click.option('--num-games', default=100000, help='Number of training games')
+@click.option('--players', nargs=4, default=['Alice', 'Bob', 'Charlie', 'David'], 
+              help='Player names for training')
+@click.option('--risk-profiles', nargs=4, 
+              default=['balanced', 'balanced', 'balanced', 'balanced'],
+              help='Risk profiles for each player')
+@click.option('--output-dir', default='trained_models', help='Output directory for models')
+@click.option('--save-interval', default=1000, help='Save models every N games')
+@click.option('--eval-interval', default=5000, help='Evaluate performance every N games')
+def train_self_play(num_games, players, risk_profiles, output_dir, save_interval, eval_interval):
+    """Train AI models using self-play."""
+    try:
+        from .ai_model.self_play_trainer import SelfPlayTrainer
+        
+        # Model configuration
+        model_config = {
+            'type': 'standard',
+            'input_size': 128,
+            'hidden_size': 256,
+            'output_size': 64,
+            'risk_embedding_size': 32,
+            'use_risk_attention': True
+        }
+        
+        # Create trainer
+        trainer = SelfPlayTrainer(model_config, output_dir)
+        
+        # Start training
+        results = trainer.train_self_play(
+            num_games=num_games,
+            players=players,
+            risk_profiles=risk_profiles,
+            save_interval=save_interval,
+            evaluation_interval=eval_interval
+        )
+        
+        click.echo("🎯 Self-play training completed successfully!")
+        
+    except Exception as e:
+        click.echo(f"❌ Training failed: {e}")
+        raise
+
+
+@click.command()
+@click.option('--models-dir', default='trained_models', help='Directory containing trained models')
+def list_players(models_dir):
+    """List available trained AI players."""
+    try:
+        from .ai_model.player_manager import PlayerManager
+        
+        manager = PlayerManager(models_dir)
+        players = manager.get_available_players()
+        
+        if not players:
+            click.echo("No trained players found.")
+            return
+        
+        click.echo(f"Available trained players ({len(players)}):")
+        for player in players:
+            info = manager.get_player_info(player)
+            if info:
+                click.echo(f"  🎮 {player}")
+                click.echo(f"    Training games: {info.get('training_games', 'Unknown')}")
+                click.echo(f"    Last modified: {info.get('last_modified', 'Unknown')}")
+            else:
+                click.echo(f"  🎮 {player} (info unavailable)")
+        
+    except Exception as e:
+        click.echo(f"❌ Failed to list players: {e}")
+        raise
+
+
+@click.command()
+@click.option('--models-dir', default='trained_models', help='Directory containing trained models')
+@click.option('--player1', required=True, help='First player name')
+@click.option('--player2', required=True, help='Second player name')
+@click.option('--player3', required=True, help='Third player name')
+@click.option('--player4', required=True, help='Fourth player name')
+@click.option('--risk1', default='balanced', help='Risk profile for player 1')
+@click.option('--risk2', default='balanced', help='Risk profile for player 2')
+@click.option('--risk3', default='balanced', help='Risk profile for player 3')
+@click.option('--risk4', default='balanced', help='Risk profile for player 4')
+@click.option('--enable-logging/--no-logging', default=True, help='Enable game logging')
+def play_trained_players(models_dir, player1, player2, player3, player4, 
+                        risk1, risk2, risk3, risk4, enable_logging):
+    """Play a game with trained AI players."""
+    try:
+        from .ai_model.player_manager import PlayerManager
+        
+        # Create player manager
+        manager = PlayerManager(models_dir)
+        
+        # Create player configurations
+        player_configs = [
+            {'name': player1, 'type': 'model', 'risk_profile': risk1},
+            {'name': player2, 'type': 'model', 'risk_profile': risk2},
+            {'name': player3, 'type': 'model', 'risk_profile': risk3},
+            {'name': player4, 'type': 'model', 'risk_profile': risk4}
+        ]
+        
+        # Create game
+        game = manager.create_game_with_players(player_configs, enable_logging)
+        
+        if game is None:
+            click.echo("❌ Failed to create game")
+            return
+        
+        click.echo(f"🎮 Game created with players:")
+        click.echo(f"  North: {player1} ({risk1})")
+        click.echo(f"  East: {player2} ({risk2})")
+        click.echo(f"  South: {player3} ({risk3})")
+        click.echo(f"  West: {player4} ({risk4})")
+        
+        # Start game
+        game.start_new_game()
+        
+        # Play until completion
+        round_num = 1
+        while not game.is_game_over():
+            click.echo(f"\n🔄 Round {round_num}")
+            results = game.play_round()
+            round_num += 1
+        
+        # Show final results
+        click.echo(f"\n🏁 Game completed!")
+        click.echo(f"Team 1 (North/South): {game.game_state.team1_score}")
+        click.echo(f"Team 2 (East/West): {game.game_state.team2_score}")
+        
+        if game.game_state.team1_score > game.game_state.team2_score:
+            click.echo("🏆 Team 1 wins!")
+        elif game.game_state.team2_score > game.game_state.team1_score:
+            click.echo("🏆 Team 2 wins!")
+        else:
+            click.echo("🤝 Game is a tie!")
+        
+        # Show log file if logging was enabled
+        if enable_logging and game.logger:
+            log_file = game.get_log_filename()
+            if log_file:
+                click.echo(f"📝 Game log saved to: {log_file}")
+        
+    except Exception as e:
+        click.echo(f"❌ Game failed: {e}")
+        raise
+
+
+@click.command()
+@click.option('--models-dir', default='trained_models', help='Directory containing trained models')
+@click.option('--num-games', default=100, help='Number of games to play')
+@click.option('--config-name', help='Name for this configuration')
+def tournament(models_dir, num_games, config_name):
+    """Run a tournament between trained players."""
+    try:
+        from .ai_model.player_manager import PlayerManager
+        from .ai_model.self_play_trainer import SelfPlayTrainer
+        import time
+        
+        # Create player manager
+        manager = PlayerManager(models_dir)
+        available_players = manager.get_available_players()
+        
+        if len(available_players) < 4:
+            click.echo(f"❌ Need at least 4 players, only {len(available_players)} available")
+            return
+        
+        if not config_name:
+            config_name = f"tournament_{int(time.time())}"
+        
+        click.echo(f"🏆 Starting tournament: {config_name}")
+        click.echo(f"🎮 Players: {', '.join(available_players[:4])}")
+        click.echo(f"📊 Games per matchup: {num_games}")
+        
+        # Create tournament trainer
+        model_config = {
+            'type': 'standard',
+            'input_size': 128,
+            'hidden_size': 256,
+            'output_size': 64,
+            'risk_embedding_size': 32,
+            'use_risk_attention': True
+        }
+        
+        trainer = SelfPlayTrainer(model_config, models_dir)
+        
+        # Run tournament
+        results = trainer.train_self_play(
+            num_games=num_games,
+            players=available_players[:4],
+            risk_profiles=['balanced'] * 4,
+            save_interval=num_games,
+            evaluation_interval=num_games
+        )
+        
+        click.echo("🏆 Tournament completed!")
+        
+    except Exception as e:
+        click.echo(f"❌ Tournament failed: {e}")
+        raise
+
+
+# Add commands to the main group
+main.add_command(train_self_play)
+main.add_command(list_players)
+main.add_command(play_trained_players)
+main.add_command(tournament)
+
+
 if __name__ == "__main__":
     main() 

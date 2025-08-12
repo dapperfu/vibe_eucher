@@ -1,0 +1,544 @@
+"""Self-play trainer for training euchre AI models against themselves."""
+
+import os
+import json
+import time
+import uuid
+from pathlib import Path
+from typing import Dict, List, Any, Optional, Tuple
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader
+import numpy as np
+from tqdm import tqdm
+
+from .euchre_nn import EuchreNN, RiskParameters, create_risk_profile, create_euchre_model
+from .model_player import ModelPlayer
+from ..game import EuchreGame
+from ..game_logger import GameLogger
+
+
+class SelfPlayTrainer:
+    """Trainer that uses self-play to improve euchre AI models."""
+    
+    def __init__(self, 
+                 model_config: Dict[str, Any],
+                 output_dir: str = "trained_models",
+                 device: str = "auto"):
+        """Initialize the self-play trainer.
+        
+        Parameters
+        ----------
+        model_config : Dict[str, Any]
+            Configuration for the model architecture
+        output_dir : str
+            Directory to save trained models
+        device : str
+            Device to use for training
+        """
+        self.model_config = model_config
+        self.output_dir = Path(output_dir)
+        self.output_dir.mkdir(exist_ok=True)
+        
+        # Device setup
+        if device == "auto":
+            if torch.cuda.is_available():
+                self.device = torch.device("cuda")
+            elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+                self.device = torch.device("mps")
+            else:
+                self.device = torch.device("cpu")
+        else:
+            self.device = torch.device(device)
+        
+        # Training state
+        self.training_history = []
+        self.best_models = {}
+        
+        print(f"🚀 Self-play trainer initialized on {self.device}")
+        print(f"📁 Output directory: {self.output_dir}")
+    
+    def create_player_model(self, player_name: str, risk_profile: str = "balanced") -> Tuple[EuchreNN, ModelPlayer]:
+        """Create a model and player instance for a specific player.
+        
+        Parameters
+        ----------
+        player_name : str
+            Name of the player
+        risk_profile : str
+            Risk profile for the player
+            
+        Returns
+        -------
+        Tuple[EuchreNN, ModelPlayer]
+            Model and player instance
+        """
+        # Create model
+        model = create_euchre_model(self.model_config)
+        model.to(self.device)
+        
+        # Create player
+        player = ModelPlayer(
+            name=player_name,
+            model=model,
+            device=self.device,
+            risk_profile=risk_profile
+        )
+        
+        return model, player
+    
+    def train_self_play(self, 
+                        num_games: int = 100000,
+                        players: List[str] = None,
+                        risk_profiles: List[str] = None,
+                        save_interval: int = 1000,
+                        evaluation_interval: int = 5000) -> Dict[str, Any]:
+        """Train models using self-play.
+        
+        Parameters
+        ----------
+        num_games : int
+            Number of games to play
+        players : List[str]
+            List of player names (default: Alice 1-4)
+        risk_profiles : List[str]
+            List of risk profiles for each player
+        save_interval : int
+            Save models every N games
+        evaluation_interval : int
+            Evaluate performance every N games
+            
+        Returns
+        -------
+        Dict[str, Any]
+            Training results and statistics
+        """
+        if players is None:
+            players = ["Alice", "Bob", "Charlie", "David"]
+        
+        if risk_profiles is None:
+            risk_profiles = ["balanced", "balanced", "balanced", "balanced"]
+        
+        print(f"🎮 Starting self-play training with {num_games} games")
+        print(f"👥 Players: {players}")
+        print(f"🎯 Risk profiles: {risk_profiles}")
+        print("=" * 80)
+        
+        # Create models and players
+        models = {}
+        game_players = {}
+        
+        for i, (player_name, risk_profile) in enumerate(zip(players, risk_profiles)):
+            model, player = self.create_player_model(player_name, risk_profile)
+            models[player_name] = model
+            game_players[player_name] = player
+            print(f"✅ Created {player_name} with {risk_profile} profile")
+        
+        # Training statistics
+        training_stats = {
+            'total_games': 0,
+            'player_wins': {name: 0 for name in players},
+            'player_losses': {name: 0 for name in players},
+            'player_ties': {name: 0 for name in players},
+            'game_lengths': [],
+            'trump_calls': {name: 0 for name in players},
+            'aces_ordered': {name: 0 for name in players},
+            'times_set': {name: 0 for name in players}
+        }
+        
+        # Training loop
+        start_time = time.time()
+        
+        for game_num in tqdm(range(num_games), desc="Training games"):
+            # Play a single game
+            game_result = self._play_training_game(game_players, players)
+            
+            # Update statistics
+            self._update_training_stats(training_stats, game_result)
+            
+            # Save models periodically
+            if (game_num + 1) % save_interval == 0:
+                self._save_models(models, players, game_num + 1)
+            
+            # Evaluate performance periodically
+            if (game_num + 1) % evaluation_interval == 0:
+                self._evaluate_performance(models, players, training_stats, game_num + 1)
+            
+            # Update training history
+            self.training_history.append({
+                'game_num': game_num + 1,
+                'result': game_result,
+                'timestamp': time.time()
+            })
+        
+        # Final save
+        self._save_models(models, players, num_games, final=True)
+        
+        # Calculate final statistics
+        training_time = time.time() - start_time
+        final_stats = self._calculate_final_stats(training_stats, training_time)
+        
+        # Save training summary
+        self._save_training_summary(final_stats, players, risk_profiles)
+        
+        print("\n" + "=" * 80)
+        print("🎉 Self-play training completed!")
+        print(f"⏱️  Total time: {training_time/3600:.2f} hours")
+        print(f"📊 Final statistics saved to {self.output_dir}")
+        print("=" * 80)
+        
+        return final_stats
+    
+    def _play_training_game(self, game_players: Dict[str, ModelPlayer], 
+                           player_names: List[str]) -> Dict[str, Any]:
+        """Play a single training game.
+        
+        Parameters
+        ----------
+        game_players : Dict[str, ModelPlayer]
+            Dictionary of player instances
+        player_names : List[str]
+            List of player names in order
+            
+        Returns
+        -------
+        Dict[str, Any]
+            Game result data
+        """
+        # Create game
+        game = EuchreGame(enable_logging=False)
+        
+        # Add players in order
+        for player_name in player_names:
+            player = game_players[player_name]
+            game.players.append(player)
+        
+        # Start game
+        game.start_new_game()
+        
+        # Play until completion
+        round_num = 1
+        while not game.is_game_over():
+            results = game.play_round()
+            round_num += 1
+        
+        # Determine winner
+        team1_score = game.game_state.team1_score
+        team2_score = game.game_state.team2_score
+        
+        if team1_score > team2_score:
+            winner = "Team 1"
+            winning_players = [player_names[0], player_names[2]]  # North, South
+            losing_players = [player_names[1], player_names[3]]   # East, West
+        elif team2_score > team1_score:
+            winner = "Team 2"
+            winning_players = [player_names[1], player_names[3]]  # East, West
+            losing_players = [player_names[0], player_names[2]]   # North, South
+        else:
+            winner = "Tie"
+            winning_players = []
+            losing_players = []
+        
+        # Collect game data
+        game_data = {
+            'winner': winner,
+            'team1_score': team1_score,
+            'team2_score': team2_score,
+            'winning_players': winning_players,
+            'losing_players': losing_players,
+            'game_length': round_num - 1,
+            'player_stats': {}
+        }
+        
+        # Collect individual player statistics
+        for player_name in player_names:
+            player = game_players[player_name]
+            if hasattr(player, 'game_context'):
+                game_data['player_stats'][player_name] = {
+                    'trump_calls': player.game_context.get('trump_calls_made', 0),
+                    'aces_ordered': player.game_context.get('aces_ordered', 0),
+                    'times_set': player.game_context.get('times_set', 0)
+                }
+        
+        return game_data
+    
+    def _update_training_stats(self, stats: Dict[str, Any], game_result: Dict[str, Any]):
+        """Update training statistics with game result."""
+        stats['total_games'] += 1
+        stats['game_lengths'].append(game_result['game_length'])
+        
+        # Update win/loss counts
+        for player_name in game_result['winning_players']:
+            stats['player_wins'][player_name] += 1
+        
+        for player_name in game_result['losing_players']:
+            stats['player_losses'][player_name] += 1
+        
+        # Update player statistics
+        for player_name, player_stats in game_result['player_stats'].items():
+            stats['trump_calls'][player_name] += player_stats['trump_calls']
+            stats['aces_ordered'][player_name] += player_stats['aces_ordered']
+            stats['times_set'][player_name] += player_stats['times_set']
+    
+    def _save_models(self, models: Dict[str, EuchreNN], 
+                    player_names: List[str], 
+                    game_num: int, 
+                    final: bool = False):
+        """Save trained models to files."""
+        timestamp = int(time.time())
+        
+        for player_name in player_names:
+            model = models[player_name]
+            
+            # Create checkpoint data
+            checkpoint = {
+                'model_state_dict': model.state_dict(),
+                'model_config': self.model_config,
+                'player_name': player_name,
+                'training_games': game_num,
+                'timestamp': timestamp,
+                'device': str(self.device)
+            }
+            
+            # Save to file
+            filename = f"{player_name}.json" if final else f"{player_name}_checkpoint_{game_num}.json"
+            filepath = self.output_dir / filename
+            
+            # Convert tensors to lists for JSON serialization
+            serializable_checkpoint = self._make_checkpoint_serializable(checkpoint)
+            
+            with open(filepath, 'w') as f:
+                json.dump(serializable_checkpoint, f, indent=2)
+            
+            if final:
+                print(f"💾 Saved final model for {player_name}: {filepath}")
+    
+    def _make_checkpoint_serializable(self, checkpoint: Dict[str, Any]) -> Dict[str, Any]:
+        """Convert checkpoint to JSON-serializable format."""
+        serializable = {}
+        
+        for key, value in checkpoint.items():
+            if key == 'model_state_dict':
+                # Convert tensor values to lists
+                serializable[key] = {}
+                for param_name, param_tensor in value.items():
+                    serializable[key][param_name] = param_tensor.cpu().numpy().tolist()
+            else:
+                serializable[key] = value
+        
+        return serializable
+    
+    def _evaluate_performance(self, models: Dict[str, EuchreNN], 
+                            player_names: List[str], 
+                            stats: Dict[str, Any], 
+                            game_num: int):
+        """Evaluate current model performance."""
+        print(f"\n📊 Performance at game {game_num}:")
+        
+        for player_name in player_names:
+            wins = stats['player_wins'][player_name]
+            losses = stats['player_losses'][player_name]
+            total = wins + losses
+            
+            if total > 0:
+                win_rate = wins / total
+                print(f"  {player_name}: {win_rate:.1%} win rate ({wins}/{total})")
+    
+    def _calculate_final_stats(self, stats: Dict[str, Any], training_time: float) -> Dict[str, Any]:
+        """Calculate final training statistics."""
+        final_stats = stats.copy()
+        
+        # Calculate win rates
+        for player_name in stats['player_wins']:
+            wins = stats['player_wins'][player_name]
+            losses = stats['player_losses'][player_name]
+            total = wins + losses
+            
+            if total > 0:
+                final_stats[f'{player_name}_win_rate'] = wins / total
+            else:
+                final_stats[f'{player_name}_win_rate'] = 0.0
+        
+        # Calculate averages
+        if stats['game_lengths']:
+            final_stats['avg_game_length'] = np.mean(stats['game_lengths'])
+            final_stats['std_game_length'] = np.std(stats['game_lengths'])
+        
+        final_stats['training_time_hours'] = training_time / 3600
+        final_stats['games_per_hour'] = stats['total_games'] / final_stats['training_time_hours']
+        
+        return final_stats
+    
+    def _save_training_summary(self, stats: Dict[str, Any], 
+                             players: List[str], 
+                             risk_profiles: List[str]):
+        """Save training summary to file."""
+        summary = {
+            'training_summary': {
+                'total_games': stats['total_games'],
+                'training_time_hours': stats['training_time_hours'],
+                'games_per_hour': stats['games_per_hour'],
+                'players': players,
+                'risk_profiles': risk_profiles,
+                'model_config': self.model_config
+            },
+            'player_statistics': {},
+            'training_history': self.training_history[-1000:]  # Last 1000 games
+        }
+        
+        # Add player statistics
+        for player_name in players:
+            summary['player_statistics'][player_name] = {
+                'wins': stats['player_wins'][player_name],
+                'losses': stats['player_losses'][player_name],
+                'win_rate': stats[f'{player_name}_win_rate'],
+                'trump_calls': stats['trump_calls'][player_name],
+                'aces_ordered': stats['aces_ordered'][player_name],
+                'times_set': stats['times_set'][player_name]
+            }
+        
+        # Save summary
+        summary_file = self.output_dir / "training_summary.json"
+        with open(summary_file, 'w') as f:
+            json.dump(summary, f, indent=2)
+        
+        print(f"📋 Training summary saved to: {summary_file}")
+    
+    def load_trained_model(self, player_name: str) -> EuchreNN:
+        """Load a trained model for a specific player.
+        
+        Parameters
+        ----------
+        player_name : str
+            Name of the player to load
+            
+        Returns
+        -------
+        EuchreNN
+            Loaded model instance
+        """
+        model_file = self.output_dir / f"{player_name}.json"
+        
+        if not model_file.exists():
+            raise FileNotFoundError(f"Model file not found: {model_file}")
+        
+        # Load checkpoint
+        with open(model_file, 'r') as f:
+            checkpoint = json.load(f)
+        
+        # Create model
+        model = create_euchre_model(checkpoint['model_config'])
+        model.to(self.device)
+        
+        # Load weights
+        state_dict = {}
+        for param_name, param_data in checkpoint['model_state_dict'].items():
+            state_dict[param_name] = torch.tensor(param_data, device=self.device)
+        
+        model.load_state_dict(state_dict)
+        model.eval()
+        
+        print(f"✅ Loaded trained model for {player_name}")
+        return model
+    
+    def get_available_players(self) -> List[str]:
+        """Get list of available trained players.
+        
+        Returns
+        -------
+        List[str]
+            List of player names with trained models
+        """
+        available = []
+        
+        for file_path in self.output_dir.glob("*.json"):
+            if file_path.name != "training_summary.json":
+                player_name = file_path.stem
+                if not player_name.endswith('_checkpoint'):
+                    available.append(player_name)
+        
+        return sorted(available)
+    
+    def create_game_with_trained_players(self, 
+                                       player_names: List[str],
+                                       risk_profiles: List[str] = None) -> EuchreGame:
+        """Create a game with trained model players.
+        
+        Parameters
+        ----------
+        player_names : List[str]
+            List of player names to use
+        risk_profiles : List[str]
+            Risk profiles for each player (optional)
+            
+        Returns
+        -------
+        EuchreGame
+            Game instance with trained players
+        """
+        if risk_profiles is None:
+            risk_profiles = ["balanced"] * len(player_names)
+        
+        # Create game
+        game = EuchreGame(enable_logging=True)
+        
+        # Add trained players
+        for i, (player_name, risk_profile) in enumerate(zip(player_names, risk_profiles)):
+            try:
+                model = self.load_trained_model(player_name)
+                game.add_model_player(player_name, model, self.device, risk_profile)
+                print(f"✅ Added trained player: {player_name}")
+            except FileNotFoundError:
+                # Fallback to AI profile if model not found
+                game.add_ai_player(player_name, risk_profile, 0.5)
+                print(f"⚠️  Model not found for {player_name}, using AI profile")
+        
+        return game
+
+
+def main():
+    """Main entry point for self-play training."""
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="Train euchre AI models using self-play")
+    parser.add_argument("--num-games", type=int, default=100000, help="Number of training games")
+    parser.add_argument("--players", nargs="+", default=["Alice", "Bob", "Charlie", "David"], 
+                       help="Player names")
+    parser.add_argument("--risk-profiles", nargs="+", 
+                       default=["balanced", "balanced", "balanced", "balanced"],
+                       help="Risk profiles for each player")
+    parser.add_argument("--output-dir", default="trained_models", help="Output directory")
+    parser.add_argument("--save-interval", type=int, default=1000, help="Save interval")
+    parser.add_argument("--eval-interval", type=int, default=5000, help="Evaluation interval")
+    parser.add_argument("--device", default="auto", help="Device to use")
+    
+    args = parser.parse_args()
+    
+    # Model configuration
+    model_config = {
+        'type': 'standard',
+        'input_size': 128,
+        'hidden_size': 256,
+        'output_size': 64,
+        'risk_embedding_size': 32,
+        'use_risk_attention': True
+    }
+    
+    # Create trainer
+    trainer = SelfPlayTrainer(model_config, args.output_dir, args.device)
+    
+    # Start training
+    results = trainer.train_self_play(
+        num_games=args.num_games,
+        players=args.players,
+        risk_profiles=args.risk_profiles,
+        save_interval=args.save_interval,
+        evaluation_interval=args.eval_interval
+    )
+    
+    print("🎯 Training completed successfully!")
+
+
+if __name__ == "__main__":
+    main() 
