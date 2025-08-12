@@ -82,6 +82,13 @@ class EuchreGame:
         # Deal cards
         self._deal_cards()
         
+        # Show dealer and initial hands
+        dealer = self.game_state_manager.get_dealer()
+        self.logger.info(f"Dealer: {dealer.name}")
+        self.logger.info("Initial hands:")
+        for player in self.players:
+            self.logger.info(f"{player.name}: {[str(card) for card in player.hand]}")
+        
         self.logger.debug("After dealing cards")
         self.logger.debug("Player hands after dealing:")
         for player in self.players:
@@ -106,6 +113,7 @@ class EuchreGame:
         
         # Set the top card
         self.top_card = self.deck.draw_top_card()
+        self.logger.info(f"Top card: {self.top_card}")
         self.logger.debug(f"Top card: {self.top_card}")
         
         # Debug: Verify all players have cards after dealing
@@ -170,7 +178,7 @@ class EuchreGame:
             for player in self.players:
                 self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
             
-            self._play_trick()
+            self._play_trick(trick_number)
             
             self.logger.debug("After completing trick - Player hands:")
             for player in self.players:
@@ -189,6 +197,7 @@ class EuchreGame:
         
         # Display round results
         self.logger.info(f"\n=== Round {self.round_number} Complete ===")
+        self.logger.info(f"Final trick counts: Alice: {self.tricks_won['Alice']}, Bob: {self.tricks_won['Bob']}, Charlie: {self.tricks_won['Charlie']}, David: {self.tricks_won['David']}")
         self.logger.info(f"Team 1 (Alice & Charlie): {team1_score} points")
         self.logger.info(f"Team 2 (Bob & David): {team2_score} points")
         
@@ -290,7 +299,7 @@ class EuchreGame:
         # Start new round
         self.game_state_manager.start_new_round()
     
-    def _play_trick(self) -> None:
+    def _play_trick(self, trick_number: int = 1) -> None:
         """Play a single trick."""
         self.logger.debug("Starting new trick")
         self.logger.debug("Player hands at start of trick:")
@@ -299,15 +308,18 @@ class EuchreGame:
         
         # Start new trick
         self.trick_manager.start_new_trick()
+        self.current_trick = self.trick_manager.get_current_trick()
         
         # Determine starting player (first trick: player after dealer, subsequent tricks: winner of previous trick)
         if not self.current_trick or self.current_trick.is_complete():
             # First trick of the round
             dealer_index = next(i for i, p in enumerate(self.players) if p.name == self.game_state_manager.get_dealer().name)
             current_player_index = (dealer_index + 1) % 4
+            self.logger.info(f"First trick - starting with {self.players[current_player_index].name}")
         else:
             # Subsequent tricks: winner of previous trick goes first
             current_player_index = self.players.index(self.current_trick.winner)
+            self.logger.info(f"Starting trick with {self.players[current_player_index].name} (winner of previous trick)")
         
         # Play cards for this trick
         for _ in range(4):
@@ -330,6 +342,13 @@ class EuchreGame:
             
             # Display the play
             self.logger.info(f"{current_player.name} plays {card}")
+            
+            # Show current trick state
+            current_trick = self.trick_manager.get_current_trick()
+            if current_trick and hasattr(current_trick, 'cards_played'):
+                played_cards = [f"{player.name}: {card}" for player, card in current_trick.cards_played]
+                if played_cards:
+                    self.logger.info(f"Trick so far: {', '.join(played_cards)}")
             
             # Move to next player
             current_player_index = (current_player_index + 1) % 4
