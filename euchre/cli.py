@@ -60,6 +60,87 @@ def play(player_name: str, ai_names: tuple) -> None:
 
 
 @main.command()
+def logged_game() -> None:
+    """Run a full AI vs AI euchre game with logging (no ncurses)."""
+    try:
+        from .game import EuchreGame
+        from .models import PlayerType
+        
+        click.echo("Starting logged AI vs AI euchre game...")
+        
+        # Create game with logging enabled
+        game = EuchreGame(enable_logging=True)
+        
+        # Add AI players
+        game.add_player("North", PlayerType.AI)
+        game.add_player("East", PlayerType.AI)
+        game.add_player("South", PlayerType.AI)
+        game.add_player("West", PlayerType.AI)
+        
+        # Start the game
+        game.start_new_game()
+        
+        click.echo(f"Game started! Trump: {game.game_state.trump_suit.name.title()}")
+        click.echo("Playing rounds...")
+        
+        # Play rounds until game ends
+        round_num = 1
+        while not game.is_game_over():
+            click.echo(f"Playing round {round_num}...")
+            results = game.play_round()
+            click.echo(f"Round {round_num} complete. Trick counts: {results}")
+            round_num += 1
+            
+        # Show final result
+        winner = game.get_winner()
+        click.echo(f"\nGame Over! {winner} wins!")
+        click.echo(f"Final Score - Team 1: {game.game_state.team1_score}, Team 2: {game.game_state.team2_score}")
+        
+        # Show log filename
+        log_filename = game.get_log_filename()
+        if log_filename:
+            click.echo(f"\nGame log saved to: {log_filename}")
+            click.echo("You can review the detailed game log in this file.")
+        
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+
+
+@main.command()
+def ncurses() -> None:
+    """Run a full AI vs AI euchre game with ncurses display."""
+    try:
+        from .ncurses_game import NcursesGame
+        click.echo("Starting AI vs AI euchre game with ncurses...")
+        click.echo("Press Ctrl+C to exit early")
+        
+        game = NcursesGame()
+        game.run()
+        
+    except ImportError:
+        click.echo("Error: curses module not available. This command requires a terminal that supports ncurses.", err=True)
+    except KeyboardInterrupt:
+        click.echo("\nGame interrupted by user.")
+
+
+@main.command()
+def ai_vs_ai() -> None:
+    """Run a full AI vs AI euchre game with ncurses display."""
+    try:
+        from .ncurses_game import NcursesGame
+        click.echo("Starting AI vs AI euchre game...")
+        click.echo("Press Ctrl+C to exit early")
+        
+        game = NcursesGame()
+        game.run()
+        
+    except ImportError:
+        click.echo("Error: curses module not available. This command requires a terminal that supports ncurses.", err=True)
+    except KeyboardInterrupt:
+        click.echo("\nGame interrupted by user.")
+
+
+@main.command()
 def rules() -> None:
     """Show the rules of euchre."""
     click.echo("""

@@ -1,20 +1,35 @@
 """Main game logic for the euchre card game."""
 
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict
 import random
 from .models import (
-    Player, PlayerType, Card, Suit, Rank, GameState
+    Player, PlayerType, Card, Suit, Rank, GameState, Trick
 )
+from .game_logger import GameLogger
 
 
 class EuchreGame:
     """Main euchre game controller."""
     
-    def __init__(self) -> None:
-        """Initialize a new euchre game."""
+    def __init__(self, enable_logging: bool = True) -> None:
+        """Initialize a new euchre game.
+        
+        Parameters
+        ----------
+        enable_logging : bool
+            Whether to enable game logging to file
+        """
         self.players: List[Player] = []
         self.game_state: Optional[GameState] = None
         self.deck: List[Card] = []
+        self.current_trick: Optional[Trick] = None
+        self.tricks_this_round: List[Trick] = []
+        self.top_card: Optional[Card] = None
+        self.logger: Optional[GameLogger] = None
+        
+        if enable_logging:
+            self.logger = GameLogger()
+            
         self._initialize_deck()
         
     def _initialize_deck(self) -> None:
@@ -64,7 +79,13 @@ class EuchreGame:
         )
         
         self._deal_cards()
+        self._select_trump()
         
+        # Log game start
+        if self.logger:
+            dealer = self.game_state.get_dealer()
+            self.logger.log_game_start(self.players, dealer)
+            
     def _deal_cards(self) -> None:
         """Deal 5 cards to each player."""
         # Shuffle deck
@@ -79,6 +100,242 @@ class EuchreGame:
         # Remove dealt cards from deck
         self.deck = self.deck[20:]
         
+        # Set top card (for trump selection)
+        if self.deck:
+            self.top_card = self.deck[0]
+            
+    def _select_trump(self) -> None:
+        """Handle trump suit selection."""
+        if not self.top_card:
+            return
+            
+        # AI players decide whether to order up
+        current_player_idx = self.game_state.current_player_index
+        trump_selected = False
+        
+        for _ in range(4):  # Each player gets one chance
+            player = self.players[current_player_idx]
+            if player.player_type == PlayerType.AI:
+                ai_player = AIPlayer(player)
+                if ai_player.should_order_up(self.top_card):
+                    self.game_state.trump_suit = self.top_card.suit
+                    trump_selected = True
+                    break
+            current_player_idx = (current_player_idx + 1) % 4
+            
+        # If no one ordered up, dealer must choose trump
+        if not trump_selected:
+            dealer = self.game_state.get_dealer()
+            if dealer.player_type == PlayerType.AI:
+                ai_player = AIPlayer(dealer)
+                # Dealer AI will always pick a trump suit
+                suits_in_hand = set(card.suit for card in dealer.hand)
+                if suits_in_hand:
+                    self.game_state.trump_suit = random.choice(list(suits_in_hand))
+                else:
+                    self.game_state.trump_suit = random.choice(list(Suit))
+            else:
+                # Human dealer - for now, pick random
+                self.game_state.trump_suit = random.choice(list(Suit))
+                
+        # Mark trump cards
+        self._mark_trump_cards()
+        
+    def _mark_trump_cards(self) -> None:
+        """Mark all trump cards in the game."""
+        if not self.game_state.trump_suit:
+            return
+            
+        for player in self.players:
+            for card in player.hand:
+                if card.suit == self.game_state.trump_suit:
+                    card.is_trump = True
+                    
+        if self.top_card and self.top_card.suit == self.game_state.trump_suit:
+            self.top_card.is_trump = True
+            
+    def _deal_new_round(self) -> None:
+        """Deal new cards for a new round."""
+        # Reinitialize deck
+        self._initialize_deck()
+        
+        # Deal new cards
+        self._deal_cards()
+        
+        # Select new trump
+        self._select_trump()
+        
+        # Reset trick counts
+        for player in self.players:
+            player.tricks_won = 0
+        
+    def play_round(self) -> None:
+        """Play a complete round (5 tricks)."""
+        # If this is not the first round, deal new cards
+        if self.game_state and self.game_state.round_number > 1:
+            self._deal_new_round()
+            
+        # Log round start
+        if self.logger and self.game_state:
+            hands = {player.name: player.hand.copy() for player in self.players}
+            trump_suit = self.game_state.trump_suit.name.title() if self.game_state.trump_suit else "None"
+            self.logger.log_round_start(self.game_state.round_number, trump_suit, hands)
+            
+        self.tricks_this_round.clear()
+        
+        for trick_num in range(5):
+            # Create new trick
+            self.current_trick = Trick()
+            
+            # Play the trick (each player plays one card)
+            for player_idx in range(4):
+                current_player = self.game_state.get_current_player()
+                
+                if current_player.player_type == PlayerType.AI:
+                    ai_player = AIPlayer(current_player)
+                    card = ai_player.choose_card_to_play(
+                        self.current_trick.lead_suit,
+                        self.game_state.trump_suit
+                    )
+                else:
+                    # Human player - for now, play first card
+                    card = current_player.hand[0]
+                    
+                # Remove card from hand
+                current_player.remove_card(card)
+                
+                # Add to trick
+                if not self.current_trick.lead_suit:
+                    self.current_trick.lead_suit = card.suit
+                self.current_trick.cards_played.append((current_player, card))
+                
+                # Move to next player
+                self.game_state.next_player()
+            
+            # Add completed trick to round
+            self.tricks_this_round.append(self.current_trick)
+            
+            # Award trick to winner
+            winner = self._determine_trick_winner()
+            winner.tricks_won += 1
+            
+            # Log trick completion
+            if self.logger:
+                winning_card = self._get_winning_card_from_trick(self.current_trick)
+                self.logger.log_trick(trick_num + 1, self.current_trick, winner, winning_card)
+            
+            # Set next trick leader
+            self.game_state.current_player_index = self.players.index(winner)
+            
+        # Get round results before scoring
+        round_results = [player.tricks_won for player in self.players]
+        
+        # Log round end (before scoring resets trick counts)
+        if self.logger:
+            final_scores = {player.name: player.tricks_won for player in self.players}
+            team_scores = {
+                "Team 1": self.game_state.team1_score,
+                "Team 2": self.game_state.team2_score
+            }
+            self.logger.log_round_end(self.game_state.round_number, final_scores, team_scores)
+        
+        # Score the round
+        self._score_round()
+        
+        # Increment round number
+        if self.game_state:
+            self.game_state.round_number += 1
+        
+        # Return the round results for testing/debugging
+        return round_results
+        
+    def get_round_results(self) -> List[int]:
+        """Get the trick counts for each player before scoring.
+        
+        Returns
+        -------
+        List[int]
+            List of trick counts for each player
+        """
+        return [player.tricks_won for player in self.players]
+        
+    def _get_winning_card_from_trick(self, trick: Trick) -> Card:
+        """Get the winning card from a completed trick.
+        
+        Parameters
+        ----------
+        trick : Trick
+            The completed trick
+            
+        Returns
+        -------
+        Card
+            The card that won the trick
+        """
+        if not trick.cards_played:
+            raise ValueError("Trick has no cards played")
+            
+        winner, winning_card = trick.get_winner(self.game_state.trump_suit if self.game_state else None)
+        return winning_card
+        
+    def _determine_trick_winner(self) -> Player:
+        """Determine who won the current trick."""
+        if not self.current_trick or not self.current_trick.cards_played:
+            raise ValueError("No cards played in trick")
+            
+        winner = self.current_trick.cards_played[0][0]
+        winning_card = self.current_trick.cards_played[0][1]
+        
+        for player, card in self.current_trick.cards_played[1:]:
+            if self._card_beats(card, winning_card):
+                winner = player
+                winning_card = card
+                
+        return winner
+        
+    def _card_beats(self, card1: Card, card2: Card) -> bool:
+        """Determine if card1 beats card2."""
+        # Trump cards beat non-trump cards
+        if card1.is_trump and not card2.is_trump:
+            return True
+        if not card1.is_trump and card2.is_trump:
+            return False
+            
+        # If both are trump or both are non-trump, compare ranks
+        if card1.is_trump == card2.is_trump:
+            return card1.rank.value > card2.rank.value
+            
+        # If one follows lead suit and other doesn't, lead suit wins
+        if self.current_trick and self.current_trick.lead_suit:
+            if card1.suit == self.current_trick.lead_suit and card2.suit != self.current_trick.lead_suit:
+                return True
+            if card2.suit == self.current_trick.lead_suit and card1.suit != self.current_trick.lead_suit:
+                return False
+                
+        # Same suit, compare ranks
+        if card1.suit == card2.suit:
+            return card1.rank.value > card2.rank.value
+            
+        # Different suits, neither trump, neither follows lead - first card wins
+        return False
+        
+    def _score_round(self) -> None:
+        """Score the current round."""
+        team1_tricks = (self.players[0].tricks_won + self.players[2].tricks_won)
+        team2_tricks = (self.players[1].tricks_won + self.players[3].tricks_won)
+        
+        if team1_tricks >= 3:
+            self.game_state.team1_score += 1
+        if team2_tricks >= 3:
+            self.game_state.team2_score += 1
+            
+        # Check if game just ended and log it
+        self._check_and_log_game_end()
+            
+        # Reset trick counts for next round
+        for player in self.players:
+            player.tricks_won = 0
+            
     def get_player_hand(self, player_name: str) -> List[Card]:
         """Get the hand of a specific player.
         
@@ -133,6 +390,23 @@ class EuchreGame:
         return (self.game_state.team1_score >= 10 or 
                 self.game_state.team2_score >= 10)
         
+    def _check_and_log_game_end(self) -> None:
+        """Check if game just ended and log it if so."""
+        if not self.game_state or not self.logger:
+            return
+            
+        # Check if game just ended
+        if (self.game_state.team1_score >= 10 or 
+            self.game_state.team2_score >= 10):
+            
+            winner = self.get_winner()
+            final_team_scores = {
+                "Team 1": self.game_state.team1_score,
+                "Team 2": self.game_state.team2_score
+            }
+            self.logger.log_game_end(winner or "Unknown", final_team_scores)
+            self.logger.write_summary_table()
+        
     def get_winner(self) -> Optional[str]:
         """Get the winning team.
         
@@ -149,6 +423,16 @@ class EuchreGame:
         elif self.game_state and self.game_state.team2_score >= 10:
             return "Team 2"
         return None
+        
+    def get_log_filename(self) -> Optional[str]:
+        """Get the filename of the game log.
+        
+        Returns
+        -------
+        Optional[str]
+            The log filename, or None if logging is disabled
+        """
+        return self.logger.get_log_filename() if self.logger else None
 
 
 class AIPlayer:
@@ -179,16 +463,22 @@ class AIPlayer:
         Card
             The card to play
         """
-        # Simple strategy: play the highest card of the lead suit if possible
-        # Otherwise, play the lowest card
-        
+        if not self.player.hand:
+            raise ValueError("AI player has no cards to play")
+            
+        # Must follow suit if possible
         if lead_suit and self.player.has_suit(lead_suit):
-            # Must follow suit
             cards_of_suit = self.player.get_cards_of_suit(lead_suit)
+            # Play highest card of lead suit
             return max(cards_of_suit, key=lambda c: c.rank.value)
         else:
-            # Can play any card - play the lowest
-            return min(self.player.hand, key=lambda c: c.rank.value)
+            # Can play any card - play lowest non-trump if possible
+            non_trump_cards = [c for c in self.player.hand if not c.is_trump]
+            if non_trump_cards:
+                return min(non_trump_cards, key=lambda c: c.rank.value)
+            else:
+                # Only trump cards left - play lowest
+                return min(self.player.hand, key=lambda c: c.rank.value)
             
     def should_order_up(self, top_card: Card) -> bool:
         """Decide whether to order up the top card.
@@ -203,6 +493,25 @@ class AIPlayer:
         bool
             True if the AI should order up the card
         """
-        # Simple strategy: order up if we have 2+ cards of that suit
+        # Count cards of the potential trump suit
         cards_of_suit = self.player.get_cards_of_suit(top_card.suit)
-        return len(cards_of_suit) >= 2 
+        
+        # Also count left bower (jack of same color)
+        left_bower_suit = self._get_left_bower_suit(top_card.suit)
+        left_bower_cards = self.player.get_cards_of_suit(left_bower_suit)
+        
+        total_trump_potential = len(cards_of_suit) + len(left_bower_cards)
+        
+        # Order up if we have 2+ potential trump cards
+        return total_trump_potential >= 2
+        
+    def _get_left_bower_suit(self, trump_suit: Suit) -> Suit:
+        """Get the left bower suit for a given trump suit."""
+        if trump_suit == Suit.HEARTS:
+            return Suit.DIAMONDS
+        elif trump_suit == Suit.DIAMONDS:
+            return Suit.HEARTS
+        elif trump_suit == Suit.CLUBS:
+            return Suit.SPADES
+        else:  # SPADES
+            return Suit.CLUBS 

@@ -1,6 +1,6 @@
 """Game models for the euchre card game."""
 
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 from dataclasses import dataclass
 from enum import Enum
 
@@ -40,6 +40,31 @@ class Card:
         trump_indicator = " (Trump)" if self.is_trump else ""
         return f"{rank_str} of {suit_str}{trump_indicator}"
     
+    def short_str(self) -> str:
+        """Short string representation for display."""
+        rank_map = {
+            Rank.NINE: "9",
+            Rank.TEN: "10", 
+            Rank.JACK: "J",
+            Rank.QUEEN: "Q",
+            Rank.KING: "K",
+            Rank.ACE: "A"
+        }
+        suit_map = {
+            Suit.HEARTS: "♥",
+            Suit.DIAMONDS: "♦",
+            Suit.CLUBS: "♣",
+            Suit.SPADES: "♠"
+        }
+        
+        rank_str = rank_map.get(self.rank, str(self.rank.value))
+        suit_str = suit_map.get(self.suit, self.suit.name[0].upper())
+        
+        if self.is_trump:
+            return f"[{rank_str}{suit_str}]"
+        else:
+            return f"{rank_str}{suit_str}"
+    
     def __lt__(self, other: "Card") -> bool:
         """Compare cards for ordering."""
         if not isinstance(other, Card):
@@ -57,6 +82,70 @@ class Card:
         return (self.rank == other.rank and 
                 self.suit == other.suit and 
                 self.is_trump == other.is_trump)
+
+
+@dataclass
+class Trick:
+    """A trick in the euchre game."""
+    
+    lead_suit: Optional[Suit] = None
+    cards_played: List[Tuple["Player", Card]] = None
+    
+    def __post_init__(self) -> None:
+        """Initialize cards_played if None."""
+        if self.cards_played is None:
+            self.cards_played = []
+    
+    def add_card(self, player: "Player", card: Card) -> None:
+        """Add a card to the trick."""
+        if not self.lead_suit:
+            self.lead_suit = card.suit
+        self.cards_played.append((player, card))
+    
+    def get_winner(self, trump_suit: Optional[Suit]) -> Tuple["Player", Card]:
+        """Get the winner of this trick."""
+        if not self.cards_played:
+            raise ValueError("No cards played in trick")
+            
+        winner = self.cards_played[0][0]
+        winning_card = self.cards_played[0][1]
+        
+        for player, card in self.cards_played[1:]:
+            if self._card_beats(card, winning_card, trump_suit):
+                winner = player
+                winning_card = card
+                
+        return winner, winning_card
+    
+    def _card_beats(self, card1: Card, card2: Card, trump_suit: Optional[Suit]) -> bool:
+        """Determine if card1 beats card2."""
+        # Mark trump cards
+        is_trump1 = card1.suit == trump_suit
+        is_trump2 = card2.suit == trump_suit
+        
+        # Trump cards beat non-trump cards
+        if is_trump1 and not is_trump2:
+            return True
+        if not is_trump1 and is_trump2:
+            return False
+            
+        # If both are trump or both are non-trump, compare ranks
+        if is_trump1 == is_trump2:
+            return card1.rank.value > card2.rank.value
+            
+        # If one follows lead suit and other doesn't, lead suit wins
+        if self.lead_suit:
+            if card1.suit == self.lead_suit and card2.suit != self.lead_suit:
+                return True
+            if card2.suit == self.lead_suit and card1.suit != self.lead_suit:
+                return False
+                
+        # Same suit, compare ranks
+        if card1.suit == card2.suit:
+            return card1.rank.value > card2.rank.value
+            
+        # Different suits, neither trump, neither follows lead - first card wins
+        return False
 
 
 class PlayerType(Enum):

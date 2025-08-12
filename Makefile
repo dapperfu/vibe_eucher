@@ -1,4 +1,4 @@
-.PHONY: help venv install test run clean
+.PHONY: help venv install test run clean ai-game ncurses logged
 
 help: ## Show this help message
 	@echo "Available commands:"
@@ -16,6 +16,15 @@ test: install ## Run tests
 
 run: install ## Run the euchre game
 	venv/bin/python -m euchre.cli play
+
+ai-game: install ## Run AI vs AI euchre game with ncurses
+	venv/bin/python -m euchre.cli ai-vs-ai
+
+ncurses: install ## Run AI vs AI euchre game with ncurses interface
+	venv/bin/python -m euchre.cli ncurses
+
+logged: install ## Run AI vs AI euchre game with logging (no ncurses)
+	venv/bin/python -m euchre.cli logged-game
 
 clean: ## Clean up generated files
 	rm -rf venv/
