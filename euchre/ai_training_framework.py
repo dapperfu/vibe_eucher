@@ -253,7 +253,6 @@ class AITrainingFramework:
         """
         # Create game
         game = EuchreGame(
-            enable_logging=self.config.enable_logging,
             quiet_mode=self.config.quiet_mode
         )
         

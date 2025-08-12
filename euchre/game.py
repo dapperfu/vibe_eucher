@@ -22,13 +22,13 @@ import click
 class EuchreGame:
     """Main game controller for Euchre."""
     
-    def __init__(self, players: List[Player], quiet_mode: bool = False, verbose: bool = False, very_verbose: bool = False):
+    def __init__(self, players: List[Player] = None, quiet_mode: bool = False, verbose: bool = False, very_verbose: bool = False):
         """Initialize the Euchre game.
         
         Parameters
         ----------
-        players : List[Player]
-            List of players in the game
+        players : List[Player], optional
+            List of players in the game (can be added later)
         quiet_mode : bool
             If True, suppress most game output
         verbose : bool
@@ -36,7 +36,7 @@ class EuchreGame:
         very_verbose : bool
             Enable very verbose logging (DEBUG level)
         """
-        self.players = players
+        self.players = players or []
         self.quiet_mode = quiet_mode
         self.verbose = verbose
         self.very_verbose = very_verbose
@@ -55,12 +55,22 @@ class EuchreGame:
         self.current_trick: Optional[Trick] = None
         self.top_card: Optional[Card] = None
         self.trump_suit: Optional[Suit] = None
-        self.tricks_won = {player.name: 0 for player in players}
+        self.tricks_won = {}
         self.round_number = 1
         
         # Initialize dealer selection (will be done in start_new_game)
-        self.dealer_selection = DealerSelection(players)
+        self.dealer_selection = None
         self.dealer_selection_method = 'black_jack'  # Default method
+        
+        # Initialize game state
+        self.game_state = None
+        self.trump_caller = None
+        self.renege_count = 0
+        
+        # Initialize tricks_won if players are provided
+        if self.players:
+            self.tricks_won = {player.name: 0 for player in self.players}
+            self.dealer_selection = DealerSelection(self.players)
     
     def start_new_game(self) -> None:
         """Start a new game."""
@@ -625,3 +635,47 @@ class EuchreGame:
         if hasattr(self.logger, 'get_log_filename'):
             return self.logger.get_log_filename()
         return None
+    
+    def add_player(self, name: str, player_type: PlayerType) -> None:
+        """Add a player to the game.
+        
+        Parameters
+        ----------
+        name : str
+            The player's name
+        player_type : PlayerType
+            The type of player (Human or AI)
+        """
+        from .models import Player
+        player = Player(name, player_type)
+        self.players.append(player)
+        
+        # Update tricks_won dictionary
+        self.tricks_won[player.name] = 0
+        
+        # Initialize dealer selection if this is the 4th player
+        if len(self.players) == 4 and self.dealer_selection is None:
+            self.dealer_selection = DealerSelection(self.players)
+    
+    def add_ai_player(self, name: str, ai_type: str, risk_ratio: float = 0.5) -> None:
+        """Add an AI player to the game.
+        
+        Parameters
+        ----------
+        name : str
+            The player's name
+        ai_type : str
+            The AI type: "aggressive", "conservative", "balanced", "opportunistic"
+        risk_ratio : float
+            The risk ratio for the AI (0.0 = conservative, 1.0 = aggressive)
+        """
+        from .ai.ai_factory import AIFactory
+        player = AIFactory.create_ai_player(name, ai_type, risk_ratio)
+        self.players.append(player)
+        
+        # Update tricks_won dictionary
+        self.tricks_won[player.name] = 0
+        
+        # Initialize dealer selection if this is the 4th player
+        if len(self.players) == 4 and self.dealer_selection is None:
+            self.dealer_selection = DealerSelection(self.players)
