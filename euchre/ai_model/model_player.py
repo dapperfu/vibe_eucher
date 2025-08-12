@@ -126,8 +126,25 @@ class ModelPlayer(Player):
         ]
         features.extend(context_features)
         
-        # Convert to tensor
-        return torch.tensor(features, dtype=torch.float32, device=self.device).unsqueeze(0)
+        # Debug: check feature types
+        for i, feature in enumerate(features):
+            if not isinstance(feature, (int, float)):
+                print(f"Warning: Feature {i} is {type(feature)}: {feature}")
+        
+        # Convert to tensor - ensure device is properly handled
+        try:
+            # Convert device string to torch.device if needed
+            if isinstance(self.device, str):
+                device = torch.device(self.device)
+            else:
+                device = self.device
+            
+            return torch.tensor(features, dtype=torch.float32, device=device).unsqueeze(0)
+        except Exception as e:
+            print(f"Error creating tensor: {e}")
+            print(f"Device: {self.device}, Type: {type(self.device)}")
+            # Fallback to CPU if device fails
+            return torch.tensor(features, dtype=torch.float32).unsqueeze(0)
     
     def _encode_hand(self) -> List[float]:
         """Encode the player's hand as a feature vector."""
@@ -375,8 +392,25 @@ class ModelPlayer(Player):
         ]
         features.extend(context_features)
         
-        # Convert to tensor
-        return torch.tensor(features, dtype=torch.float32, device=self.device).unsqueeze(0)
+        # Debug: check feature types
+        for i, feature in enumerate(features):
+            if not isinstance(feature, (int, float)):
+                print(f"Warning: Decision feature {i} is {type(feature)}: {feature}")
+        
+        # Convert to tensor - ensure device is properly handled
+        try:
+            # Convert device string to torch.device if needed
+            if isinstance(self.device, str):
+                device = torch.device(self.device)
+            else:
+                device = self.device
+            
+            return torch.tensor(features, dtype=torch.float32, device=device).unsqueeze(0)
+        except Exception as e:
+            print(f"Error creating tensor: {e}")
+            print(f"Device: {self.device}, Type: {type(self.device)}")
+            # Fallback to CPU if device fails
+            return torch.tensor(features, dtype=torch.float32).unsqueeze(0)
     
     def _fallback_order_up_decision(self, top_card: Card) -> bool:
         """Fallback heuristic for trump ordering decision."""

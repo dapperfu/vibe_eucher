@@ -132,8 +132,18 @@ class EuchreNN(nn.Module):
         risk_vector = risk_params.get_risk_vector().unsqueeze(0).expand(batch_size, -1)
         risk_embedded = self.risk_embedding(risk_vector)
         
+        # Debug: check tensor types and shapes
+        print(f"Input tensor x: shape={x.shape}, dtype={x.dtype}")
+        print(f"Risk embedded: shape={risk_embedded.shape}, dtype={risk_embedded.dtype}")
+        
         # Concatenate input features with risk embeddings
-        combined_input = torch.cat([x, risk_embedded], dim=1)
+        try:
+            combined_input = torch.cat([x, risk_embedded], dim=1)
+        except Exception as e:
+            print(f"Error in torch.cat: {e}")
+            print(f"x content sample: {x[0, :5] if x.numel() > 0 else 'empty'}")
+            print(f"risk_embedded content sample: {risk_embedded[0, :5] if risk_embedded.numel() > 0 else 'empty'}")
+            raise
         
         # Main network forward pass
         h1 = F.relu(self.input_layer(combined_input))

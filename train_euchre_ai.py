@@ -9,7 +9,7 @@ import os
 import logging
 from pathlib import Path
 
-from euchre.ai_model import EuchreNeuralNetwork, TrainingPipeline, ModelEvaluator
+from euchre.ai_model import EuchreNN, TrainingPipeline, ModelEvaluator
 
 
 def setup_logging(log_level: str = "INFO") -> None:
@@ -52,7 +52,7 @@ def main():
     
     # Create model
     logger.info("Creating neural network model...")
-    model = EuchreNeuralNetwork(
+    model = EuchreNN(
         input_size=128,
         hidden_size=args.hidden_size,
         num_layers=args.num_layers,
