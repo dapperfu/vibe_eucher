@@ -35,6 +35,8 @@ Euchre is a trick-taking card game played with a deck of 24 cards (9, 10, J, Q, 
 
 ### Setup
 
+#### Method 1: Traditional Installation (Recommended for Development)
+
 1. **Clone the repository**:
    ```bash
    git clone <repository-url>
@@ -53,10 +55,33 @@ Euchre is a trick-taking card game played with a deck of 24 cards (9, 10, J, Q, 
    pip install -r requirements.txt
    ```
 
+#### Method 2: Pip Installation (Recommended for End Users)
+
+1. **Clone the repository**:
+   ```bash
+   git clone <repository-url>
+   cd vibe_eucher
+   ```
+
+2. **Install the package with pip**:
+   ```bash
+   make install-pip
+   ```
+
+   Or manually:
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   pip install -e .
+   ```
+
+   This method installs the `euchre` command directly to your PATH, making it available as a system command.
+
 ## Usage
 
 ### Quick Start
 
+#### With Traditional Installation
 Start a new game with default settings:
 ```bash
 make run
@@ -65,6 +90,12 @@ make run
 Or manually:
 ```bash
 venv/bin/python -m euchre.cli play
+```
+
+#### With Pip Installation
+Start a new game directly:
+```bash
+euchre play
 ```
 
 ### Available Commands
@@ -128,14 +159,20 @@ vibe_eucher/
 ### Development Commands
 
 ```bash
-# Set up development environment
+# Set up development environment (traditional method)
 make install
+
+# Set up development environment (pip method)
+make install-pip
 
 # Run tests
 make test
 
-# Run the game
+# Run the game (traditional method)
 make run
+
+# Run the game (pip method)
+euchre play
 
 # Clean up
 make clean
@@ -197,6 +234,10 @@ No environment variables are required for basic operation.
 3. **Permission errors**
    - Make sure you have write permissions in the project directory
 
+4. **"euchre command not found"**
+   - If using pip installation, ensure the virtual environment is activated
+   - Try running `which euchre` to verify the command location
+
 ### Getting Help
 
 - Run `euchre --help` for command-line help
@@ -228,4 +269,6 @@ This project is open source. See the LICENSE file for details.
   - Player class implementation
   - Basic AI opponents
   - CLI interface
-  - Core game mechanics 
+  - Core game mechanics
+  - Pip installation support
+  - Command-line tool in PATH 

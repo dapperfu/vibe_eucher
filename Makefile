@@ -1,4 +1,4 @@
-.PHONY: help venv install test run clean train-ai evaluate-ai ai-game ncurses logged profiles mass-games analyze cleanup jupyter jupyter-lab train-self-play train-integer-vs-float generate-profiles generate-profiles-cpu generate-profiles-gpu list-players play-trained tournament benchmark neural-tournament neural-analysis list-neural-models
+.PHONY: help venv install install-pip test run clean train-ai evaluate-ai ai-game ncurses logged profiles mass-games analyze cleanup jupyter jupyter-lab train-self-play train-integer-vs-float generate-profiles generate-profiles-cpu generate-profiles-gpu list-players play-trained tournament benchmark neural-tournament neural-analysis list-neural-models
 
 help: ## Show this help message
 	@echo "Available commands:"
@@ -7,9 +7,13 @@ help: ## Show this help message
 venv: ## Create virtual environment
 	python3 -m venv venv
 
-install: venv ## Install dependencies
+install: venv ## Install dependencies (traditional method)
 	venv/bin/pip install --upgrade pip
 	venv/bin/pip install -r requirements.txt
+
+install-pip: venv ## Install package with pip (editable mode)
+	venv/bin/pip install --upgrade pip
+	venv/bin/pip install -e .
 
 test: install ## Run tests
 	venv/bin/pytest tests/ -v
