@@ -8,9 +8,15 @@ from ..ai.ai_profiles import AggressiveAI, ConservativeAI, BalancedAI, Opportuni
 class TrumpSelectionManager:
     """Manages trump selection during the game."""
     
-    def __init__(self) -> None:
-        """Initialize the trump selection manager."""
-        pass
+    def __init__(self, logger=None) -> None:
+        """Initialize the trump selection manager.
+        
+        Parameters
+        ----------
+        logger : Optional
+            Logger instance for verbose output
+        """
+        self.logger = logger
     
     def select_trump_suit(self, players: List[Player], top_card: Card, dealer: Player) -> Tuple[Optional[Suit], Optional[Player]]:
         """Handle trump selection for a round.
@@ -36,7 +42,9 @@ class TrumpSelectionManager:
             return trump_suit, caller
         
         # Second round: dealer picks suit if no one ordered up
-        trump_suit = self._dealer_suit_selection(dealer, top_card)
+        if self.logger:
+            self.logger.info("No one ordered up. Second round begins.")
+        trump_suit = self._second_round_selection(players, dealer, top_card)
         return trump_suit, dealer
     
     def _first_round_selection(self, players: List[Player], top_card: Card, dealer: Player) -> Tuple[Optional[Suit], Optional[Player]]:
@@ -66,12 +74,68 @@ class TrumpSelectionManager:
             
             if player.player_type.name == "AI":
                 if self._ai_should_order_up(player, top_card, player_index == dealer_index):
+                    if self.logger:
+                        self.logger.info(f"{player.name} orders it picked up.")
                     return top_card.suit, player
+                else:
+                    if self.logger:
+                        self.logger.info(f"{player.name} passes")
             else:
                 # Human player - would prompt here
-                pass
+                if self.logger:
+                    self.logger.info(f"{player.name} passes")
         
         return None, None
+    
+    def _second_round_selection(self, players: List[Player], dealer: Player, top_card: Card) -> Suit:
+        """Handle second round of trump selection.
+        
+        Parameters
+        ----------
+        players : List[Player]
+            List of players in the game
+        top_card : Card
+            The top card that was flipped up
+        dealer : Player
+            The current dealer
+            
+        Returns
+        -------
+        Suit
+            The suit selected by the dealer
+        """
+        # Start with the player to the left of the dealer
+        dealer_index = players.index(dealer)
+        start_index = (dealer_index + 1) % 4
+        
+        for i in range(4):
+            player_index = (start_index + i) % 4
+            player = players[player_index]
+            
+            if player.player_type.name == "AI":
+                # AI players can call any suit as trump
+                if hasattr(player, 'should_call_trump'):
+                    trump_suit = player.should_call_trump(top_card)
+                    if trump_suit:
+                        if self.logger:
+                            self.logger.info(f"{player.name} orders {trump_suit.name}.")
+                        return trump_suit
+                
+                # Fallback: pass
+                if self.logger:
+                    self.logger.info(f"{player.name} passes")
+            else:
+                # Human player - would prompt here
+                if self.logger:
+                    self.logger.info(f"{player.name} passes")
+        
+        # If no one calls, dealer must pick
+        if self.logger:
+            self.logger.info(f"{dealer.name} must pick a suit.")
+        trump_suit = self._dealer_suit_selection(dealer, top_card)
+        if self.logger:
+            self.logger.info(f"{dealer.name} picks {trump_suit.name}.")
+        return trump_suit
     
     def _ai_should_order_up(self, player: Player, top_card: Card, is_dealer: bool) -> bool:
         """Determine if an AI player should order up the top card.
