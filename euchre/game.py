@@ -311,15 +311,26 @@ class EuchreGame:
         self.current_trick = self.trick_manager.get_current_trick()
         
         # Determine starting player (first trick: player after dealer, subsequent tricks: winner of previous trick)
-        if not self.current_trick or self.current_trick.is_complete():
+        if trick_number == 1:
             # First trick of the round
             dealer_index = next(i for i, p in enumerate(self.players) if p.name == self.game_state_manager.get_dealer().name)
             current_player_index = (dealer_index + 1) % 4
             self.logger.info(f"First trick - starting with {self.players[current_player_index].name}")
         else:
             # Subsequent tricks: winner of previous trick goes first
-            current_player_index = self.players.index(self.current_trick.winner)
-            self.logger.info(f"Starting trick with {self.players[current_player_index].name} (winner of previous trick)")
+            # Find the player with the most tricks won so far
+            max_tricks = max(self.tricks_won.values())
+            winners = [name for name, count in self.tricks_won.items() if count == max_tricks]
+            if winners:
+                # If multiple players have the same number of tricks, use the first one
+                winner_name = winners[0]
+                current_player_index = next(i for i, p in enumerate(self.players) if p.name == winner_name)
+                self.logger.info(f"Starting trick with {self.players[current_player_index].name} (winner of previous trick)")
+            else:
+                # Fallback to player after dealer
+                dealer_index = next(i for i, p in enumerate(self.players) if p.name == self.game_state_manager.get_dealer().name)
+                current_player_index = (dealer_index + 1) % 4
+                self.logger.info(f"Fallback - starting with {self.players[current_player_index].name}")
         
         # Play cards for this trick
         for _ in range(4):
