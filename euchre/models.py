@@ -119,9 +119,9 @@ class Trick:
     
     def _card_beats(self, card1: Card, card2: Card, trump_suit: Optional[Suit]) -> bool:
         """Determine if card1 beats card2."""
-        # Mark trump cards
-        is_trump1 = card1.suit == trump_suit
-        is_trump2 = card2.suit == trump_suit
+        # Check if cards are trump (including left bower)
+        is_trump1 = self._is_trump_card(card1, trump_suit)
+        is_trump2 = self._is_trump_card(card2, trump_suit)
         
         # Trump cards beat non-trump cards
         if is_trump1 and not is_trump2:
@@ -146,6 +146,26 @@ class Trick:
             
         # Different suits, neither trump, neither follows lead - first card wins
         return False
+    
+    def _is_trump_card(self, card: Card, trump_suit: Optional[Suit]) -> bool:
+        """Check if a card is a trump card (including left bower)."""
+        if not trump_suit:
+            return False
+            
+        # Right bower (jack of trump suit)
+        if card.rank == Rank.JACK and card.suit == trump_suit:
+            return True
+            
+        # Left bower (jack of same color as trump)
+        if card.rank == Rank.JACK:
+            if (trump_suit == Suit.HEARTS and card.suit == Suit.DIAMONDS) or \
+               (trump_suit == Suit.DIAMONDS and card.suit == Suit.HEARTS) or \
+               (trump_suit == Suit.CLUBS and card.suit == Suit.SPADES) or \
+               (trump_suit == Suit.SPADES and card.suit == Suit.CLUBS):
+                return True
+                
+        # Regular trump suit cards
+        return card.suit == trump_suit
 
 
 class PlayerType(Enum):
