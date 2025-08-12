@@ -73,6 +73,29 @@ class EuchreGame:
         player = Player(name=name, player_type=player_type)
         self.players.append(player)
         
+    def add_model_player(self, name: str, model, device, risk_profile: str = "balanced") -> None:
+        """Add a trained AI model player to the game.
+        
+        Parameters
+        ----------
+        name : str
+            The player's name
+        model : torch.nn.Module
+            The trained PyTorch model
+        device : torch.device
+            Device the model is running on
+        risk_profile : str
+            Risk profile for the model player
+        """
+        from .ai_model.model_player import ModelPlayer
+        player = ModelPlayer(name=name, model=model, device=device, risk_profile=risk_profile)
+        self.players.append(player)
+        
+        # Update game state to track model players
+        if not hasattr(self, 'model_players'):
+            self.model_players = []
+        self.model_players.append(player)
+        
     def start_new_game(self) -> None:
         """Start a new game with the current players."""
         if len(self.players) != 4:
@@ -334,6 +357,12 @@ class EuchreGame:
         # Score the round
         self._score_round()
         
+        # Update model players' game context
+        if hasattr(self, 'model_players'):
+            # Check if team was set
+            was_set = any(player.tricks_won == 0 for player in self.players)
+            self._update_model_players_context(self.game_state.round_number, was_set)
+        
         # Increment round number
         if self.game_state:
             self.game_state.round_number += 1
@@ -525,6 +554,26 @@ class EuchreGame:
             The log filename, or None if logging is disabled
         """
         return self.logger.get_log_filename() if self.logger else None
+
+    def _update_model_players_context(self, round_num: int, was_set: bool = False):
+        """Update game context for all model players."""
+        if hasattr(self, 'model_players'):
+            for player in self.model_players:
+                if hasattr(player, 'update_game_context'):
+                    # Determine team scores
+                    if player.name in ['North', 'South']:
+                        team_score = self.game_state.team1_score
+                        opponent_score = self.game_state.team2_score
+                    else:
+                        team_score = self.game_state.team2_score
+                        opponent_score = self.game_state.team1_score
+                    
+                    player.update_game_context(
+                        team_score=team_score,
+                        opponent_score=opponent_score,
+                        current_round=round_num,
+                        was_set=was_set
+                    )
 
 
 class AIPlayer:
