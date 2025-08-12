@@ -9,7 +9,12 @@ import os
 import logging
 from pathlib import Path
 
-from euchre.ai_model import EuchreNN, TrainingPipeline, ModelEvaluator
+from euchre.ai_model import EuchreNN, TrainingPipeline
+from euchre.ai_model.model_evaluator import ModelEvaluator
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 
 def setup_logging(log_level: str = "INFO") -> None:

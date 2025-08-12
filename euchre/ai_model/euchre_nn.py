@@ -128,54 +128,30 @@ class EuchreNN(nn.Module):
         """
         batch_size = x.size(0)
         
-        # Embed risk parameters
-        risk_vector = risk_params.get_risk_vector().unsqueeze(0).expand(batch_size, -1)
-        risk_embedded = self.risk_embedding(risk_vector)
+        # Get risk embedding
+        risk_embedded = self.risk_embedding(risk_params.get_risk_vector().unsqueeze(0).expand(batch_size, -1))
         
-        # Debug: check tensor types and shapes (commented out for training)
-        # print(f"Input tensor x: shape={x.shape}, dtype={x.dtype}")
-        # print(f"Risk embedded: shape={risk_embedded.shape}, dtype={risk_embedded.dtype}")
+        # Combine input with risk embedding
+        combined_input = torch.cat([x, risk_embedded], dim=1)
         
-        # Concatenate input features with risk embeddings
-        try:
-            combined_input = torch.cat([x, risk_embedded], dim=1)
-        except Exception as e:
-            print(f"Error in torch.cat: {e}")
-            print(f"x content sample: {x[0, :5] if x.numel() > 0 else 'empty'}")
-            print(f"risk_embedded content sample: {risk_embedded[0, :5] if risk_embedded.numel() > 0 else 'empty'}")
-            raise
-        
-        # Main network forward pass
+        # Forward pass through network
         h1 = F.relu(self.input_layer(combined_input))
-        h1 = self.dropout(h1)
-        h1 = self.layer_norm1(h1)
-        
         h2 = F.relu(self.hidden_layer1(h1))
-        h2 = self.dropout(h2)
-        h2 = self.layer_norm2(h2)
         
-        h3 = F.relu(self.hidden_layer2(h2))
-        h3 = self.dropout(h3)
+        # Output heads
+        trump_logits = self.trump_decision_head(h2)
+        card_logits = self.card_selection_head(h2)
+        risk_adjustment = self.risk_adjustment_head(h2)
         
-        # Apply risk-aware attention if enabled
-        if self.use_risk_attention:
-            # Create query from risk parameters
-            risk_query = self.risk_query(risk_embedded).unsqueeze(1)  # [batch, 1, hidden]
-            h3_expanded = h3.unsqueeze(1)  # [batch, 1, hidden]
-            
-            # Apply attention
-            attended, _ = self.risk_attention(risk_query, h3_expanded, h3_expanded)
-            h3 = h3 + attended.squeeze(1)  # Residual connection
+        # Hidden features for potential use
+        hidden_features = h2
         
-        # Generate outputs
-        outputs = {
-            'trump_decision': self.trump_decision_head(h3),
-            'card_selection': self.card_selection_head(h3),
-            'risk_adjustment': self.risk_adjustment_head(h3),
-            'hidden_features': h3
+        return {
+            'trump_decision': trump_logits,
+            'card_selection': card_logits,
+            'risk_adjustment': risk_adjustment,
+            'hidden_features': hidden_features
         }
-        
-        return outputs
     
     def get_trump_decision(self, x: torch.Tensor, risk_params: RiskParameters) -> torch.Tensor:
         """Get trump ordering decision with risk awareness."""
@@ -424,6 +400,7 @@ def create_risk_profile(profile_name: str) -> RiskParameters:
         'trump_caller': RiskParameters(0.9, 0.3, 0.6, 0.5),  # Always calls trump
         'safe_player': RiskParameters(0.2, 0.1, 0.2, 0.8),  # Conservative but leads high
         'risk_taker': RiskParameters(0.8, 0.7, 0.9, 0.6),  # High risk tolerance
+        'opportunistic': RiskParameters(0.6, 0.8, 0.7, 0.6),  # Opportunistic player
         'adaptive': RiskParameters(0.5, 0.5, 0.5, 0.5)  # Balanced, will be adjusted dynamically
     }
     

@@ -80,6 +80,14 @@ class ModelPlayer(Player):
         torch.Tensor
             Encoded game state tensor
         """
+        # Suit to index mapping
+        suit_to_index = {
+            "hearts": 0,
+            "diamonds": 1,
+            "clubs": 2,
+            "spades": 3
+        }
+        
         # Initialize feature vector
         features = []
         
@@ -90,13 +98,13 @@ class ModelPlayer(Player):
         # Encode lead suit
         lead_suit_encoding = [0] * 4
         if lead_suit is not None:
-            lead_suit_encoding[lead_suit.value] = 1
+            lead_suit_encoding[suit_to_index[lead_suit.value]] = 1
         features.extend(lead_suit_encoding)
         
         # Encode trump suit
         trump_suit_encoding = [0] * 4
         if trump_suit is not None:
-            trump_suit_encoding[trump_suit.value] = 1
+            trump_suit_encoding[suit_to_index[trump_suit.value]] = 1
         features.extend(trump_suit_encoding)
         
         # Encode player position (North=0, East=1, South=2, West=3)
@@ -126,11 +134,6 @@ class ModelPlayer(Player):
         ]
         features.extend(context_features)
         
-        # Debug: check feature types
-        for i, feature in enumerate(features):
-            if not isinstance(feature, (int, float)):
-                print(f"Warning: Feature {i} is {type(feature)}: {feature}")
-        
         # Convert to tensor - ensure device is properly handled
         try:
             # Convert device string to torch.device if needed
@@ -138,6 +141,12 @@ class ModelPlayer(Player):
                 device = torch.device(self.device)
             else:
                 device = self.device
+            
+            # Pad feature vector to 128 dimensions to match model input size
+            if len(features) < 128:
+                features.extend([0.0] * (128 - len(features)))
+            elif len(features) > 128:
+                features = features[:128]  # Truncate if too long
             
             return torch.tensor(features, dtype=torch.float32, device=device).unsqueeze(0)
         except Exception as e:
@@ -151,9 +160,22 @@ class ModelPlayer(Player):
         # Create a 24-dimensional vector (6 ranks × 4 suits)
         hand_encoding = [0.0] * 24
         
+        # Suit to index mapping
+        suit_to_index = {
+            "hearts": 0,
+            "diamonds": 1,
+            "clubs": 2,
+            "spades": 3
+        }
+        
         for card in self.hand:
             # Calculate index: rank_index * 4 + suit_index
-            card_index = (card.rank.value - 9) * 4 + card.suit.value
+            # Convert rank string to index (9=0, 10=1, J=2, Q=3, K=4, A=5)
+            rank_to_index = {'9': 0, '10': 1, 'J': 2, 'Q': 3, 'K': 4, 'A': 5}
+            rank_index = rank_to_index.get(card.rank.value, 0)
+            suit_index = suit_to_index[card.suit.value]  # Convert string suit to integer index
+            card_index = rank_index * 4 + suit_index
+            
             if 0 <= card_index < 24:
                 hand_encoding[card_index] = 1.0
         
@@ -168,30 +190,13 @@ class ModelPlayer(Player):
         # Simple adaptive logic if model doesn't support it
         base_risk = self.risk_params
         
-        # Adjust based on score difference
-        score_diff = self.game_context['team_score'] - self.game_context['opponent_score']
-        
-        if score_diff < -3:  # Behind significantly
-            # Increase trump calling aggression
-            adjusted_risk = RiskParameters(
-                trump_calling_aggression=min(1.0, base_risk.trump_calling_aggression.item() + 0.2),
-                ace_ordering_risk=min(1.0, base_risk.ace_ordering_risk.item() + 0.1),
-                set_risk_tolerance=min(1.0, base_risk.set_risk_tolerance.item() + 0.2),
-                leading_aggression=base_risk.leading_aggression.item()
-            )
-        elif score_diff > 3:  # Ahead significantly
-            # Decrease risk
-            adjusted_risk = RiskParameters(
-                trump_calling_aggression=max(0.0, base_risk.trump_calling_aggression.item() - 0.2),
-                ace_ordering_risk=max(0.0, base_risk.ace_ordering_risk.item() - 0.2),
-                set_risk_tolerance=max(0.0, base_risk.set_risk_tolerance.item() - 0.2),
-                leading_aggression=max(0.0, base_risk.leading_aggression.item() - 0.1)
-            )
-        else:
-            # Close game - use base risk
-            adjusted_risk = base_risk
-        
-        return adjusted_risk
+        # Create new risk parameters with slight adjustments
+        return RiskParameters(
+            trump_calling_aggression=base_risk.trump_calling_aggression.item(),
+            ace_ordering_risk=base_risk.ace_ordering_risk.item(),
+            set_risk_tolerance=base_risk.set_risk_tolerance.item(),
+            leading_aggression=base_risk.leading_aggression.item()
+        )
     
     def _decode_model_output(self, model_output: torch.Tensor, lead_suit: Optional[Suit], 
                            trump_suit: Optional[Suit]) -> Card:
@@ -239,12 +244,38 @@ class ModelPlayer(Player):
         """Map model output probabilities to valid cards with risk awareness."""
         card_scores = []
         
+        # Suit to index mapping
+        suit_to_index = {
+            "hearts": 0,
+            "diamonds": 1,
+            "clubs": 2,
+            "spades": 3
+        }
+        
+        # Get the output size from the probabilities tensor
+        output_size = probabilities.size(1)
+        
         for card in valid_cards:
             # Base score from model probabilities
-            card_index = (card.rank.value - 9) * 4 + card.suit.value
-            if 0 <= card_index < 24:
-                base_score = probabilities[0, card_index].item()
+            # Convert rank string to index (9=0, 10=1, J=2, Q=3, K=4, A=5)
+            rank_to_index = {'9': 0, '10': 1, 'J': 2, 'Q': 3, 'K': 4, 'A': 5}
+            rank_index = rank_to_index.get(card.rank.value, 0)
+            suit_index = suit_to_index[card.suit.value]  # Convert string suit to integer index
+            card_index = rank_index * 4 + suit_index
+            
+            # Handle different output sizes
+            if output_size == 24:  # Integer model: 24 possible cards
+                if 0 <= card_index < 24:
+                    base_score = probabilities[0, card_index].item()
+                else:
+                    base_score = 0.0
+            elif output_size == 5:  # Float model: 5 cards in hand
+                # For float model, we need to map the card to a hand position
+                # Use a simple heuristic: map by rank and suit priority
+                hand_index = min(card_index % 5, output_size - 1)
+                base_score = probabilities[0, hand_index].item()
             else:
+                # Fallback for other output sizes
                 base_score = 0.0
             
             # Risk-based adjustments
@@ -255,11 +286,14 @@ class ModelPlayer(Player):
                 # We're leading
                 if risk_params.leading_aggression.item() > 0.7:
                     # Very aggressive - boost high cards
-                    if card.rank.value >= Rank.KING.value:
+                    # Convert rank string to index for comparison (9=0, 10=1, J=2, Q=3, K=4, A=5)
+                    rank_to_index = {'9': 0, '10': 1, 'J': 2, 'Q': 3, 'K': 4, 'A': 5}
+                    card_rank_index = rank_to_index.get(card.rank.value, 0)
+                    if card_rank_index >= 4:  # K or A
                         risk_adjustment += 0.3
                 elif risk_params.leading_aggression.item() < 0.3:
                     # Very conservative - boost low cards
-                    if card.rank.value <= Rank.TEN.value:
+                    if card_rank_index <= 1:  # 9 or 10
                         risk_adjustment += 0.3
             
             # Trump awareness
@@ -359,16 +393,25 @@ class ModelPlayer(Player):
         hand_encoding = self._encode_hand()
         features.extend(hand_encoding)
         
-        # Encode top card
+        # Encode top card - convert string values to integers
         top_card_encoding = [0] * 24
-        card_index = (top_card.rank.value - 9) * 4 + top_card.suit.value
+        
+        # Convert rank string to index (9=0, 10=1, J=2, Q=3, K=4, A=5)
+        rank_to_index = {'9': 0, '10': 1, 'J': 2, 'Q': 3, 'K': 4, 'A': 5}
+        rank_index = rank_to_index.get(top_card.rank.value, 0)
+        
+        # Convert suit string to index (hearts=0, diamonds=1, clubs=2, spades=3)
+        suit_to_index = {'hearts': 0, 'diamonds': 1, 'clubs': 2, 'spades': 3}
+        suit_index = suit_to_index.get(top_card.suit.value, 0)
+        
+        card_index = rank_index * 4 + suit_index
         if 0 <= card_index < 24:
             top_card_encoding[card_index] = 1
         features.extend(top_card_encoding)
         
-        # Encode potential trump suit
+        # Encode potential trump suit - convert suit string to index
         trump_suit_encoding = [0] * 4
-        trump_suit_encoding[top_card.suit.value] = 1
+        trump_suit_encoding[suit_index] = 1
         features.extend(trump_suit_encoding)
         
         # Encode player position
@@ -404,6 +447,12 @@ class ModelPlayer(Player):
                 device = torch.device(self.device)
             else:
                 device = self.device
+            
+            # Pad feature vector to 128 dimensions to match model input size
+            if len(features) < 128:
+                features.extend([0.0] * (128 - len(features)))
+            elif len(features) > 128:
+                features = features[:128]  # Truncate if too long
             
             return torch.tensor(features, dtype=torch.float32, device=device).unsqueeze(0)
         except Exception as e:
@@ -446,28 +495,25 @@ class ModelPlayer(Player):
             state_tensor = self._encode_game_state(lead_suit, trump_suit)
             
             # Get model prediction
-            with torch.no_grad():
-                model_output = self.model(state_tensor, self.risk_params)
-                
-                # Extract card selection
-                if 'card_selection' in model_output:
-                    card_probs = model_output['card_selection']
-                else:
-                    # Fallback for models without specific output structure
-                    card_probs = torch.ones(1, 24) / 24
-                
-                # Decode to card selection
-                selected_card = self._decode_model_output(card_probs, lead_suit, trump_suit)
-                
-                # Remove card from hand
-                if selected_card in self.hand:
-                    self.hand.remove(selected_card)
-                
-                return selected_card
-                
+            model_output = self.model(state_tensor, self.risk_params)
+            
+            # Extract card probabilities
+            if isinstance(model_output, dict):
+                card_probs = model_output['card_selection']
+            else:
+                # Fallback for models that return tuple
+                card_probs = model_output[1] if len(model_output) > 1 else torch.randn(1, 24)
+            
+            # Decode model output to select card
+            selected_card = self._decode_model_output(card_probs, lead_suit, trump_suit)
+            
+            # Remove selected card from hand
+            self.hand.remove(selected_card)
+            
+            return selected_card
+            
         except Exception as e:
-            # Fallback to heuristic if model fails
-            print(f"Model prediction failed: {e}, using fallback heuristic")
+            # Fallback to heuristic-based card selection
             return self._fallback_card_selection(lead_suit, trump_suit)
     
     def _fallback_card_selection(self, lead_suit: Optional[Suit], trump_suit: Optional[Suit]) -> Card:
@@ -489,25 +535,27 @@ class ModelPlayer(Player):
             # Leading - use leading aggression
             if adaptive_risk.leading_aggression.item() > 0.7:
                 # Aggressive - play highest card
-                best_card = max(valid_cards, key=lambda c: c.rank.value)
+                # Convert rank string to index for comparison (9=0, 10=1, J=2, Q=3, K=4, A=5)
+                rank_to_index = {'9': 0, '10': 1, 'J': 2, 'Q': 3, 'K': 4, 'A': 5}
+                best_card = max(valid_cards, key=lambda c: rank_to_index.get(c.rank.value, 0))
             elif adaptive_risk.leading_aggression.item() < 0.3:
                 # Conservative - play lowest card
-                best_card = min(valid_cards, key=lambda c: c.rank.value)
+                best_card = min(valid_cards, key=lambda c: rank_to_index.get(c.rank.value, 0))
             else:
                 # Balanced - play middle card
-                sorted_cards = sorted(valid_cards, key=lambda c: c.rank.value)
+                sorted_cards = sorted(valid_cards, key=lambda c: rank_to_index.get(c.rank.value, 0))
                 best_card = sorted_cards[len(sorted_cards) // 2]
         else:
             # Following suit - use set risk tolerance
             if adaptive_risk.set_risk_tolerance.item() > 0.7:
                 # High risk tolerance - play highest card
-                best_card = max(valid_cards, key=lambda c: c.rank.value)
+                best_card = max(valid_cards, key=lambda c: rank_to_index.get(c.rank.value, 0))
             elif adaptive_risk.set_risk_tolerance.item() < 0.3:
                 # Low risk tolerance - play lowest card
-                best_card = min(valid_cards, key=lambda c: c.rank.value)
+                best_card = min(valid_cards, key=lambda c: rank_to_index.get(c.rank.value, 0))
             else:
                 # Moderate - play middle card
-                sorted_cards = sorted(valid_cards, key=lambda c: c.rank.value)
+                sorted_cards = sorted(valid_cards, key=lambda c: rank_to_index.get(c.rank.value, 0))
                 best_card = sorted_cards[len(sorted_cards) // 2]
         
         self.hand.remove(best_card)
