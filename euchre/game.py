@@ -113,7 +113,6 @@ class EuchreGame:
         
         # Set the top card
         self.top_card = self.deck.draw_top_card()
-        self.logger.info(f"Top card: {self.top_card.unicode_str()}")
         self.logger.debug(f"Top card: {self.top_card}")
         
         # Debug: Verify all players have cards after dealing
@@ -123,6 +122,10 @@ class EuchreGame:
     
     def _start_new_round(self) -> None:
         """Start a new round of the game."""
+        # Rotate dealer for new rounds (but not the first round)
+        if self.round_number > 1:
+            self.game_state_manager.start_new_round()
+        
         self.logger.info(f"\n=== Starting Round {self.round_number} ===")
         self.logger.debug("Player hands at start of round:")
         for player in self.players:
