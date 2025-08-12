@@ -12,13 +12,15 @@ from .ai_profiles import AggressiveAI, ConservativeAI, BalancedAI, Opportunistic
 class EuchreGame:
     """Main euchre game controller."""
     
-    def __init__(self, enable_logging: bool = True) -> None:
+    def __init__(self, enable_logging: bool = True, quiet_mode: bool = False) -> None:
         """Initialize a new euchre game.
         
         Parameters
         ----------
         enable_logging : bool
             Whether to enable game logging to file
+        quiet_mode : bool
+            Whether to suppress console output (useful for training)
         """
         self.players: List[Player] = []
         self.game_state: Optional[GameState] = None
@@ -29,6 +31,7 @@ class EuchreGame:
         self.logger: Optional[GameLogger] = None
         self.trump_caller: Optional[Player] = None  # Track who called trump
         self.trump_caller_team: Optional[int] = None  # Track which team called trump
+        self.quiet_mode = quiet_mode
         
         if enable_logging:
             self.logger = GameLogger()
@@ -212,11 +215,12 @@ class EuchreGame:
                 self.trump_caller_team = (self.game_state.dealer_index % 2)  # 0 = team 1, 1 = team 2
                 bidding_log.append(f"{dealer.name} (dealer) calls {chosen_suit.value}")
                 
-        # Print the bidding process to console
-        print(f"\nTrump Selection:")
-        for bid in bidding_log:
-            print(f"  {bid}")
-        print(f"Trump suit: {self.game_state.trump_suit.value}")
+        # Print the bidding process to console (unless in quiet mode)
+        if not self.quiet_mode:
+            print(f"\nTrump Selection:")
+            for bid in bidding_log:
+                print(f"  {bid}")
+            print(f"Trump suit: {self.game_state.trump_suit.value}")
             
         # Mark trump cards
         self._mark_trump_cards()
