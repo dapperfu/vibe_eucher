@@ -87,12 +87,12 @@ class EuchreGame:
         self.logger.info(f"Dealer: {dealer.name}")
         self.logger.info("Initial hands:")
         for player in self.players:
-            self.logger.info(f"{player.name}: {[str(card) for card in player.hand]}")
+            self.logger.info(f"{player.name}: {[card.unicode_str() for card in player.hand]}")
         
         self.logger.debug("After dealing cards")
         self.logger.debug("Player hands after dealing:")
         for player in self.players:
-            self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+            self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
         
         # Reset round number
         self.round_number = 1
@@ -113,7 +113,7 @@ class EuchreGame:
         
         # Set the top card
         self.top_card = self.deck.draw_top_card()
-        self.logger.info(f"Top card: {self.top_card}")
+        self.logger.info(f"Top card: {self.top_card.unicode_str()}")
         self.logger.debug(f"Top card: {self.top_card}")
         
         # Debug: Verify all players have cards after dealing
@@ -126,7 +126,7 @@ class EuchreGame:
         self.logger.info(f"\n=== Starting Round {self.round_number} ===")
         self.logger.debug("Player hands at start of round:")
         for player in self.players:
-            self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+            self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
         
         # Reset round state
         self.current_trick = None
@@ -176,13 +176,13 @@ class EuchreGame:
             self.logger.info(f"\n--- Trick {trick_number} ---")
             self.logger.debug("Before starting trick - Player hands:")
             for player in self.players:
-                self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+                self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
             
             self._play_trick(trick_number)
             
             self.logger.debug("After completing trick - Player hands:")
             for player in self.players:
-                self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+                self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
         
         # Score the round
         # Determine which team called trump
@@ -242,7 +242,7 @@ class EuchreGame:
         self.logger.debug("After start_new_game")
         self.logger.debug("Player hands:")
         for player in self.players:
-            self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+            self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
         
         # Start the first round
         self._start_new_round()
@@ -250,7 +250,7 @@ class EuchreGame:
         self.logger.debug("After _start_new_round")
         self.logger.debug("Player hands:")
         for player in self.players:
-            self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+            self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
         
         # Continue rounds until game is over
         while not self.scoring_manager.is_game_over(self.players):
@@ -258,7 +258,7 @@ class EuchreGame:
             self.logger.info(f"Starting round {self.round_number}")
             self.logger.debug("Player hands before new round:")
             for player in self.players:
-                self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+                self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
             
             # Start new round
             self._start_new_round()
@@ -266,7 +266,7 @@ class EuchreGame:
             self.logger.info(f"Completed round {self.round_number}")
             self.logger.debug("Player hands after round:")
             for player in self.players:
-                self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+                self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
         
         # Game is over
         self.logger.info("Game over")
@@ -304,7 +304,7 @@ class EuchreGame:
         self.logger.debug("Starting new trick")
         self.logger.debug("Player hands at start of trick:")
         for player in self.players:
-            self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+            self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
         
         # Start new trick
         self.trick_manager.start_new_trick()
@@ -337,7 +337,7 @@ class EuchreGame:
             current_player = self.players[current_player_index]
             
             self.logger.debug(f"Current player: {current_player.name} (id: {id(current_player)})")
-            self.logger.debug(f"{current_player.name} hand before playing: {len(current_player.hand)} cards: {[str(card) for card in current_player.hand]}")
+            self.logger.debug(f"{current_player.name} hand before playing: {len(current_player.hand)} cards: {[card.unicode_str() for card in current_player.hand]}")
             
             # Get card to play
             if current_player.player_type == PlayerType.AI:
@@ -346,18 +346,18 @@ class EuchreGame:
                 card = self._human_play_card(current_player, trick_number)
             
             self.logger.debug(f"{current_player.name} played: {card}")
-            self.logger.debug(f"{current_player.name} hand after playing: {len(current_player.hand)} cards: {[str(card) for card in current_player.hand]}")
+            self.logger.debug(f"{current_player.name} hand after playing: {len(current_player.hand)} cards: {[card.unicode_str() for card in current_player.hand]}")
             
             # Play the card
             self.trick_manager.play_card(current_player, card)
             
             # Display the play
-            self.logger.info(f"{current_player.name} plays {card}")
+            self.logger.info(f"{current_player.name} plays {card.unicode_str()}")
             
             # Show current trick state
             current_trick = self.trick_manager.get_current_trick()
             if current_trick and hasattr(current_trick, 'cards_played'):
-                played_cards = [f"{player.name}: {card}" for player, card in current_trick.cards_played]
+                played_cards = [f"{player.name}: {card.unicode_str()}" for player, card in current_trick.cards_played]
                 if played_cards:
                     self.logger.info(f"Trick so far: {', '.join(played_cards)}")
             
@@ -369,7 +369,7 @@ class EuchreGame:
         self.logger.debug(f"Trick won by: {winner.name}")
         self.logger.debug("Player hands after completing trick:")
         for player in self.players:
-            self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+            self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
         
         # Update trick count
         self.tricks_won[winner.name] += 1
@@ -382,7 +382,7 @@ class EuchreGame:
         """Get a card from an AI player."""
         self.logger.debug(f"Player: {player.name} (id: {id(player)})")
         self.logger.debug(f"Player type: {player.player_type}")
-        self.logger.debug(f"Player hand: {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+        self.logger.debug(f"Player hand: {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
         self.logger.debug(f"Current trick: {self.current_trick}")
         self.logger.debug(f"Trump suit: {self.trump_suit}")
         
@@ -393,7 +393,7 @@ class EuchreGame:
             self.logger.debug(f"Player hand attribute: {player.hand}")
             self.logger.debug("All players and their hands:")
             for p in self.players:
-                self.logger.debug(f"{p.name} (id: {id(p)}) has {len(p.hand)} cards: {[str(card) for card in p.hand]}")
+                self.logger.debug(f"{p.name} (id: {id(p)}) has {len(p.hand)} cards: {[card.unicode_str() for card in p.hand]}")
             raise ValueError(f"AI player {player.name} has no cards to play")
         
         # Get the current trick state
@@ -411,7 +411,7 @@ class EuchreGame:
         # Remove card from hand
         player.hand.remove(card)
         
-        self.logger.debug(f"After removing card: {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+        self.logger.debug(f"After removing card: {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
         
         return card
     
