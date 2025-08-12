@@ -354,12 +354,7 @@ class EuchreGame:
             # Display the play
             self.logger.info(f"{current_player.name} plays {card.unicode_str()}")
             
-            # Show current trick state
-            current_trick = self.trick_manager.get_current_trick()
-            if current_trick and hasattr(current_trick, 'cards_played'):
-                played_cards = [f"{player.name}: {card.unicode_str()}" for player, card in current_trick.cards_played]
-                if played_cards:
-                    self.logger.info(f"Trick so far: {', '.join(played_cards)}")
+            # Show current trick state (removed verbose "Trick so far" logging)
             
             # Move to next player
             current_player_index = (current_player_index + 1) % 4
