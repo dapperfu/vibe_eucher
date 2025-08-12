@@ -19,34 +19,34 @@ test: install ## Run tests
 	venv/bin/pytest tests/ -v
 
 run: install ## Run the euchre game
-	venv/bin/python -m euchre.cli play
+	venv/bin/python -m euchre.cli_main play
 
 ai-game: install ## Run AI vs AI euchre game with ncurses
-	venv/bin/python -m euchre.cli ai-vs-ai
+	venv/bin/python -m euchre.cli_main ai-vs-ai
 
 ncurses: install ## Run AI vs AI euchre game with ncurses interface
-	venv/bin/python -m euchre.cli ncurses
+	venv/bin/python -m euchre.cli_main ncurses
 
 logged: install ## Run AI vs AI euchre game with logging (no ncurses)
-	venv/bin/python -m euchre.cli logged-game
+	venv/bin/python -m euchre.cli_main logged-game
 
 profiles: install ## Run AI vs AI game with custom profiles and risk ratios
-	venv/bin/python -m euchre.cli ai-profiles
+	venv/bin/python -m euchre.cli_main ai-profiles
 
 mass-games: install ## Run thousands of games in parallel
-	venv/bin/python -m euchre.cli run-mass-games
+	venv/bin/python -m euchre.cli_main run-mass-games
 
 analyze: install ## Analyze game results and generate statistics
-	venv/bin/python -m euchre.cli analyze-games
+	venv/bin/python -m euchre.cli_main analyze-games
 
 cleanup: install ## Clean up old game result files
-	venv/bin/python -m euchre.cli cleanup-games
+	venv/bin/python -m euchre.cli_main cleanup-games
 
 jupyter: install ## Start Jupyter Notebook
-	cd notebooks && ../venv/bin/jupyter notebook
+	venv/bin/python -m euchre.cli_main jupyter
 
 jupyter-lab: install ## Start Jupyter Lab
-	cd notebooks && ../venv/bin/jupyter lab
+	venv/bin/python -m euchre.cli_main jupyter-lab
 
 clean: ## Clean up generated files
 	rm -rf venv/
@@ -60,37 +60,37 @@ evaluate-ai: install ## Evaluate a trained AI model
 	venv/bin/python -m euchre.ai_model.model_evaluator --model models/euchre_model.pth --games 100
 
 train-self-play: install ## Train AI models using self-play
-	venv/bin/python -m euchre.cli train-self-play --num-games 100000 --players Alice Bob Charlie David
+	venv/bin/python -m euchre.cli_main train-self-play --num-games 100000 --players Alice Bob Charlie David
 
 train-integer-vs-float: install ## Train integer models against float models
-	venv/bin/python -m euchre.cli train-integer-vs-float --num-games 200000
+	venv/bin/python -m euchre.cli_main train-integer-vs-float --num-games 200000
 
 generate-profiles: install ## Generate 5 distinct AI player profiles with different playing styles
-	venv/bin/python -m euchre.cli generate-player-profiles --num-games 15000 --output-dir trained_models --device auto --enable-amp
+	venv/bin/python -m euchre.cli_main generate-player-profiles --num-games 15000 --output-dir trained_models --device auto --enable-amp
 
 generate-profiles-cpu: install ## Generate AI player profiles using CPU only
-	venv/bin/python -m euchre.cli generate-player-profiles --num-games 15000 --output-dir trained_models --device cpu
+	venv/bin/python -m euchre.cli_main generate-player-profiles --num-games 15000 --output-dir trained_models --device cpu
 
 generate-profiles-gpu: install ## Generate AI player profiles with GPU acceleration
-	venv/bin/python -m euchre.cli generate-player-profiles --num-games 15000 --output-dir trained_models --device cuda --enable-amp --gpu-memory-fraction 0.9
+	venv/bin/python -m euchre.cli_main generate-player-profiles --num-games 15000 --output-dir trained_models --device cuda --enable-amp --gpu-memory-fraction 0.9
 
 list-players: install ## List available trained AI players
-	venv/bin/python -m euchre.cli list-players
+	venv/bin/python -m euchre.cli_main list-players
 
 play-trained: install ## Play a game with trained AI players
-	venv/bin/python -m euchre.cli play-trained-players --player1 Alice --player2 Bob --player3 Charlie --player4 David
+	venv/bin/python -m euchre.cli_main play-trained-players --player1 Alice --player2 Bob --player3 Charlie --player4 David
 
 tournament: install ## Run a tournament between trained players
-	venv/bin/python -m euchre.cli tournament --num-games 100
+	venv/bin/python -m euchre.cli_main tournament --num-games 100
 
 benchmark: install ## Run performance benchmark comparing float vs integer models
-	venv/bin/python -m euchre.cli benchmark --device cpu --save-results
+	venv/bin/python -m euchre.cli_main benchmark --device cpu --save-results
 
 neural-tournament: install ## Run neural network tournament (Alice vs Bob, 1000 games)
-	venv/bin/python -m euchre.cli run-neural-games -m1 Alice -m2 Bob -n 1000
+	venv/bin/python -m euchre.cli_main run-neural-games -m1 Alice -m2 Bob -n 1000
 
 neural-analysis: install ## Analyze neural network tournament results
 	venv/bin/python analyze_neural_results.py
 
 list-neural-models: install ## List available neural network models
-	venv/bin/python -m euchre.cli list-neural-models 
+	venv/bin/python -m euchre.cli_main list-neural-models 
