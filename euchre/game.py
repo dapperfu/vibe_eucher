@@ -11,6 +11,7 @@ from .core.deck import Deck
 from .core.game_state import GameStateManager
 from .core.trick_manager import TrickManager
 from .core.scoring import ScoringManager
+from .core.dealer_selection import DealerSelection
 from .game_logic.trump_selection import TrumpSelectionManager
 from .ai.ai_factory import AIFactory
 from .models import Player, PlayerType, Card, Suit, Trick
@@ -57,8 +58,24 @@ class EuchreGame:
         self.tricks_won = {player.name: 0 for player in players}
         self.round_number = 1
         
-        # Set initial dealer
-        self.game_state_manager.set_dealer(players[0])
+        # Use traditional dealer selection for the first game
+        self.dealer_selection = DealerSelection(players)
+        first_dealer, selection_cards = self.dealer_selection.select_first_dealer(verbose=self.verbose)
+        
+        # Set the selected dealer
+        self.game_state_manager.set_dealer(first_dealer)
+        
+        # Log the dealer selection process
+        if self.verbose:
+            self.logger.info("🎲 Traditional dealer selection completed:")
+            for i, card in enumerate(selection_cards):
+                player_index = i % 4
+                player = players[player_index]
+                self.logger.info(f"  {player.name} received: {card.unicode_str()}")
+            self.logger.info(f"👑 {first_dealer.name} selected as first dealer!")
+        
+        # Reset the deck after dealer selection
+        self.dealer_selection.reset_deck()
     
     def start_new_game(self) -> None:
         """Start a new game."""
