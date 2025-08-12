@@ -65,6 +65,79 @@ class Card:
         else:
             return f"{rank_str}{suit_str}"
     
+    @property
+    def value(self) -> int:
+        """Get the numeric value of the card."""
+        return self.rank.value
+    
+    @property
+    def is_face_card(self) -> bool:
+        """Check if the card is a face card (J, Q, K)."""
+        return self.rank in [Rank.JACK, Rank.QUEEN, Rank.KING]
+    
+    @property
+    def is_high_card(self) -> bool:
+        """Check if the card is a high card (10, J, Q, K, A)."""
+        return self.rank.value >= 10
+    
+    @property
+    def is_low_card(self) -> bool:
+        """Check if the card is a low card (9)."""
+        return self.rank.value == 9
+    
+    def is_trump_card(self, trump_suit: Optional[Suit]) -> bool:
+        """Check if this card is a trump card for the given trump suit."""
+        if not trump_suit:
+            return False
+            
+        # Right bower (jack of trump suit)
+        if self.rank == Rank.JACK and self.suit == trump_suit:
+            return True
+            
+        # Left bower (jack of same color as trump)
+        if self.rank == Rank.JACK:
+            if (trump_suit == Suit.HEARTS and self.suit == Suit.DIAMONDS) or \
+               (trump_suit == Suit.DIAMONDS and self.suit == Suit.HEARTS) or \
+               (trump_suit == Suit.CLUBS and self.suit == Suit.SPADES) or \
+               (trump_suit == Suit.SPADES and self.suit == Suit.CLUBS):
+                return True
+                
+        # Regular trump suit cards
+        return self.suit == trump_suit
+    
+    def beats(self, other: "Card", trump_suit: Optional[Suit], lead_suit: Optional[Suit]) -> bool:
+        """Determine if this card beats another card in a trick."""
+        if not isinstance(other, Card):
+            return False
+            
+        # Check if cards are trump
+        is_trump1 = self.is_trump_card(trump_suit)
+        is_trump2 = other.is_trump_card(trump_suit)
+        
+        # Trump cards beat non-trump cards
+        if is_trump1 and not is_trump2:
+            return True
+        if not is_trump1 and is_trump2:
+            return False
+            
+        # If both are trump or both are non-trump, compare ranks
+        if is_trump1 == is_trump2:
+            return self.rank.value > other.rank.value
+            
+        # If one follows lead suit and other doesn't, lead suit wins
+        if lead_suit:
+            if self.suit == lead_suit and other.suit != lead_suit:
+                return True
+            if other.suit == lead_suit and self.suit != lead_suit:
+                return False
+                
+        # Same suit, compare ranks
+        if self.suit == other.suit:
+            return self.rank.value > other.rank.value
+            
+        # Different suits, neither trump, neither follows lead - first card wins
+        return False
+    
     def __lt__(self, other: "Card") -> bool:
         """Compare cards for ordering."""
         if not isinstance(other, Card):
@@ -113,6 +186,35 @@ class Trick:
         """
         return len(self.cards_played) == 4
     
+    @property
+    def num_cards_played(self) -> int:
+        """Get the number of cards played so far."""
+        return len(self.cards_played)
+    
+    @property
+    def is_started(self) -> bool:
+        """Check if the trick has started (at least one card played)."""
+        return len(self.cards_played) > 0
+    
+    @property
+    def current_leader(self) -> Optional["Player"]:
+        """Get the current leader of the trick."""
+        if not self.cards_played:
+            return None
+        return self.cards_played[0][0]
+    
+    @property
+    def current_winning_card(self) -> Optional[Card]:
+        """Get the current winning card in the trick."""
+        if not self.cards_played:
+            return None
+        
+        winning_card = self.cards_played[0][1]
+        for _, card in self.cards_played[1:]:
+            if self._card_beats(card, winning_card, None):  # No trump context yet
+                winning_card = card
+        return winning_card
+    
     def get_winner(self, trump_suit: Optional[Suit]) -> Tuple["Player", Card]:
         """Get the winner of this trick."""
         if not self.cards_played:
@@ -127,6 +229,94 @@ class Trick:
                 winning_card = card
                 
         return winner, winning_card
+    
+    def get_players_who_played(self) -> List["Player"]:
+        """Get list of players who have played in this trick.
+        
+        Returns
+        -------
+        List[Player]
+            List of players who have played
+        """
+        return [player for player, _ in self.cards_played]
+    
+    def get_cards_played(self) -> List[Card]:
+        """Get list of cards played in this trick.
+        
+        Returns
+        -------
+        List[Card]
+            List of cards played
+        """
+        return [card for _, card in self.cards_played]
+    
+    def get_player_card(self, player: "Player") -> Optional[Card]:
+        """Get the card played by a specific player.
+        
+        Parameters
+        ----------
+        player : Player
+            The player to get the card for
+            
+        Returns
+        -------
+        Optional[Card]
+            The card played by the player, or None if not played yet
+        """
+        for p, card in self.cards_played:
+            if p == player:
+                return card
+        return None
+    
+    def has_player_played(self, player: "Player") -> bool:
+        """Check if a specific player has played in this trick.
+        
+        Parameters
+        ----------
+        player : Player
+            The player to check
+            
+        Returns
+        -------
+        bool
+            True if the player has played
+        """
+        return any(p == player for p, _ in self.cards_played)
+    
+    def get_legal_plays_for_player(self, player: "Player", trump_suit: Optional[Suit] = None) -> List[Card]:
+        """Get legal cards a player can play in this trick.
+        
+        Parameters
+        ----------
+        player : Player
+            The player to get legal plays for
+        trump_suit : Optional[Suit]
+            The current trump suit
+            
+        Returns
+        -------
+        List[Card]
+            List of legal cards to play
+        """
+        if self.has_player_played(player):
+            return []  # Already played
+        
+        if not self.lead_suit:
+            return player.hand.copy()  # Leading, can play anything
+        
+        # Must follow suit if possible
+        cards_of_lead_suit = player.get_cards_of_suit(self.lead_suit)
+        if cards_of_lead_suit:
+            return cards_of_lead_suit
+        
+        # Can't follow suit, can play anything
+        return player.hand.copy()
+    
+    def reset(self) -> None:
+        """Reset the trick to initial state."""
+        self.lead_suit = None
+        self.cards_played.clear()
+        self.winner = None
     
     def format_as_table(self, dealer_index: int, players: List["Player"], trump_suit: Optional[Suit] = None) -> str:
         """Format the trick as a table showing what each player played.
@@ -213,7 +403,7 @@ class Trick:
         
         # Add trump indicator if it's a trump card
         trump_indicator = ""
-        if trump_suit and self._is_trump_card(card, trump_suit):
+        if trump_suit and card.is_trump_card(trump_suit):
             trump_indicator = "*"
         
         return f"{rank_symbol}{suit_symbol}{trump_indicator}"
@@ -239,7 +429,7 @@ class Trick:
             Rank.KING: "K",
             Rank.ACE: "A"
         }
-        return rank_symbols.get(rank, rank.value)
+        return rank_symbols.get(rank, str(rank.value))
     
     def _get_suit_symbol(self, suit: Suit) -> str:
         """Get a symbol representation of the suit.
@@ -256,7 +446,7 @@ class Trick:
         """
         suit_symbols = {
             Suit.HEARTS: "♥",
-            Suit.DIAMONDS: "♦", 
+            Suit.DIAMONDS: "♦",
             Suit.CLUBS: "♣",
             Suit.SPADES: "♠"
         }
@@ -265,8 +455,8 @@ class Trick:
     def _card_beats(self, card1: Card, card2: Card, trump_suit: Optional[Suit]) -> bool:
         """Determine if card1 beats card2."""
         # Check if cards are trump (including left bower)
-        is_trump1 = self._is_trump_card(card1, trump_suit)
-        is_trump2 = self._is_trump_card(card2, trump_suit)
+        is_trump1 = card1.is_trump_card(trump_suit)
+        is_trump2 = card2.is_trump_card(trump_suit)
         
         # Trump cards beat non-trump cards
         if is_trump1 and not is_trump2:
@@ -294,23 +484,7 @@ class Trick:
     
     def _is_trump_card(self, card: Card, trump_suit: Optional[Suit]) -> bool:
         """Check if a card is a trump card (including left bower)."""
-        if not trump_suit:
-            return False
-            
-        # Right bower (jack of trump suit)
-        if card.rank == Rank.JACK and card.suit == trump_suit:
-            return True
-            
-        # Left bower (jack of same color as trump)
-        if card.rank == Rank.JACK:
-            if (trump_suit == Suit.HEARTS and card.suit == Suit.DIAMONDS) or \
-               (trump_suit == Suit.DIAMONDS and card.suit == Suit.HEARTS) or \
-               (trump_suit == Suit.CLUBS and card.suit == Suit.SPADES) or \
-               (trump_suit == Suit.SPADES and card.suit == Suit.CLUBS):
-                return True
-                
-        # Regular trump suit cards
-        return card.suit == trump_suit
+        return card.is_trump_card(trump_suit)
 
 
 class PlayerType(Enum):
@@ -339,6 +513,7 @@ class Player:
         self.tricks_won: int = 0
         self.score: int = 0
         self.is_dealer: bool = False
+        self.team: Optional[int] = None
         
     def add_card(self, card: Card) -> None:
         """Add a card to the player's hand.
@@ -350,16 +525,24 @@ class Player:
         """
         self.hand.append(card)
         
-    def remove_card(self, card: Card) -> None:
+    def remove_card(self, card: Card) -> bool:
         """Remove a card from the player's hand.
         
         Parameters
         ----------
         card : Card
             The card to remove from the hand
+            
+        Returns
+        -------
+        bool
+            True if card was removed, False if not found
         """
-        if card in self.hand:
+        try:
             self.hand.remove(card)
+            return True
+        except ValueError:
+            return False
             
     def clear_hand(self) -> None:
         """Clear all cards from the player's hand."""
@@ -374,6 +557,21 @@ class Player:
             The number of cards in the hand
         """
         return len(self.hand)
+    
+    @property
+    def has_cards(self) -> bool:
+        """Check if the player has any cards."""
+        return len(self.hand) > 0
+    
+    @property
+    def hand_is_full(self) -> bool:
+        """Check if the player's hand is full (5 cards)."""
+        return len(self.hand) == 5
+    
+    @property
+    def hand_is_empty(self) -> bool:
+        """Check if the player's hand is empty."""
+        return len(self.hand) == 0
         
     def has_suit(self, suit: Suit) -> bool:
         """Check if the player has any cards of a specific suit.
@@ -404,6 +602,168 @@ class Player:
             List of cards of the specified suit
         """
         return [card for card in self.hand if card.suit == suit]
+    
+    def get_trump_cards(self, trump_suit: Suit) -> List[Card]:
+        """Get all trump cards from the player's hand.
+        
+        Parameters
+        ----------
+        trump_suit : Suit
+            The current trump suit
+            
+        Returns
+        -------
+        List[Card]
+            List of trump cards (including left bower)
+        """
+        trump_cards = []
+        for card in self.hand:
+            if card.is_trump_card(trump_suit):
+                trump_cards.append(card)
+        return trump_cards
+    
+    def get_high_cards(self, threshold: int = 10) -> List[Card]:
+        """Get high-value cards from the player's hand.
+        
+        Parameters
+        ----------
+        threshold : int
+            Minimum rank value to consider "high"
+            
+        Returns
+        -------
+        List[Card]
+            List of high-value cards
+        """
+        return [card for card in self.hand if card.rank.value >= threshold]
+    
+    def get_low_cards(self, threshold: int = 9) -> List[Card]:
+        """Get low-value cards from the player's hand.
+        
+        Parameters
+        ----------
+        threshold : int
+            Maximum rank value to consider "low"
+            
+        Returns
+        -------
+        List[Card]
+            List of low-value cards
+        """
+        return [card for card in self.hand if card.rank.value <= threshold]
+    
+    def can_follow_suit(self, lead_suit: Suit) -> bool:
+        """Check if the player can follow the lead suit.
+        
+        Parameters
+        ----------
+        lead_suit : Suit
+            The suit that was led
+            
+        Returns
+        -------
+        bool
+            True if the player has cards of the lead suit
+        """
+        return self.has_suit(lead_suit)
+    
+    def get_legal_plays(self, lead_suit: Optional[Suit], trump_suit: Optional[Suit]) -> List[Card]:
+        """Get all legal cards the player can play.
+        
+        Parameters
+        ----------
+        lead_suit : Optional[Suit]
+            The suit that was led (None if leading)
+        trump_suit : Optional[Suit]
+            The current trump suit
+            
+        Returns
+        -------
+        List[Card]
+            List of legal cards to play
+        """
+        if not lead_suit:
+            return self.hand.copy()
+        
+        # Must follow suit if possible
+        cards_of_lead_suit = self.get_cards_of_suit(lead_suit)
+        if cards_of_lead_suit:
+            return cards_of_lead_suit
+        
+        # Can play any card if can't follow suit
+        return self.hand.copy()
+    
+    def evaluate_hand_strength(self, trump_suit: Optional[Suit] = None) -> float:
+        """Evaluate the overall strength of the player's hand.
+        
+        Parameters
+        ----------
+        trump_suit : Optional[Suit]
+            The current trump suit
+            
+        Returns
+        -------
+        float
+            Hand strength score (higher is better)
+        """
+        if not self.hand:
+            return 0.0
+        
+        score = 0.0
+        
+        # Base score from card values
+        for card in self.hand:
+            score += card.rank.value
+        
+        # Bonus for trump cards
+        if trump_suit:
+            trump_cards = self.get_trump_cards(trump_suit)
+            score += len(trump_cards) * 5.0
+        
+        # Bonus for high cards
+        high_cards = self.get_high_cards(10)
+        score += len(high_cards) * 2.0
+        
+        # Bonus for face cards
+        face_cards = [card for card in self.hand if card.is_face_card]
+        score += len(face_cards) * 1.5
+        
+        return score
+    
+    def set_team(self, team: int) -> None:
+        """Set the player's team.
+        
+        Parameters
+        ----------
+        team : int
+            Team number (0 or 1)
+        """
+        if team not in [0, 1]:
+            raise ValueError("Team must be 0 or 1")
+        self.team = team
+    
+    def get_team_name(self) -> str:
+        """Get the player's team name.
+        
+        Returns
+        -------
+        str
+            Team name ("Team 1" or "Team 2")
+        """
+        if self.team is None:
+            return "No Team"
+        return f"Team {self.team + 1}"
+    
+    def reset_round_stats(self) -> None:
+        """Reset round-specific statistics."""
+        self.tricks_won = 0
+        self.clear_hand()
+    
+    def reset_game_stats(self) -> None:
+        """Reset game-specific statistics."""
+        self.score = 0
+        self.is_dealer = False
+        self.reset_round_stats()
         
     def __str__(self) -> str:
         """String representation of the player."""
@@ -411,7 +771,9 @@ class Player:
         
     def __repr__(self) -> str:
         """Detailed string representation of the player."""
-        return f"Player(name='{self.name}', player_type={self.player_type.value}, hand_size={len(self.hand)})"
+        team_info = f", team={self.get_team_name()}" if self.team is not None else ""
+        dealer_info = ", dealer" if self.is_dealer else ""
+        return f"Player(name='{self.name}', player_type={self.player_type.value}, hand_size={len(self.hand)}{team_info}{dealer_info})"
 
 
 @dataclass
