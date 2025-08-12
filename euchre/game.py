@@ -48,7 +48,7 @@ class EuchreGame:
         self.game_state_manager = GameStateManager()
         self.trick_manager = TrickManager()
         self.scoring_manager = ScoringManager()
-        self.trump_selection_manager = TrumpSelectionManager()
+        self.trump_selection_manager = TrumpSelectionManager(self.logger)
         
         # Game state
         self.current_trick: Optional[Trick] = None
@@ -144,6 +144,9 @@ class EuchreGame:
                 self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
         
         # Select trump suit
+        self.logger.info(f"Dealer: {self.game_state_manager.get_dealer().name}")
+        self.logger.info(f"Top Card: {self.top_card.unicode_str()}")
+        
         trump_suit, caller = self.trump_selection_manager.select_trump_suit(
             self.players, 
             self.top_card, 
@@ -164,7 +167,7 @@ class EuchreGame:
             trump_suit = self.trump_selection_manager._dealer_suit_selection(dealer, self.top_card)
             self.trump_suit = trump_suit
             self.game_state_manager.set_trump_suit(trump_suit, dealer)
-            self.logger.info(f"Dealer {dealer.name} picked {trump_suit.name} as trump")
+            # Note: The detailed logging is now handled in the TrumpSelectionManager
         
         # Debug: Check hands after trump selection
         self.logger.debug("Player hands after trump selection:")
