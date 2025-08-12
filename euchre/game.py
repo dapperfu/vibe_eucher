@@ -346,22 +346,44 @@ class EuchreGame:
             click.echo(f"\n🎲 ROUND {self.game_state.round_number} - DEALER: {dealer.name} 🎲")
             click.echo("-" * 50)
             
-            # Display each player's dealt cards
-            click.echo("\n📋 DEALT CARDS:")
-            for i, player in enumerate(self.players):
-                # Sort cards by suit first, then by rank (high to low)
-                sorted_cards = sorted(player.hand, key=lambda c: (c.suit.value, -c.rank.value))
-                
-                # Format cards with suit symbols
-                card_strings = []
-                for card in sorted_cards:
-                    if card.is_trump:
-                        card_strings.append(f"{card}*")
-                    else:
-                        card_strings.append(str(card))
-                
-                click.echo(f"  {player.name}: {' '.join(card_strings)}")
-            click.echo()
+            # Check if this is an AI-only game (no human players)
+            is_ai_only_game = all(player.player_type == PlayerType.AI for player in self.players)
+            
+            if is_ai_only_game:
+                # Display each player's dealt cards for AI-only games
+                click.echo("\n📋 DEALT CARDS:")
+                for i, player in enumerate(self.players):
+                    # Sort cards by suit first, then by rank (high to low)
+                    sorted_cards = sorted(player.hand, key=lambda c: (c.suit.value, -c.rank.value))
+                    
+                    # Format cards with suit symbols
+                    card_strings = []
+                    for card in sorted_cards:
+                        if card.is_trump:
+                            card_strings.append(f"{card}*")
+                        else:
+                            card_strings.append(str(card))
+                    
+                    click.echo(f"  {player.name}: {' '.join(card_strings)}")
+                click.echo()
+            else:
+                # For human games, only show the human player's hand
+                human_players = [p for p in self.players if p.player_type == PlayerType.HUMAN]
+                for human_player in human_players:
+                    # Sort cards by suit first, then by rank (high to low)
+                    sorted_cards = sorted(human_player.hand, key=lambda c: (c.suit.value, -c.rank.value))
+                    
+                    # Format cards with suit symbols
+                    card_strings = []
+                    for card in sorted_cards:
+                        if card.is_trump:
+                            card_strings.append(f"{card}*")
+                        else:
+                            card_strings.append(str(card))
+                    
+                    click.echo(f"\n📋 YOUR HAND ({human_player.name}):")
+                    click.echo(f"  {' '.join(card_strings)}")
+                    click.echo()
             
         self.tricks_this_round.clear()
         
@@ -425,6 +447,22 @@ class EuchreGame:
         
         # Display round summary
         self.display_round_summary(round_results)
+        
+        # Display kitty information at the end of the round
+        if not self.quiet_mode and self.game_state:
+            click.echo("\n📦 KITTY CONTENTS:")
+            if self.top_card:
+                click.echo(f"  Top card (flipped up): {self.top_card}")
+            else:
+                click.echo("  Top card: None")
+            
+            # Show remaining deck cards (if any)
+            if hasattr(self, 'deck') and self.deck:
+                remaining_cards = [str(card) for card in self.deck]
+                click.echo(f"  Remaining deck: {' '.join(remaining_cards)}")
+            else:
+                click.echo("  Remaining deck: None")
+            click.echo()
         
         # Log round end (before scoring resets trick counts)
         if self.logger:
