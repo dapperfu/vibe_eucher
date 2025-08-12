@@ -84,21 +84,13 @@ def main():
     
     logger.info(f"Training complete! Model saved to {model_save_path}")
     
-    # Evaluate the model if requested
+    # Evaluate the model
     if args.evaluate:
-        logger.info("Evaluating trained model...")
-        
+        logger.info("Starting model evaluation...")
         evaluator = ModelEvaluator(model_save_path, args.num_eval_games)
-        results = evaluator.evaluate_model()
-        
-        # Generate and print report
-        report = evaluator.generate_evaluation_report(results)
-        print("\n" + report)
-        
-        # Save evaluation results
-        eval_output_path = os.path.join(args.output_dir, "evaluation_results.json")
-        evaluator.save_evaluation_results(results, eval_output_path)
-        logger.info(f"Evaluation results saved to {eval_output_path}")
+        results = evaluator.evaluate_model(num_games=args.num_eval_games)
+        evaluator.print_final_summary()
+        logger.info("Model evaluation complete.")
 
 
 if __name__ == "__main__":

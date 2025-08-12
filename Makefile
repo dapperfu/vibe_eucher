@@ -1,4 +1,4 @@
-.PHONY: help venv install test run clean train-ai evaluate-ai ai-game ncurses logged profiles mass-games analyze cleanup jupyter jupyter-lab train-self-play train-integer-vs-float generate-profiles list-players play-trained tournament benchmark neural-tournament neural-analysis list-neural-models
+.PHONY: help venv install test run clean train-ai evaluate-ai ai-game ncurses logged profiles mass-games analyze cleanup jupyter jupyter-lab train-self-play train-integer-vs-float generate-profiles generate-profiles-cpu generate-profiles-gpu list-players play-trained tournament benchmark neural-tournament neural-analysis list-neural-models
 
 help: ## Show this help message
 	@echo "Available commands:"
@@ -47,7 +47,7 @@ jupyter-lab: install ## Start Jupyter Lab
 clean: ## Clean up generated files
 	rm -rf venv/
 	find . -type f -name "*.pyc" -delete
-	find . -type d -name "__pycache__" -delete
+	find . -type d -name "__pycache__" -delete 
 
 train-ai: install ## Train the euchre AI model
 	venv/bin/python train_euchre_ai.py --data-dir data/games --generate-data --evaluate
@@ -62,7 +62,13 @@ train-integer-vs-float: install ## Train integer models against float models
 	venv/bin/python -m euchre.cli train-integer-vs-float --num-games 200000
 
 generate-profiles: install ## Generate 5 distinct AI player profiles with different playing styles
-	venv/bin/python -m euchre.cli generate-player-profiles --num-games 15000 --output-dir trained_models
+	venv/bin/python -m euchre.cli generate-player-profiles --num-games 15000 --output-dir trained_models --device auto --enable-amp
+
+generate-profiles-cpu: install ## Generate AI player profiles using CPU only
+	venv/bin/python -m euchre.cli generate-player-profiles --num-games 15000 --output-dir trained_models --device cpu
+
+generate-profiles-gpu: install ## Generate AI player profiles with GPU acceleration
+	venv/bin/python -m euchre.cli generate-player-profiles --num-games 15000 --output-dir trained_models --device cuda --enable-amp --gpu-memory-fraction 0.9
 
 list-players: install ## List available trained AI players
 	venv/bin/python -m euchre.cli list-players

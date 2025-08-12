@@ -139,7 +139,7 @@ class ModelEvaluator:
             Number of games to play for each strategy
         strategies : Optional[List[str]]
             List of strategies to test against (default: all available)
-            
+        
         Returns
         -------
         Dict[str, Any]
@@ -548,8 +548,8 @@ def main():
         # Initialize evaluator
         print("🚀 Initializing Model Evaluator...")
         evaluator = ModelEvaluator(args.model, args.device)
-        
-        # Run evaluation
+    
+    # Run evaluation
         results = evaluator.evaluate_model(args.games, args.strategies)
         
         # Generate visualizations
