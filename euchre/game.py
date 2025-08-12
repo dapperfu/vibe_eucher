@@ -204,6 +204,12 @@ class EuchreGame:
                     self.trump_caller = player
                     self.trump_caller_team = (current_player_idx % 2)  # 0 = team 1, 1 = team 2
                     bidding_log.append(f"{player.name} orders up {self.top_card}")
+                    
+                    # Dealer picks up the top card and discards one card
+                    dealer = self.game_state.get_dealer()
+                    discarded_card = self._dealer_pickup_and_discard(dealer)
+                    if discarded_card:
+                        bidding_log.append(f"{dealer.name} (dealer) picks up {self.top_card} and discards {discarded_card}")
                     break
                 else:
                     bidding_log.append(f"{player.name} passes")
@@ -312,6 +318,143 @@ class EuchreGame:
         if self.top_card and self._is_trump_card(self.top_card, trump_suit):
             self.top_card.is_trump = True
             
+    def _dealer_pickup_and_discard(self, dealer: "Player") -> Optional["Card"]:
+        """Dealer picks up the top card and discards one card from their hand.
+        
+        Parameters
+        ----------
+        dealer : Player
+            The dealer who is picking up the top card
+            
+        Returns
+        -------
+        Optional[Card]
+            The card that was discarded, or None if no discard occurred
+        """
+        if not self.top_card or not dealer.hand:
+            return None
+            
+        # Add top card to dealer's hand
+        dealer.hand.append(self.top_card)
+        
+        # Remove top card from deck
+        if self.deck:
+            self.deck.pop(0)
+        
+        # Determine which card to discard based on strategy
+        discarded_card = self._choose_card_to_discard(dealer)
+        
+        # Remove discarded card from dealer's hand
+        if discarded_card in dealer.hand:
+            dealer.hand.remove(discarded_card)
+            
+        return discarded_card
+        
+    def _choose_card_to_discard(self, dealer: "Player") -> "Card":
+        """Choose which card the dealer should discard when picking up the top card.
+        
+        Parameters
+        ----------
+        dealer : Player
+            The dealer choosing which card to discard
+            
+        Returns
+        -------
+        Card
+            The card to discard
+        """
+        if dealer.player_type == PlayerType.AI:
+            # AI dealer uses strategic discard logic
+            return self._ai_choose_discard_card(dealer)
+        else:
+            # Human dealer - for now, discard lowest value card
+            return self._human_choose_discard_card(dealer)
+            
+    def _ai_choose_discard_card(self, dealer: "Player") -> "Card":
+        """AI dealer chooses which card to discard using strategic logic.
+        
+        Parameters
+        ----------
+        dealer : Player
+            The AI dealer choosing which card to discard
+            
+        Returns
+        -------
+        Card
+            The card to discard
+        """
+        # Strategy: Discard the card that provides the least strategic value
+        
+        # First priority: Discard non-trump cards that don't help with suit reduction
+        non_trump_cards = [card for card in dealer.hand if not card.is_trump]
+        
+        if non_trump_cards:
+            # Find cards that don't help reduce the number of suits
+            suit_counts = {}
+            for card in dealer.hand:
+                if card.suit not in suit_counts:
+                    suit_counts[card.suit] = 0
+                suit_counts[card.suit] += 1
+                
+            # Find cards that are the only one of their suit (don't help reduce suits)
+            single_suit_cards = [card for card in non_trump_cards if suit_counts[card.suit] == 1]
+            
+            if single_suit_cards:
+                # Among single-suit cards, discard the lowest value
+                return min(single_suit_cards, key=lambda c: c.rank.value)
+            else:
+                # Among multi-suit cards, discard the lowest value
+                return min(non_trump_cards, key=lambda c: c.rank.value)
+        
+        # If all cards are trump, discard the lowest trump value
+        trump_cards = [card for card in dealer.hand if card.is_trump]
+        if trump_cards:
+            return min(trump_cards, key=lambda c: c.rank.value)
+            
+        # Fallback: discard the lowest value card overall
+        return min(dealer.hand, key=lambda c: c.rank.value)
+        
+    def _human_choose_discard_card(self, dealer: "Player") -> "Card":
+        """Human dealer chooses which card to discard (simple logic for now).
+        
+        Parameters
+        ----------
+        dealer : Player
+            The human dealer choosing which card to discard
+            
+        Returns
+        -------
+        Card
+            The card to discard
+        """
+        # For now, just discard the lowest value card
+        # This could be enhanced later with human input
+        return min(dealer.hand, key=lambda c: c.rank.value)
+        
+    def _choose_trump_for_human_dealer(self, hand: List[Card]) -> Suit:
+        """Human dealer chooses the trump suit based on their hand.
+        
+        Parameters
+        ----------
+        hand : List[Card]
+            The dealer's hand
+            
+        Returns
+        -------
+        Suit
+            The chosen trump suit
+        """
+        # Simple heuristic: choose the suit with the most cards
+        suit_counts = {}
+        for card in hand:
+            if card.suit not in suit_counts:
+                suit_counts[card.suit] = 0
+            suit_counts[card.suit] += 1
+            
+        # Find the suit with the most cards
+        best_suit = max(suit_counts.keys(), key=lambda s: suit_counts[s])
+        return best_suit
+        
     def _deal_new_round(self) -> None:
         """Deal new cards for a new round."""
         # Reinitialize deck
