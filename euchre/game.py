@@ -33,6 +33,7 @@ class EuchreGame:
         self.trump_caller: Optional[Player] = None  # Track who called trump
         self.trump_caller_team: Optional[int] = None  # Track which team called trump
         self.quiet_mode = quiet_mode
+        self.current_dealer_index: int = 0  # Track current dealer position
         
         if enable_logging:
             self.logger = GameLogger()
@@ -111,8 +112,8 @@ class EuchreGame:
             player.tricks_won = 0
             player.is_dealer = False
             
-        # Set dealer (rotate each game)
-        dealer_index = random.randint(0, 3)
+        # Set dealer (rotate clockwise each game)
+        dealer_index = self.current_dealer_index
         self.players[dealer_index].is_dealer = True
         
         # Initialize game state
@@ -134,6 +135,9 @@ class EuchreGame:
             dealer = self.game_state.get_dealer()
             self.logger.log_game_start(self.players, dealer)
             
+        # Rotate dealer for next game (clockwise)
+        self.current_dealer_index = (self.current_dealer_index + 1) % 4
+        
     def _initialize_deck(self) -> None:
         """Initialize the deck with euchre cards (9-A of each suit)."""
         self.deck.clear()
@@ -432,61 +436,44 @@ class EuchreGame:
         # Show first round of trump selection (ordering up)
         click.echo("\n🔄 FIRST ROUND - Ordering up the top card:")
         dealer_idx = self.game_state.dealer_index
-        for i in range(4):
-            player_idx = (dealer_idx + 1 + i) % 4
-            player = self.players[player_idx]
-            
-            # Determine what this player would do
-            if hasattr(player, 'choose_trump_decision'):
-                # AI player with trump decision logic
-                decision = player.choose_trump_decision(self.top_card, self.game_state.trump_suit)
-                if decision:
-                    click.echo(f"  {player.name}: ORDERS UP {self.top_card}")
-                    self.trump_caller = player
-                    self.trump_caller_team = player_idx % 2
-                    break
-                else:
-                    click.echo(f"  {player.name}: passes")
-            else:
-                # Simple AI or human player - simulate decision
-                if i == 0:  # First player after dealer
-                    click.echo(f"  {player.name}: ORDERS UP {self.top_card}")
-                    self.trump_caller = player
-                    self.trump_caller_team = player_idx % 2
-                    break
-                else:
-                    click.echo(f"  {player.name}: passes")
         
-        # If no one ordered up, show second round
-        if not self.trump_caller:
-            click.echo("\n🔄 SECOND ROUND - Calling trump suit:")
+        # Show what actually happened in the first round
+        if self.trump_caller and self.game_state.trump_suit == self.top_card.suit:
+            # Someone ordered up the top card
             for i in range(4):
                 player_idx = (dealer_idx + 1 + i) % 4
                 player = self.players[player_idx]
                 
-                # Determine what this player would do
-                if hasattr(player, 'choose_trump_suit'):
-                    # AI player with trump suit selection logic
-                    chosen_suit = player.choose_trump_suit(self.top_card)
-                    if chosen_suit:
-                        click.echo(f"  {player.name}: calls {chosen_suit.value.title()}")
-                        self.trump_caller = player
-                        self.trump_caller_team = player_idx % 2
-                        break
-                    else:
-                        click.echo(f"  {player.name}: passes")
+                if player == self.trump_caller:
+                    click.echo(f"  {player.name}: ORDERS UP {self.top_card}")
+                    break
                 else:
-                    # Simple AI or human player - simulate decision
-                    if i == 1:  # Second player after dealer
-                        # Choose a random suit that's not the top card suit
-                        available_suits = [s for s in Suit if s != self.top_card.suit]
-                        chosen_suit = random.choice(available_suits)
-                        click.echo(f"  {player.name}: calls {chosen_suit.value.title()}")
-                        self.trump_caller = player
-                        self.trump_caller_team = player_idx % 2
+                    click.echo(f"  {player.name}: passes")
+        else:
+            # No one ordered up - show all passes
+            for i in range(4):
+                player_idx = (dealer_idx + 1 + i) % 4
+                player = self.players[player_idx]
+                click.echo(f"  {player.name}: passes")
+        
+        # If no one ordered up, show second round
+        if not self.trump_caller or self.game_state.trump_suit != self.top_card.suit:
+            click.echo("\n🔄 SECOND ROUND - Calling trump suit:")
+            if self.trump_caller:
+                # Someone called a different trump suit
+                for i in range(4):
+                    player_idx = (dealer_idx + 1 + i) % 4
+                    player = self.players[player_idx]
+                    
+                    if player == self.trump_caller:
+                        click.echo(f"  {player.name}: calls {self.game_state.trump_suit.value.title()}")
                         break
                     else:
                         click.echo(f"  {player.name}: passes")
+            else:
+                # Dealer had to choose
+                dealer = self.players[dealer_idx]
+                click.echo(f"  {dealer.name} (dealer): calls {self.game_state.trump_suit.value.title()}")
         
         # Show final result
         if self.trump_caller:

@@ -17,31 +17,46 @@ def main() -> None:
 
 
 @main.command()
-@click.option("--player-name", "-n", default="Player", help="Your player name")
+@click.option("--player-name", "-n", default=None, help="Your player name")
 @click.option("--ai-names", "-a", multiple=True, 
               default=["Alice", "Bob", "Charlie"], 
               help="Names for AI opponents")
 def play(player_name: str, ai_names: tuple) -> None:
     """Start a new euchre game."""
-    click.echo(f"Welcome to Euchre, {player_name}!")
-    
-    # Create game
-    game = EuchreGame()
-    
-    # Add human player
-    game.add_player(player_name, PlayerType.HUMAN)
-    
-    # Add AI players
-    ai_names_list = list(ai_names)
-    while len(game.players) < 4:
-        if len(ai_names_list) > 0:
-            game.add_player(ai_names_list.pop(0), PlayerType.AI)
-        else:
-            game.add_player(f"AI_{len(game.players)}", PlayerType.AI)
-    
-    click.echo(f"Players: {', '.join(p.name for p in game.players)}")
-    
     try:
+        from .game import EuchreGame
+        
+        # Prompt for player name if not specified
+        if player_name is None:
+            player_name = click.prompt("Enter your name", default="Player")
+        
+        click.echo(f"Welcome to Euchre, {player_name}!")
+        
+        # Create game
+        game = EuchreGame()
+        
+        # Add human player
+        game.add_player(player_name, PlayerType.HUMAN)
+        
+        # Add AI players with proper names
+        ai_names_list = list(ai_names)
+        while len(game.players) < 4:
+            if len(ai_names_list) > 0:
+                game.add_player(ai_names_list.pop(0), PlayerType.AI)
+            else:
+                # Use default AI names if not enough provided
+                default_names = ["Alice", "Bob", "Charlie", "David"]
+                used_names = [p.name for p in game.players]
+                for default_name in default_names:
+                    if default_name not in used_names:
+                        game.add_player(default_name, PlayerType.AI)
+                        break
+                else:
+                    # Fallback if all default names are used
+                    game.add_player(f"AI_{len(game.players)}", PlayerType.AI)
+        
+        click.echo(f"Players: {', '.join(p.name for p in game.players)}")
+        
         game.start_new_game()
         click.echo("Game started! Dealing cards...")
         
@@ -93,7 +108,7 @@ def play(player_name: str, ai_names: tuple) -> None:
         if game.game_state:
             click.echo(f"Final Score - Team 1: {game.game_state.team1_score}, Team 2: {game.game_state.team2_score}")
         
-        # Check if team was set
+        # Check if team gets set
         if game.is_team_set():
             click.echo("\n🚨 TEAM SET! The trump calling team lost after calling trump!")
         
@@ -101,7 +116,7 @@ def play(player_name: str, ai_names: tuple) -> None:
         log_filename = game.get_log_filename()
         if log_filename:
             click.echo(f"\nGame log saved to: {log_filename}")
-        
+            
     except ValueError as e:
         click.echo(f"Error: {e}", err=True)
 
@@ -141,7 +156,7 @@ def ai_profiles(ai_profiles: tuple, risk_ratios: tuple, enable_logging: bool) ->
             ai_profiles = ai_profiles + ("balanced",)
             
         # Add AI players with profiles
-        player_names = ["North", "East", "South", "West"]
+        player_names = ["Alice", "Bob", "Charlie", "David"]
         for i, (name, profile, risk) in enumerate(zip(player_names, ai_profiles, risk_values)):
             game.add_ai_player(name, profile, risk)
             click.echo(f"  {name}: {profile} AI (risk: {risk:.1f})")
