@@ -52,21 +52,42 @@ class EuchreGameDataset(Dataset):
         logging.info(f"Loaded {len(self.samples)} training samples")
         
     def _process_game(self, game_data: Dict[str, Any]) -> None:
-        """Process a single game and extract training samples.
+        """Process a single game and create training samples.
         
         Parameters
         ----------
         game_data : Dict[str, Any]
             Game data dictionary
         """
-        # Extract game actions and outcomes
-        actions = game_data.get('actions', [])
-        game_state = game_data.get('game_state', {})
-        
-        for action in actions:
-            sample = self._create_training_sample(action, game_state)
-            if sample:
-                self.samples.append(sample)
+        try:
+            # Extract actions and game state
+            actions = game_data.get('actions', [])
+            game_state = game_data.get('game_state', {})
+            
+            # Create training samples for each action
+            for action in actions:
+                try:
+                    action_type = action.get('type')
+                    if action_type == 'order_up':
+                        sample = self._create_ordering_sample(action, game_state)
+                    elif action_type == 'play_card':
+                        sample = self._create_card_selection_sample(action, game_state)
+                    elif action_type == 'call_trump':
+                        sample = self._create_trump_selection_sample(action, game_state)
+                    else:
+                        continue
+                        
+                    if sample:
+                        self.samples.append(sample)
+                        
+                except Exception as e:
+                    logging.warning(f"Failed to process action {action.get('type', 'unknown')}: {e}")
+                    logging.warning(f"Action data: {action}")
+                    continue
+                    
+        except Exception as e:
+            logging.warning(f"Failed to process game: {e}")
+            logging.warning(f"Game data: {game_data}")
     
     def _create_training_sample(self, 
                                action: Dict[str, Any], 
@@ -136,6 +157,9 @@ class EuchreGameDataset(Dataset):
             
         except Exception as e:
             logging.warning(f"Failed to create ordering sample: {e}")
+            logging.warning(f"Action data: {action}")
+            logging.warning(f"Player hand: {player_hand}")
+            logging.warning(f"Top card: {top_card}")
             return None
     
     def _create_card_selection_sample(self, 
@@ -184,6 +208,11 @@ class EuchreGameDataset(Dataset):
             
         except Exception as e:
             logging.warning(f"Failed to create card selection sample: {e}")
+            logging.warning(f"Action data: {action}")
+            logging.warning(f"Player hand: {player_hand}")
+            logging.warning(f"Lead suit: {lead_suit}")
+            logging.warning(f"Trump suit: {trump_suit}")
+            logging.warning(f"Played card: {played_card}")
             return None
     
     def _create_trump_selection_sample(self, 
@@ -216,8 +245,14 @@ class EuchreGameDataset(Dataset):
             # Encode game state
             features = self.encoder.encode_game_state_for_trump_selection(dealer_hand)
             
-            # Target: suit index (0-3)
-            target = called_trump.value - 1
+            # Target: suit index (0-3) - convert suit to index
+            suit_to_index = {
+                Suit.HEARTS: 0,
+                Suit.DIAMONDS: 1,
+                Suit.CLUBS: 2,
+                Suit.SPADES: 3
+            }
+            target = suit_to_index.get(called_trump, 0)
             
             return {
                 'features': features,
@@ -227,6 +262,9 @@ class EuchreGameDataset(Dataset):
             
         except Exception as e:
             logging.warning(f"Failed to create trump selection sample: {e}")
+            logging.warning(f"Action data: {action}")
+            logging.warning(f"Dealer hand: {dealer_hand}")
+            logging.warning(f"Called trump: {called_trump}")
             return None
     
     def _parse_hand(self, hand_data: List[Dict[str, Any]]) -> List[Card]:
@@ -328,7 +366,7 @@ class EuchreGameDataset(Dataset):
         Optional[Suit]
             Suit enum or None if invalid
         """
-        if not suit_data:
+        if suit_data is None:
             return None
         try:
             if isinstance(suit_data, int):

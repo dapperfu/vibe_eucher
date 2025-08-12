@@ -1,4 +1,4 @@
-.PHONY: help venv install test run clean train-ai evaluate-ai ai-game ncurses logged profiles mass-games analyze cleanup jupyter jupyter-lab train-self-play list-players play-trained tournament benchmark
+.PHONY: help venv install test run clean train-ai evaluate-ai ai-game ncurses logged profiles mass-games analyze cleanup jupyter jupyter-lab train-self-play list-players play-trained tournament benchmark neural-tournament neural-analysis list-neural-models
 
 help: ## Show this help message
 	@echo "Available commands:"
@@ -68,4 +68,13 @@ tournament: install ## Run a tournament between trained players
 	venv/bin/python -m euchre.cli tournament --num-games 100
 
 benchmark: install ## Run performance benchmark comparing float vs integer models
-	venv/bin/python -m euchre.cli benchmark --device cpu --save-results 
+	venv/bin/python -m euchre.cli benchmark --device cpu --save-results
+
+neural-tournament: install ## Run neural network tournament (Alice vs Bob, 1000 games)
+	venv/bin/python -m euchre.cli run-neural-games -m1 Alice -m2 Bob -n 1000
+
+neural-analysis: install ## Analyze neural network tournament results
+	venv/bin/python analyze_neural_results.py
+
+list-neural-models: install ## List available neural network models
+	venv/bin/python -m euchre.cli list-neural-models 

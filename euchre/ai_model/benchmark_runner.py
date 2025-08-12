@@ -203,6 +203,9 @@ class ModelBenchmarker:
         start_time = time.time()
         memory_before = self._measure_memory()
         
+        # Create int model for inference benchmark
+        int_model = create_euchre_model_int(input_size=128, hidden_size=256, risk_embedding_size=32, device=self.device)
+        
         with torch.no_grad():
             for hand, trump_suit, game_context in game_states:
                 # Combine features
@@ -216,7 +219,7 @@ class ModelBenchmarker:
                 elif combined_input.size(1) > 128:
                     combined_input = combined_input[:, :128]
                 
-                _ = self.int_model(combined_input, self.int_risk)
+                _ = int_model(combined_input, self.int_risk)
         
         int_duration = (time.time() - start_time) * 1000
         memory_after = self._measure_memory()
@@ -261,13 +264,20 @@ class ModelBenchmarker:
         for batch_size in batch_sizes:
             # Create input and target tensors
             input_tensor = torch.randn(batch_size, 128, device=self.device)
-            trump_targets = torch.randint(0, 2, (batch_size, 1), device=self.device).float()
-            card_targets = torch.randint(0, 52, (batch_size,), device=self.device)
+            # Float model outputs [batch_size, 2] for trump decisions, int model outputs [batch_size, 1]
+            trump_targets_float = torch.randint(0, 2, (batch_size, 2), device=self.device).float()
+            trump_targets_int = torch.randint(0, 2, (batch_size, 1), device=self.device).float()
+            # Float model outputs [batch_size, 5] for card selection, int model outputs [batch_size, 52]
+            card_targets_float = torch.randint(0, 5, (batch_size,), device=self.device)
+            card_targets_int = torch.randint(0, 52, (batch_size,), device=self.device)
+            
+            # Create int model for this batch size
+            int_model = create_euchre_model_int(input_size=128, hidden_size=256, risk_embedding_size=32, device=self.device)
             
             # Loss function and optimizer
             criterion = torch.nn.BCEWithLogitsLoss()
             optimizer_float = torch.optim.Adam(self.float_model.parameters(), lr=0.001)
-            optimizer_int = torch.optim.Adam(self.int_model.parameters(), lr=0.001)
+            optimizer_int = torch.optim.Adam(int_model.parameters(), lr=0.001)
             
             # Benchmark float model training
             start_time = time.time()
@@ -275,10 +285,12 @@ class ModelBenchmarker:
             
             for _ in range(10):  # Multiple training steps
                 optimizer_float.zero_grad()
-                trump_logits, card_logits = self.float_model(input_tensor, self.float_risk)
+                float_outputs = self.float_model(input_tensor, self.float_risk)
+                trump_logits = float_outputs['trump_decision']
+                card_logits = float_outputs['card_selection']
                 
-                trump_loss = criterion(trump_logits, trump_targets)
-                card_loss = torch.nn.functional.cross_entropy(card_logits, card_targets)
+                trump_loss = criterion(trump_logits, trump_targets_float)
+                card_loss = torch.nn.functional.cross_entropy(card_logits, card_targets_float)
                 total_loss = trump_loss + card_loss
                 
                 total_loss.backward()
@@ -294,10 +306,10 @@ class ModelBenchmarker:
             
             for _ in range(10):  # Multiple training steps
                 optimizer_int.zero_grad()
-                trump_logits, card_logits = self.int_model(input_tensor, self.int_risk)
+                trump_logits, card_logits = int_model(input_tensor, self.int_risk)
                 
-                trump_loss = criterion(trump_logits, trump_targets)
-                card_loss = torch.nn.functional.cross_entropy(card_logits, card_targets)
+                trump_loss = criterion(trump_logits, trump_targets_int)
+                card_loss = torch.nn.functional.cross_entropy(card_logits, card_targets_int)
                 total_loss = trump_loss + card_loss
                 
                 total_loss.backward()
@@ -383,7 +395,7 @@ class ModelBenchmarker:
                     "float_avg_duration_ms": float_avg_duration,
                     "int_avg_duration_ms": int_avg_duration,
                     "speedup": speedup,
-                    "int_faster": speedup > 1.0
+                    "int_faster": 1 if speedup > 1.0 else 0  # Use 1/0 instead of True/False
                 }
                 
                 # Add recommendations
@@ -428,6 +440,8 @@ class ModelBenchmarker:
                 return float(obj)
             elif isinstance(obj, np.ndarray):
                 return obj.tolist()
+            elif isinstance(obj, bool):
+                return bool(obj)  # Ensure boolean values are properly handled
             return obj
         
         # Recursively convert numpy types

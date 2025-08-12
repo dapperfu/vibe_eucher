@@ -14,6 +14,7 @@ import numpy as np
 from tqdm import tqdm
 
 from .euchre_nn import EuchreNN, RiskParameters, create_risk_profile, create_euchre_model
+from .euchre_nn_int import EuchreNNInt, RiskParametersInt, create_risk_profile_int, create_euchre_model_int
 from .model_player import ModelPlayer
 from ..game import EuchreGame
 from ..game_logger import GameLogger
@@ -76,6 +77,41 @@ class SelfPlayTrainer:
         """
         # Create model
         model = create_euchre_model(self.model_config)
+        model.to(self.device)
+        
+        # Create player
+        player = ModelPlayer(
+            name=player_name,
+            model=model,
+            device=self.device,
+            risk_profile=risk_profile
+        )
+        
+        return model, player
+    
+    def create_integer_player_model(self, player_name: str, risk_profile: str = "balanced") -> Tuple[EuchreNNInt, ModelPlayer]:
+        """Create an integer model and player instance for a specific player.
+        
+        Parameters
+        ----------
+        player_name : str
+            Name of the player
+        risk_profile : str
+            Risk profile for the player
+            
+        Returns
+        -------
+        Tuple[EuchreNNInt, ModelPlayer]
+            Integer model and player instance
+        """
+        # Create integer model with same architecture parameters
+        int_model_config = {
+            'input_size': self.model_config.get('input_size', 128),
+            'hidden_size': self.model_config.get('hidden_size', 256),
+            'risk_embedding_size': self.model_config.get('risk_embedding_size', 32)
+        }
+        
+        model = create_euchre_model_int(**int_model_config, device=self.device)
         model.to(self.device)
         
         # Create player
@@ -495,6 +531,183 @@ class SelfPlayTrainer:
                 print(f"⚠️  Model not found for {player_name}, using AI profile")
         
         return game
+
+    def train_integer_vs_float(self, 
+                               num_games: int = 200000,
+                               integer_players: List[str] = None,
+                               float_players: List[str] = None,
+                               risk_profiles: List[str] = None,
+                               save_interval: int = 1000,
+                               evaluation_interval: int = 5000) -> Dict[str, Any]:
+        """Train integer models against float models in a mixed training scenario.
+        
+        Parameters
+        ----------
+        num_games : int
+            Number of games to play
+        integer_players : List[str]
+            Names of integer model players
+        float_players : List[str]
+            Names of float model players
+        risk_profiles : List[str]
+            Risk profiles for each player
+        save_interval : int
+            How often to save model checkpoints
+        evaluation_interval : int
+            How often to evaluate model performance
+            
+        Returns
+        -------
+        Dict[str, Any]
+            Training results and statistics
+        """
+        if integer_players is None:
+            integer_players = ["Integer_Alice", "Integer_Bob"]
+        if float_players is None:
+            float_players = ["Float_Charlie", "Float_David"]
+        if risk_profiles is None:
+            risk_profiles = ["balanced", "aggressive", "conservative", "opportunistic"]
+        
+        print(f"🚀 Starting Integer vs Float training for {num_games:,} games")
+        print(f"📊 Integer players: {', '.join(integer_players)}")
+        print(f"📊 Float players: {', '.join(float_players)}")
+        print(f"🎯 Risk profiles: {', '.join(risk_profiles)}")
+        
+        # Create models and players
+        self.models = {}
+        self.players = {}
+        
+        # Create integer models
+        for i, player_name in enumerate(integer_players):
+            risk_profile = risk_profiles[i % len(risk_profiles)]
+            model, player = self.create_integer_player_model(player_name, risk_profile)
+            self.models[player_name] = model
+            self.players[player_name] = player
+            print(f"✅ Created integer model: {player_name} ({risk_profile})")
+        
+        # Create float models
+        for i, player_name in enumerate(float_players):
+            risk_profile = risk_profiles[(i + len(integer_players)) % len(risk_profiles)]
+            model, player = self.create_player_model(player_name, risk_profile)
+            self.models[player_name] = model
+            self.players[player_name] = player
+            print(f"✅ Created float model: {player_name} ({risk_profile})")
+        
+        # Training statistics
+        training_stats = {
+            "integer_wins": 0,
+            "float_wins": 0,
+            "integer_team_wins": 0,
+            "float_team_wins": 0,
+            "game_results": [],
+            "model_improvements": {}
+        }
+        
+        # Training loop
+        print(f"🎮 Starting training loop...")
+        start_time = time.time()
+        
+        for game_num in tqdm(range(num_games), desc="Training games"):
+            # Create teams: Integer players vs Float players
+            team1 = [integer_players[0], integer_players[1]]  # Integer team
+            team2 = [float_players[0], float_players[1]]      # Float team
+            
+            # Play game
+            game = EuchreGame()
+            game.add_player(self.players[team1[0]])
+            game.add_player(self.players[team2[0]])
+            game.add_player(self.players[team1[1]])
+            game.add_player(self.players[team2[1]])
+            
+            # Play the game
+            game.play_game()
+            
+            # Record results
+            team1_score = game.get_team_score(0)  # Integer team
+            team2_score = game.get_team_score(1)  # Float team
+            
+            if team1_score > team2_score:
+                training_stats["integer_team_wins"] += 1
+                training_stats["integer_wins"] += 1
+            else:
+                training_stats["float_team_wins"] += 1
+                training_stats["float_wins"] += 1
+            
+            # Record game result
+            game_result = {
+                "game_num": game_num,
+                "integer_team_score": team1_score,
+                "float_team_score": team2_score,
+                "winner": "integer" if team1_score > team2_score else "float",
+                "timestamp": time.time()
+            }
+            training_stats["game_results"].append(game_result)
+            
+            # Save checkpoints periodically
+            if (game_num + 1) % save_interval == 0:
+                self._save_mixed_training_checkpoint(game_num + 1, training_stats)
+            
+            # Evaluate performance periodically
+            if (game_num + 1) % evaluation_interval == 0:
+                self._evaluate_mixed_training_performance(game_num + 1, training_stats)
+        
+        # Final save
+        self._save_mixed_training_checkpoint(num_games, training_stats, is_final=True)
+        
+        # Calculate final statistics
+        total_time = time.time() - start_time
+        training_stats["total_time"] = total_time
+        training_stats["games_per_second"] = num_games / total_time
+        training_stats["integer_win_rate"] = training_stats["integer_team_wins"] / num_games
+        training_stats["float_win_rate"] = training_stats["float_team_wins"] / num_games
+        
+        print(f"\n🎉 Training completed!")
+        print(f"⏱️  Total time: {total_time/3600:.2f} hours")
+        print(f"🎮 Games per second: {training_stats['games_per_second']:.2f}")
+        print(f"🏆 Integer team wins: {training_stats['integer_team_wins']:,} ({training_stats['integer_win_rate']*100:.1f}%)")
+        print(f"🏆 Float team wins: {training_stats['float_team_wins']:,} ({training_stats['float_win_rate']*100:.1f}%)")
+        
+        return training_stats
+    
+    def _save_mixed_training_checkpoint(self, game_num: int, training_stats: Dict[str, Any], is_final: bool = False) -> None:
+        """Save a checkpoint during mixed training."""
+        checkpoint_dir = self.output_dir / "mixed_training_checkpoints"
+        checkpoint_dir.mkdir(exist_ok=True)
+        
+        # Save models
+        for player_name, model in self.models.items():
+            model_path = checkpoint_dir / f"{player_name}_checkpoint_{game_num}.json"
+            self._save_model_weights(model, model_path)
+        
+        # Save training statistics
+        stats_path = checkpoint_dir / f"training_stats_{game_num}.json"
+        with open(stats_path, 'w') as f:
+            json.dump(training_stats, f, indent=2, default=str)
+        
+        if is_final:
+            print(f"💾 Final models and stats saved to {checkpoint_dir}")
+        else:
+            print(f"💾 Checkpoint saved at game {game_num:,}")
+    
+    def _evaluate_mixed_training_performance(self, game_num: int, training_stats: Dict[str, Any]) -> None:
+        """Evaluate performance during mixed training."""
+        total_games = game_num
+        integer_wins = training_stats["integer_team_wins"]
+        float_wins = training_stats["float_team_wins"]
+        
+        integer_win_rate = integer_wins / total_games
+        float_win_rate = float_wins / total_games
+        
+        print(f"\n📊 Performance at game {total_games:,}:")
+        print(f"   Integer team: {integer_wins:,} wins ({integer_win_rate*100:.1f}%)")
+        print(f"   Float team:   {float_wins:,} wins ({float_win_rate*100:.1f}%)")
+        
+        if integer_win_rate > 0.6:
+            print(f"   🚀 Integer models are dominating!")
+        elif float_win_rate > 0.6:
+            print(f"   🚀 Float models are dominating!")
+        else:
+            print(f"   ⚖️  Models are well balanced")
 
 
 def main():

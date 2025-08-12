@@ -192,6 +192,27 @@ class EuchreNN(nn.Module):
         outputs = self.forward(x, risk_params)
         return torch.tanh(outputs['risk_adjustment'])  # Output in [-1, 1] range
 
+    def save_model(self, save_path: str) -> None:
+        """Save the model to a file.
+        
+        Parameters
+        ----------
+        save_path : str
+            Path where to save the model
+        """
+        torch.save(self.state_dict(), save_path)
+    
+    def load_model(self, load_path: str) -> None:
+        """Load the model from a file.
+        
+        Parameters
+        ----------
+        load_path : str
+            Path from where to load the model
+        """
+        self.load_state_dict(torch.load(load_path))
+        self.eval()
+
 
 class RiskAwareEuchreNN(EuchreNN):
     """Enhanced version with dynamic risk adjustment during gameplay."""
