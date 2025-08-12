@@ -49,12 +49,16 @@ def ai_profiles(ctx: click.Context, ai_profiles: tuple, risk_ratios: tuple) -> N
 
 
 @main.command()
+@click.option("--dealer-method", "-d", 
+              type=click.Choice(["black_jack", "high_card"]), 
+              default="black_jack",
+              help="Dealer selection method: black_jack or high_card")
 @click.pass_context
-def ai_vs_ai(ctx: click.Context) -> None:
+def ai_vs_ai(ctx: click.Context, dealer_method: str) -> None:
     """Run AI vs AI euchre game."""
     verbose = ctx.obj.get('verbose', False)
     very_verbose = ctx.obj.get('very_verbose', False)
-    GameCommands.ai_vs_ai_game(verbose, very_verbose)
+    GameCommands.ai_vs_ai_game(verbose, very_verbose, dealer_method)
 
 
 @main.command()

@@ -28,7 +28,29 @@ class DealerSelection:
         self.players = players
         self.deck = Deck()
     
-    def select_first_dealer(self, verbose: bool = True) -> Tuple[Player, List[Card]]:
+    def select_first_dealer(self, method: str = "black_jack", verbose: bool = True) -> Tuple[Player, List[Card]]:
+        """Select the first dealer using the specified method.
+        
+        Parameters
+        ----------
+        method : str
+            Selection method: "black_jack" or "high_card"
+        verbose : bool
+            Whether to display the selection process
+            
+        Returns
+        -------
+        Tuple[Player, List[Card]]
+            The selected first dealer and the list of cards dealt during selection
+        """
+        if method == "black_jack":
+            return self._black_jack_selection(verbose)
+        elif method == "high_card":
+            return self._high_card_selection(verbose)
+        else:
+            raise ValueError(f"Unknown dealer selection method: {method}")
+    
+    def _black_jack_selection(self, verbose: bool = True) -> Tuple[Player, List[Card]]:
         """Select the first dealer using the traditional 'Black Jack' method.
         
         This method:
@@ -89,6 +111,91 @@ class DealerSelection:
             print("⚠️  No Black Jack found - using fallback selection")
         
         # Return first player as fallback
+        return self.players[0], dealt_cards
+    
+    def _high_card_selection(self, verbose: bool = True) -> Tuple[Player, List[Card]]:
+        """Select the first dealer using the 'High Card Draw' method.
+        
+        This method:
+        1. Shuffles the deck thoroughly
+        2. Deals one card to each player
+        3. Player with highest card becomes dealer
+        4. In case of ties, additional cards are drawn until a winner is determined
+        
+        Parameters
+        ----------
+        verbose : bool
+            Whether to display the selection process
+            
+        Returns
+        -------
+        Tuple[Player, List[Card]]
+            The selected first dealer and the list of cards dealt during selection
+        """
+        # Reset and shuffle the deck
+        self.deck.reset_and_shuffle()
+        
+        # Shuffle multiple times for thorough randomization
+        self.deck.shuffle_times(3)
+        
+        if verbose:
+            print("🎲 Selecting first dealer using 'High Card Draw' method...")
+            print("🃏 Shuffling deck thoroughly...")
+        
+        dealt_cards = []
+        round_number = 1
+        
+        while not self.deck.is_empty:
+            if verbose:
+                print(f"\n--- Round {round_number} ---")
+            
+            # Deal one card to each player
+            round_cards = []
+            for i, player in enumerate(self.players):
+                if self.deck.is_empty:
+                    break
+                    
+                card = self.deck.draw_top_card()
+                if card is None:
+                    break
+                    
+                round_cards.append((player, card))
+                dealt_cards.append(card)
+                
+                if verbose:
+                    print(f"  {player.name} draws: {card.unicode_str()}")
+            
+            if not round_cards:
+                break
+            
+            # Find the highest card in this round
+            highest_card = max(round_cards, key=lambda x: x[1].rank.value)
+            highest_rank = highest_card[1].rank.value
+            
+            # Check for ties
+            tied_players = [(player, card) for player, card in round_cards if card.rank.value == highest_rank]
+            
+            if len(tied_players) == 1:
+                # No tie - we have a winner
+                winner = tied_players[0][0]
+                if verbose:
+                    print(f"\n🎯 {winner.name} has the highest card: {highest_card[1].unicode_str()}")
+                    print(f"👑 {winner.name} is selected as the first dealer!")
+                
+                return winner, dealt_cards
+            else:
+                # Tie - show tied players and continue to next round
+                if verbose:
+                    tied_names = [player.name for player, card in tied_players]
+                    print(f"🤝 Tie between: {', '.join(tied_names)} with {highest_card[1].rank.name}")
+                    print("🔄 Drawing additional cards to break tie...")
+                
+                round_number += 1
+        
+        # Fallback: if we run out of cards, pick the first player
+        if verbose:
+            print("⚠️  Ran out of cards - using fallback selection")
+        
         return self.players[0], dealt_cards
     
     def _is_black_jack(self, card: Card) -> bool:

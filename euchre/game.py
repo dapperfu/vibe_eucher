@@ -58,24 +58,9 @@ class EuchreGame:
         self.tricks_won = {player.name: 0 for player in players}
         self.round_number = 1
         
-        # Use traditional dealer selection for the first game
+        # Initialize dealer selection (will be done in start_new_game)
         self.dealer_selection = DealerSelection(players)
-        first_dealer, selection_cards = self.dealer_selection.select_first_dealer(verbose=self.verbose)
-        
-        # Set the selected dealer
-        self.game_state_manager.set_dealer(first_dealer)
-        
-        # Log the dealer selection process
-        if self.verbose:
-            self.logger.info("🎲 Traditional dealer selection completed:")
-            for i, card in enumerate(selection_cards):
-                player_index = i % 4
-                player = players[player_index]
-                self.logger.info(f"  {player.name} received: {card.unicode_str()}")
-            self.logger.info(f"👑 {first_dealer.name} selected as first dealer!")
-        
-        # Reset the deck after dealer selection
-        self.dealer_selection.reset_deck()
+        self.dealer_selection_method = 'black_jack'  # Default method
     
     def start_new_game(self) -> None:
         """Start a new game."""
@@ -90,6 +75,25 @@ class EuchreGame:
         self.game_state_manager.initialize_game(self.players)
         self.deck.reset_and_shuffle()
         self.trick_manager.reset()
+        
+        # Use traditional dealer selection for the first game
+        dealer_method = getattr(self, 'dealer_selection_method', 'black_jack')
+        first_dealer, selection_cards = self.dealer_selection.select_first_dealer(method=dealer_method, verbose=self.verbose)
+        
+        # Set the selected dealer
+        self.game_state_manager.set_dealer(first_dealer)
+        
+        # Log the dealer selection process
+        if self.verbose:
+            self.logger.info("🎲 Traditional dealer selection completed:")
+            for i, card in enumerate(selection_cards):
+                player_index = i % 4
+                player = self.players[player_index]
+                self.logger.info(f"  {player.name} received: {card.unicode_str()}")
+            self.logger.info(f"👑 {first_dealer.name} selected as first dealer!")
+        
+        # Reset the deck after dealer selection
+        self.dealer_selection.reset_deck()
         
         self.logger.debug("After resetting components")
         self.logger.debug("Player hands after reset:")
