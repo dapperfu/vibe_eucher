@@ -117,6 +117,106 @@ class Trick:
                 
         return winner, winning_card
     
+    def format_as_table(self, dealer_index: int, players: List["Player"]) -> str:
+        """Format the trick as a table showing what each player played.
+        
+        Parameters
+        ----------
+        dealer_index : int
+            Index of the dealer in the players list
+        players : List[Player]
+            List of all players in the game
+            
+        Returns
+        -------
+        str
+            Formatted table string showing the trick
+        """
+        if not self.cards_played:
+            return "No cards played yet"
+            
+        # Create a list of player names starting from left of dealer
+        # In euchre, play goes clockwise from left of dealer
+        player_order = []
+        for i in range(4):
+            player_idx = (dealer_index + 1 + i) % 4
+            player_order.append(players[player_idx])
+        
+        # Create the table header
+        table_lines = []
+        table_lines.append("┌" + "─" * 60 + "┐")
+        
+        # Header row with player names
+        header = "│ Trick Cards Played"
+        for player in player_order:
+            header += f" │ {player.name:>10}"
+        header += " │"
+        table_lines.append(header)
+        
+        # Separator line
+        table_lines.append("├" + "─" * 60 + "┤")
+        
+        # Row showing what each player played
+        cards_row = "│ Cards"
+        for player in player_order:
+            # Find what this player played in this trick
+            card_played = None
+            for trick_player, card in self.cards_played:
+                if trick_player == player:
+                    card_played = card
+                    break
+            
+            if card_played:
+                cards_row += f" │ {str(card_played):>10}"
+            else:
+                cards_row += " │ " + " " * 10
+        cards_row += " │"
+        table_lines.append(cards_row)
+        
+        # Row showing suit information
+        suits_row = "│ Suits"
+        for player in player_order:
+            # Find what this player played in this trick
+            card_played = None
+            for trick_player, card in self.cards_played:
+                if trick_player == player:
+                    card_played = card
+                    break
+            
+            if card_played:
+                suit_symbol = self._get_suit_symbol(card_played.suit)
+                suits_row += f" │ {suit_symbol:>10}"
+            else:
+                suits_row += " │ " + " " * 10
+        suits_row += " │"
+        table_lines.append(suits_row)
+        
+        # Bottom border
+        table_lines.append("└" + "─" * 60 + "┘")
+        
+        return "\n".join(table_lines)
+    
+    def _get_suit_symbol(self, suit: Suit) -> str:
+        """Get a symbol representation of the suit.
+        
+        Parameters
+        ----------
+        suit : Suit
+            The suit to get symbol for
+            
+        Returns
+        -------
+        str
+            Symbol representation of the suit
+        """
+        suit_symbols = {
+            Suit.HEARTS: "♥",
+            Suit.DIAMONDS: "♦", 
+            Suit.CLUBS: "♣",
+            Suit.SPADES: "♠"
+        }
+        return suit_symbols.get(suit, suit.value.title())
+    
     def _card_beats(self, card1: Card, card2: Card, trump_suit: Optional[Suit]) -> bool:
         """Determine if card1 beats card2."""
         # Check if cards are trump (including left bower)
