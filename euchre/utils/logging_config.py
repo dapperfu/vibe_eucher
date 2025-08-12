@@ -7,6 +7,8 @@ for different levels of detail in game output.
 
 import logging
 import sys
+import os
+from datetime import datetime
 from typing import Optional
 
 
@@ -60,6 +62,14 @@ class GameLogger:
         self.ai_logger = logging.getLogger('euchre.ai')
         self.core_logger = logging.getLogger('euchre.core')
         self.cli_logger = logging.getLogger('euchre.cli')
+        
+        # Generate timestamped filename for file logging
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.log_filename = f"euchre_game_{timestamp}.txt"
+        self.game_start_time = datetime.now()
+        
+        # Initialize file logging
+        self._init_file_logging()
     
     def debug(self, message: str, component: str = 'game') -> None:
         """Log a debug message if very verbose mode is enabled.
@@ -178,6 +188,44 @@ class GameLogger:
             The AI debug message to log
         """
         self.debug(message, 'ai')
+    
+    def _init_file_logging(self) -> None:
+        """Initialize file logging with a timestamped filename."""
+        # Create file handler
+        file_handler = logging.FileHandler(self.log_filename, mode='w', encoding='utf-8')
+        file_handler.setLevel(logging.DEBUG)
+        
+        # Create formatter for file (more detailed than console)
+        file_formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        file_handler.setFormatter(file_formatter)
+        
+        # Add file handler to root logger
+        self.logger.addHandler(file_handler)
+        
+        # Log game start header
+        self._write_game_header()
+    
+    def _write_game_header(self) -> None:
+        """Write the game header to the log file."""
+        with open(self.log_filename, 'w', encoding='utf-8') as f:
+            f.write("=" * 80 + "\n")
+            f.write("EUCHRE GAME LOG\n")
+            f.write("=" * 80 + "\n")
+            f.write(f"Game started: {self.game_start_time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write("=" * 80 + "\n\n")
+    
+    def get_log_filename(self) -> str:
+        """Get the current log filename.
+        
+        Returns
+        -------
+        str
+            The filename being used for logging
+        """
+        return self.log_filename
 
 
 def setup_logging(verbose: bool = False, very_verbose: bool = False) -> GameLogger:

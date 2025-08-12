@@ -599,5 +599,7 @@ class EuchreGame:
         Optional[str]
             The log filename or None
         """
-        # Logging is now handled by the GameLogger class
+        # Get the log filename from the GameLogger
+        if hasattr(self.logger, 'get_log_filename'):
+            return self.logger.get_log_filename()
         return None
