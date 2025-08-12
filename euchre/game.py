@@ -27,6 +27,8 @@ class EuchreGame:
         self.tricks_this_round: List[Trick] = []
         self.top_card: Optional[Card] = None
         self.logger: Optional[GameLogger] = None
+        self.trump_caller: Optional[Player] = None  # Track who called trump
+        self.trump_caller_team: Optional[int] = None  # Track which team called trump
         
         if enable_logging:
             self.logger = GameLogger()
@@ -131,49 +133,97 @@ class EuchreGame:
             self.top_card = self.deck[0]
             
     def _select_trump(self) -> None:
-        """Handle trump suit selection."""
+        """Handle trump suit selection through proper euchre bidding."""
         if not self.top_card:
             return
             
-        # AI players decide whether to order up
+        # Start with player after dealer (left of dealer)
         current_player_idx = self.game_state.current_player_index
         trump_selected = False
+        bidding_log = []
         
-        for _ in range(4):  # Each player gets one chance
+        # First round: players can order up the top card
+        for round_num in range(4):  # Each player gets one chance
             player = self.players[current_player_idx]
+            
             if player.player_type == PlayerType.AI:
-                # Use the AI profile's method directly
+                # AI decision
                 if hasattr(player, 'should_order_up'):
-                    if player.should_order_up(self.top_card):
-                        self.game_state.trump_suit = self.top_card.suit
-                        trump_selected = True
-                        break
+                    should_order = player.should_order_up(self.top_card)
                 else:
-                    # Fallback to generic AI if not a profile
+                    # Fallback to generic AI
                     ai_player = AIPlayer(player)
-                    if ai_player.should_order_up(self.top_card):
-                        self.game_state.trump_suit = self.top_card.suit
-                        trump_selected = True
-                        break
+                    should_order = ai_player.should_order_up(self.top_card)
+                
+                if should_order:
+                    self.game_state.trump_suit = self.top_card.suit
+                    trump_selected = True
+                    self.trump_caller = player
+                    self.trump_caller_team = (current_player_idx % 2)  # 0 = team 1, 1 = team 2
+                    bidding_log.append(f"{player.name} orders up {self.top_card}")
+                    break
+                else:
+                    bidding_log.append(f"{player.name} passes")
+            else:
+                # Human player - for now, always pass (can be enhanced later)
+                bidding_log.append(f"{player.name} passes")
+                
             current_player_idx = (current_player_idx + 1) % 4
             
         # If no one ordered up, dealer must choose trump
         if not trump_selected:
             dealer = self.game_state.get_dealer()
             if dealer.player_type == PlayerType.AI:
+                # Dealer AI chooses trump based on their hand
                 ai_player = AIPlayer(dealer)
-                # Dealer AI will always pick a trump suit
-                suits_in_hand = set(card.suit for card in dealer.hand)
-                if suits_in_hand:
-                    self.game_state.trump_suit = random.choice(list(suits_in_hand))
-                else:
-                    self.game_state.trump_suit = random.choice(list(Suit))
+                chosen_suit = ai_player.choose_trump_suit(dealer.hand)
+                self.game_state.trump_suit = chosen_suit
+                self.trump_caller = dealer
+                self.trump_caller_team = (self.game_state.dealer_index % 2)  # 0 = team 1, 1 = team 2
+                bidding_log.append(f"{dealer.name} (dealer) calls {chosen_suit.value}")
             else:
-                # Human dealer - for now, pick random
-                self.game_state.trump_suit = random.choice(list(Suit))
+                # Human dealer - for now, pick based on hand strength
+                chosen_suit = self._choose_trump_for_human_dealer(dealer.hand)
+                self.game_state.trump_suit = chosen_suit
+                self.trump_caller = dealer
+                self.trump_caller_team = (self.game_state.dealer_index % 2)  # 0 = team 1, 1 = team 2
+                bidding_log.append(f"{dealer.name} (dealer) calls {chosen_suit.value}")
                 
+        # Print the bidding process to console
+        print(f"\nTrump Selection:")
+        for bid in bidding_log:
+            print(f"  {bid}")
+        print(f"Trump suit: {self.game_state.trump_suit.value}")
+            
         # Mark trump cards
         self._mark_trump_cards()
+        
+    def is_team_set(self) -> bool:
+        """Check if the trump calling team gets set (loses after calling trump).
+        
+        Returns
+        -------
+        bool
+            True if the trump calling team gets set
+        """
+        if not self.trump_caller_team or not self.game_state:
+            return False
+            
+        # Count tricks won by each team
+        team1_tricks = 0
+        team2_tricks = 0
+        
+        for i, player in enumerate(self.players):
+            if i % 2 == 0:  # Team 1 (players 0 and 2)
+                team1_tricks += player.tricks_won
+            else:  # Team 2 (players 1 and 3)
+                team2_tricks += player.tricks_won
+                
+        # Check if trump calling team won less than 3 tricks
+        if self.trump_caller_team == 0:  # Team 1 called trump
+            return team1_tricks < 3
+        else:  # Team 2 called trump
+            return team2_tricks < 3
         
     def _mark_trump_cards(self) -> None:
         """Mark all trump cards in the game."""
@@ -557,3 +607,26 @@ class AIPlayer:
             return Suit.SPADES
         else:  # SPADES
             return Suit.CLUBS 
+
+    def choose_trump_suit(self, hand: List[Card]) -> Suit:
+        """Choose the trump suit for the dealer.
+        
+        Parameters
+        ----------
+        hand : List[Card]
+            The dealer's hand
+            
+        Returns
+        -------
+        Suit
+            The chosen trump suit
+        """
+        # Count cards by suit
+        suit_counts = {}
+        for suit in Suit:
+            suit_counts[suit] = len([card for card in hand if card.suit == suit])
+            
+        # Choose suit with most cards, or highest cards if tied
+        best_suit = max(suit_counts.keys(), key=lambda s: (suit_counts[s], 
+                                                          max([card.rank.value for card in hand if card.suit == s] or [0])))
+        return best_suit 

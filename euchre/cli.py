@@ -51,6 +51,19 @@ def play(player_name: str, ai_names: tuple) -> None:
         for i, card in enumerate(human_hand, 1):
             click.echo(f"  {i}. {card}")
             
+        # Show trump information
+        if game.game_state and game.game_state.trump_suit:
+            click.echo(f"\nTrump suit: {game.game_state.trump_suit.value.title()}")
+            if game.trump_caller:
+                click.echo(f"Trump called by: {game.trump_caller.name}")
+                if game.trump_caller_team is not None:
+                    team_name = "Team 1" if game.trump_caller_team == 0 else "Team 2"
+                    click.echo(f"Team: {team_name}")
+                    
+        # Check if team gets set
+        if game.is_team_set():
+            click.echo("\n🚨 TEAM SET! The trump calling team lost after calling trump!")
+            
         # Simple game loop for demonstration
         click.echo("\nGame is running... (This is a skeleton implementation)")
         click.echo("In a full implementation, you would play through the game here.")
