@@ -17,6 +17,7 @@ from ..game import EuchreGame
 from ..ai_profiles import AggressiveAI, ConservativeAI, BalancedAI, OpportunisticAI
 from ..models import Player, PlayerType, Card, Suit, Rank
 from ..game_logger import GameLogger
+from .euchre_nn import EuchreNN
 
 
 class ModelEvaluator:
@@ -33,7 +34,7 @@ class ModelEvaluator:
             Device to use ('auto', 'cpu', 'cuda')
         """
         self.model_path = Path(model_path)
-        self.device = self._get_device(device)
+        self.device = self._get_device()
         
         # Load the trained model
         self.model = self._load_model()
@@ -54,46 +55,49 @@ class ModelEvaluator:
             'opportunistic': {'class': OpportunisticAI, 'risk_ratio': 0.7}
         }
         
-    def _get_device(self, device: str) -> torch.device:
-        """Determine the best device to use."""
-        if device == "auto":
-            if torch.cuda.is_available():
-                return torch.device("cuda")
-            elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
-                return torch.device("mps")
-            else:
-                return torch.device("cpu")
-        else:
-            return torch.device(device)
-    
-    def _load_model(self) -> nn.Module:
-        """Load the trained model from file."""
-        if not self.model_path.exists():
-            raise FileNotFoundError(f"Model file not found: {self.model_path}")
+    def _get_device(self) -> torch.device:
+        """Get the device to use for computation.
         
+        Returns
+        -------
+        torch.device
+            Device to use
+        """
+        if torch.cuda.is_available():
+            return torch.device('cuda')
+        else:
+            return torch.device('cpu')
+    
+    def _load_model(self) -> EuchreNN:
+        """Load the trained model.
+        
+        Returns
+        -------
+        EuchreNN
+            Loaded model
+        """
         try:
-            # Load the model architecture and weights
-            checkpoint = torch.load(self.model_path, map_location=self.device)
+            # Load model with CPU mapping to handle CUDA-trained models on CPU
+            checkpoint = torch.load(self.model_path, map_location='cpu')
             
-            # Extract model architecture info
-            if 'model_state_dict' in checkpoint:
-                # Standard checkpoint format
-                model_state = checkpoint['model_state_dict']
-                model_config = checkpoint.get('model_config', {})
-            else:
-                # Direct model state dict
-                model_state = checkpoint
-                model_config = {}
+            # Create model instance
+            model = EuchreNN(
+                input_size=128,
+                hidden_size=256,
+                output_size=64,
+                risk_embedding_size=32,
+                use_risk_attention=True
+            )
             
-            # Create model instance (you'll need to implement this based on your model architecture)
-            model = self._create_model_instance(model_config)
-            model.load_state_dict(model_state)
+            # Load state dict
+            model.load_state_dict(checkpoint)
+            
+            # Move to device (will be CPU if CUDA not available)
             model.to(self.device)
             model.eval()
             
             print(f"✅ Model loaded successfully from {self.model_path}")
             print(f"📱 Device: {self.device}")
-            print(f"🔧 Model config: {model_config}")
             
             return model
             

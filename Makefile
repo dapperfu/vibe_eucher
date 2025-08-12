@@ -1,4 +1,4 @@
-.PHONY: help venv install test run clean train-ai evaluate-ai ai-game ncurses logged profiles mass-games analyze cleanup jupyter jupyter-lab train-self-play list-players play-trained tournament benchmark neural-tournament neural-analysis list-neural-models
+.PHONY: help venv install test run clean train-ai evaluate-ai ai-game ncurses logged profiles mass-games analyze cleanup jupyter jupyter-lab train-self-play train-integer-vs-float generate-profiles list-players play-trained tournament benchmark neural-tournament neural-analysis list-neural-models
 
 help: ## Show this help message
 	@echo "Available commands:"
@@ -57,6 +57,12 @@ evaluate-ai: install ## Evaluate a trained AI model
 
 train-self-play: install ## Train AI models using self-play
 	venv/bin/python -m euchre.cli train-self-play --num-games 100000 --players Alice Bob Charlie David
+
+train-integer-vs-float: install ## Train integer models against float models
+	venv/bin/python -m euchre.cli train-integer-vs-float --num-games 200000
+
+generate-profiles: install ## Generate 5 distinct AI player profiles with different playing styles
+	venv/bin/python -m euchre.cli generate-player-profiles --num-games 15000 --output-dir trained_models
 
 list-players: install ## List available trained AI players
 	venv/bin/python -m euchre.cli list-players

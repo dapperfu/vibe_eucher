@@ -719,6 +719,176 @@ def list_neural_models(models_dir):
         click.echo(f"❌ Error: {e}", err=True)
 
 
+@click.command()
+@click.option('--num-games', default=200000, help='Number of games to play')
+@click.option('--integer-players', default='Integer_Alice,Integer_Bob', help='Comma-separated integer player names')
+@click.option('--float-players', default='Float_Charlie,Float_David', help='Comma-separated float player names')
+@click.option('--risk-profiles', default='balanced,aggressive,conservative,opportunistic', help='Comma-separated risk profiles')
+@click.option('--save-interval', default=1000, help='How often to save checkpoints')
+@click.option('--evaluation-interval', default=5000, help='How often to evaluate performance')
+def train_integer_vs_float(num_games, integer_players, float_players, risk_profiles, save_interval, evaluation_interval):
+    """Train integer models against float models in a mixed training scenario."""
+    try:
+        from .ai_model.self_play_trainer import SelfPlayTrainer
+        
+        # Parse comma-separated strings
+        integer_player_list = [p.strip() for p in integer_players.split(',')]
+        float_player_list = [p.strip() for p in float_players.split(',')]
+        risk_profile_list = [p.strip() for p in risk_profiles.split(',')]
+        
+        click.echo(f"🚀 Starting Integer vs Float training for {num_games:,} games")
+        click.echo(f"📊 Integer players: {', '.join(integer_player_list)}")
+        click.echo(f"📊 Float players: {', '.join(float_player_list)}")
+        click.echo(f"🎯 Risk profiles: {', '.join(risk_profile_list)}")
+        
+        # Create trainer
+        model_config = {
+            'type': 'standard',
+            'input_size': 128,
+            'hidden_size': 256,
+            'output_size': 64,
+            'risk_embedding_size': 32,
+            'use_risk_attention': True
+        }
+        
+        trainer = SelfPlayTrainer(model_config, output_dir="trained_models")
+        
+        # Start training
+        results = trainer.train_integer_vs_float(
+            num_games=num_games,
+            integer_players=integer_player_list,
+            float_players=float_player_list,
+            risk_profiles=risk_profile_list,
+            save_interval=save_interval,
+            evaluation_interval=evaluation_interval
+        )
+        
+        click.echo("✅ Integer vs Float training completed successfully!")
+        click.echo(f"🏆 Final results: Integer {results['integer_win_rate']*100:.1f}% vs Float {results['float_win_rate']*100:.1f}%")
+        
+    except Exception as e:
+        click.echo(f"❌ Training failed: {e}")
+        raise
+
+
+@click.command()
+@click.option('--num-games', default=15000, help='Number of games per profile (minimum 10000)')
+@click.option('--output-dir', default='trained_models', help='Output directory for trained models')
+@click.option('--save-interval', default=1000, help='How often to save checkpoints')
+@click.option('--evaluation-interval', default=2000, help='How often to evaluate performance')
+@click.option('--device', default='auto', help='Device to use for training (cpu/cuda/auto)')
+def generate_player_profiles(num_games, output_dir, save_interval, evaluation_interval, device):
+    """Generate multiple AI player profiles with different playing styles."""
+    try:
+        from .ai_model.self_play_trainer import SelfPlayTrainer
+        
+        # Ensure minimum games requirement
+        if num_games < 10000:
+            click.echo("⚠️  Setting minimum games to 10,000 for proper training")
+            num_games = 10000
+        
+        click.echo(f"🎯 Generating AI Player Profiles")
+        click.echo(f"📊 Games per profile: {num_games:,}")
+        click.echo(f"📁 Output directory: {output_dir}")
+        click.echo(f"💾 Save interval: {save_interval}")
+        click.echo(f"📈 Evaluation interval: {evaluation_interval}")
+        click.echo(f"🖥️  Device: {device}")
+        click.echo("=" * 60)
+        
+        # Define the 5 distinct player profiles with different playing styles
+        player_profiles = [
+            {
+                'name': 'Alice',
+                'risk_profile': 'aggressive',
+                'description': 'Aggressive player - high risk tolerance, leads with high cards'
+            },
+            {
+                'name': 'Bob', 
+                'risk_profile': 'conservative',
+                'description': 'Conservative player - low risk tolerance, plays safe'
+            },
+            {
+                'name': 'Charlie',
+                'risk_profile': 'balanced',
+                'description': 'Balanced player - moderate risk, adaptive strategy'
+            },
+            {
+                'name': 'David',
+                'risk_profile': 'ace_hunter',
+                'description': 'Ace hunter - loves ordering up aces, strategic risk taker'
+            },
+            {
+                'name': 'Eve',
+                'risk_profile': 'trump_caller',
+                'description': 'Trump caller - always calls trump, aggressive trump play'
+            }
+        ]
+        
+        # Model configuration
+        model_config = {
+            'type': 'standard',
+            'input_size': 128,
+            'hidden_size': 256,
+            'output_size': 64,
+            'risk_embedding_size': 32,
+            'use_risk_attention': True
+        }
+        
+        # Create trainer
+        trainer = SelfPlayTrainer(model_config, output_dir, device)
+        
+        # Train each profile
+        results = {}
+        for profile in player_profiles:
+            click.echo(f"\n🧠 Training {profile['name']} ({profile['risk_profile']})")
+            click.echo(f"📝 Style: {profile['description']}")
+            click.echo("-" * 40)
+            
+            try:
+                # Train this profile
+                profile_results = trainer.train_single_profile(
+                    player_name=profile['name'],
+                    risk_profile=profile['risk_profile'],
+                    num_games=num_games,
+                    save_interval=save_interval,
+                    evaluation_interval=evaluation_interval
+                )
+                
+                results[profile['name']] = profile_results
+                
+                click.echo(f"✅ {profile['name']} training completed!")
+                click.echo(f"   Final win rate: {profile_results['final_win_rate']*100:.1f}%")
+                click.echo(f"   Games played: {profile_results['total_games']}")
+                click.echo(f"   Model saved: {profile_results['model_path']}")
+                
+            except Exception as e:
+                click.echo(f"❌ Failed to train {profile['name']}: {e}")
+                results[profile['name']] = {'error': str(e)}
+        
+        # Summary
+        click.echo("\n" + "=" * 60)
+        click.echo("🎉 PLAYER PROFILE GENERATION COMPLETED!")
+        click.echo("=" * 60)
+        
+        successful_profiles = [name for name, result in results.items() if 'error' not in result]
+        failed_profiles = [name for name, result in results.items() if 'error' in result]
+        
+        click.echo(f"✅ Successfully trained: {len(successful_profiles)} profiles")
+        if successful_profiles:
+            click.echo(f"   {', '.join(successful_profiles)}")
+        
+        if failed_profiles:
+            click.echo(f"❌ Failed to train: {len(failed_profiles)} profiles")
+            click.echo(f"   {', '.join(failed_profiles)}")
+        
+        click.echo(f"\n📁 All models saved to: {output_dir}")
+        click.echo(f"🎮 Use these profiles in games with: euchre play --ai-profiles")
+        
+    except Exception as e:
+        click.echo(f"❌ Profile generation failed: {e}")
+        raise
+
+
 # Add commands to the main group
 main.add_command(train_self_play)
 main.add_command(list_players)
@@ -728,6 +898,8 @@ main.add_command(benchmark)
 main.add_command(run_neural_games)
 main.add_command(run_all_neural_combinations)
 main.add_command(list_neural_models)
+main.add_command(train_integer_vs_float)
+main.add_command(generate_player_profiles)
 
 
 if __name__ == "__main__":
