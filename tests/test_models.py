@@ -21,8 +21,9 @@ class TestCard:
         card = Card(rank=Rank.JACK, suit=Suit.CLUBS)
         assert str(card) == "Jack of Clubs"
         
-        trump_card = Card(rank=Rank.ACE, suit=Suit.DIAMONDS, is_trump=True)
-        assert str(trump_card) == "Ace of Diamonds (Trump)"
+        # Test trump card string representation
+        trump_card = Card(Rank.ACE, Suit.DIAMONDS, is_trump=True)
+        assert str(trump_card) == "Ace of Diamonds *"
         
     def test_card_comparison(self) -> None:
         """Test card comparison."""

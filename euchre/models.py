@@ -37,7 +37,7 @@ class Card:
         """String representation of the card."""
         rank_str = self.rank.name.title()
         suit_str = self.suit.name.title()
-        trump_indicator = " (Trump)" if self.is_trump else ""
+        trump_indicator = " *" if self.is_trump else ""
         return f"{rank_str} of {suit_str}{trump_indicator}"
     
     def short_str(self) -> str:
@@ -61,7 +61,7 @@ class Card:
         suit_str = suit_map.get(self.suit, self.suit.name[0].upper())
         
         if self.is_trump:
-            return f"[{rank_str}{suit_str}]"
+            return f"{rank_str}{suit_str}*"
         else:
             return f"{rank_str}{suit_str}"
     
