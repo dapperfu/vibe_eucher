@@ -459,7 +459,7 @@ class EuchreGame:
             # Show remaining deck cards (if any)
             if hasattr(self, 'deck') and self.deck:
                 remaining_cards = [str(card) for card in self.deck]
-                click.echo(f"  Remaining deck: {' '.join(remaining_cards)}")
+                click.echo(f"  Remaining deck: {', '.join(remaining_cards)}")
             else:
                 click.echo("  Remaining deck: None")
             click.echo()
