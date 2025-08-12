@@ -35,8 +35,6 @@ def main():
     parser.add_argument("--batch-size", type=int, default=32, help="Training batch size")
     parser.add_argument("--learning-rate", type=float, default=0.001, help="Learning rate")
     parser.add_argument("--hidden-size", type=int, default=256, help="Hidden layer size")
-    parser.add_argument("--num-layers", type=int, default=3, help="Number of hidden layers")
-    parser.add_argument("--dropout", type=float, default=0.2, help="Dropout rate")
     parser.add_argument("--generate-data", action="store_true", help="Generate sample training data")
     parser.add_argument("--evaluate", action="store_true", help="Evaluate model after training")
     parser.add_argument("--num-eval-games", type=int, default=100, help="Number of games for evaluation")
@@ -55,8 +53,9 @@ def main():
     model = EuchreNN(
         input_size=128,
         hidden_size=args.hidden_size,
-        num_layers=args.num_layers,
-        dropout=args.dropout
+        output_size=64,
+        risk_embedding_size=32,
+        use_risk_attention=True
     )
     
     # Create training pipeline

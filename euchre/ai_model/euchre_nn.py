@@ -108,7 +108,7 @@ class EuchreNN(nn.Module):
         
         # Risk-specific output heads
         self.trump_decision_head = nn.Linear(hidden_size, 2)  # Order up or not
-        self.card_selection_head = nn.Linear(hidden_size, 24)  # 24 possible cards
+        self.card_selection_head = nn.Linear(hidden_size, 5)  # 5 cards in hand
         self.risk_adjustment_head = nn.Linear(hidden_size, 4)  # Risk parameter adjustments
         
     def forward(self, x: torch.Tensor, risk_params: RiskParameters) -> Dict[str, torch.Tensor]:
@@ -132,9 +132,9 @@ class EuchreNN(nn.Module):
         risk_vector = risk_params.get_risk_vector().unsqueeze(0).expand(batch_size, -1)
         risk_embedded = self.risk_embedding(risk_vector)
         
-        # Debug: check tensor types and shapes
-        print(f"Input tensor x: shape={x.shape}, dtype={x.dtype}")
-        print(f"Risk embedded: shape={risk_embedded.shape}, dtype={risk_embedded.dtype}")
+        # Debug: check tensor types and shapes (commented out for training)
+        # print(f"Input tensor x: shape={x.shape}, dtype={x.dtype}")
+        # print(f"Risk embedded: shape={risk_embedded.shape}, dtype={risk_embedded.dtype}")
         
         # Concatenate input features with risk embeddings
         try:

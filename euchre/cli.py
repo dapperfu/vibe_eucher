@@ -620,11 +620,30 @@ def tournament(models_dir, num_games, config_name):
         raise
 
 
+@click.command()
+@click.option('--device', default='cpu', help='Device to run benchmark on (cpu/cuda)')
+@click.option('--save-results', is_flag=True, default=True, help='Save benchmark results to file')
+def benchmark(device, save_results):
+    """Run performance benchmark comparing float vs integer models."""
+    try:
+        from .ai_model.benchmark_runner import run_benchmark
+        
+        click.echo(f"🚀 Running benchmark on {device}...")
+        results = run_benchmark(device=device, save_results=save_results)
+        
+        click.echo("✅ Benchmark completed successfully!")
+        
+    except Exception as e:
+        click.echo(f"❌ Benchmark failed: {e}")
+        raise
+
+
 # Add commands to the main group
 main.add_command(train_self_play)
 main.add_command(list_players)
 main.add_command(play_trained_players)
 main.add_command(tournament)
+main.add_command(benchmark)
 
 
 if __name__ == "__main__":
