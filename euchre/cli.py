@@ -776,8 +776,10 @@ def train_integer_vs_float(num_games, integer_players, float_players, risk_profi
 @click.option('--output-dir', default='trained_models', help='Output directory for trained models')
 @click.option('--save-interval', default=1000, help='How often to save checkpoints')
 @click.option('--evaluation-interval', default=2000, help='How often to evaluate performance')
-@click.option('--device', default='auto', help='Device to use for training (cpu/cuda/auto)')
-def generate_player_profiles(num_games, output_dir, save_interval, evaluation_interval, device):
+@click.option('--device', default='auto', help='Device to use for training (cpu/cuda/mps/auto)')
+@click.option('--gpu-memory-fraction', default=0.9, help='GPU memory fraction to use (0.1-1.0)')
+@click.option('--enable-amp', is_flag=True, default=True, help='Enable automatic mixed precision for faster training')
+def generate_player_profiles(num_games, output_dir, save_interval, evaluation_interval, device, gpu_memory_fraction, enable_amp):
     """Generate multiple AI player profiles with different playing styles."""
     try:
         from .ai_model.self_play_trainer import SelfPlayTrainer
@@ -793,7 +795,34 @@ def generate_player_profiles(num_games, output_dir, save_interval, evaluation_in
         click.echo(f"💾 Save interval: {save_interval}")
         click.echo(f"📈 Evaluation interval: {evaluation_interval}")
         click.echo(f"🖥️  Device: {device}")
+        click.echo(f"💾 GPU memory fraction: {gpu_memory_fraction}")
+        click.echo(f"⚡ AMP enabled: {enable_amp}")
         click.echo("=" * 60)
+        
+        # Check GPU availability
+        if device == "auto" or device == "cuda":
+            import torch
+            if torch.cuda.is_available():
+                gpu_name = torch.cuda.get_device_name(0)
+                gpu_memory = torch.cuda.get_device_properties(0).total_memory / 1e9
+                click.echo(f"🚀 GPU detected: {gpu_name}")
+                click.echo(f"💾 GPU Memory: {gpu_memory:.1f} GB")
+                
+                # Set GPU memory fraction
+                if gpu_memory_fraction != 0.9:
+                    torch.cuda.set_per_process_memory_fraction(gpu_memory_fraction)
+                    click.echo(f"💾 GPU memory fraction set to {gpu_memory_fraction}")
+            else:
+                click.echo("⚠️  CUDA requested but not available, using CPU")
+                device = "cpu"
+        
+        # Enable automatic mixed precision if requested
+        if enable_amp and device in ["auto", "cuda"]:
+            try:
+                import torch.cuda.amp
+                click.echo("⚡ Automatic Mixed Precision (AMP) enabled for faster training")
+            except ImportError:
+                click.echo("⚠️  AMP not available, continuing without it")
         
         # Define the 5 distinct player profiles with different playing styles
         player_profiles = [

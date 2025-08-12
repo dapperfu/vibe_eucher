@@ -46,12 +46,26 @@ class SelfPlayTrainer:
         if device == "auto":
             if torch.cuda.is_available():
                 self.device = torch.device("cuda")
+                # Enable CUDA optimizations
+                torch.backends.cudnn.benchmark = True
+                torch.backends.cudnn.deterministic = False
+                print(f"🚀 CUDA detected: {torch.cuda.get_device_name()}")
+                print(f"   Memory: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
             elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
                 self.device = torch.device("mps")
+                print(f"🚀 MPS (Apple Silicon) detected")
             else:
                 self.device = torch.device("cpu")
+                print(f"🚀 Using CPU (CUDA/MPS not available)")
         else:
             self.device = torch.device(device)
+            if device == "cuda" and torch.cuda.is_available():
+                torch.backends.cudnn.benchmark = True
+                torch.backends.cudnn.deterministic = False
+                print(f"🚀 CUDA enabled: {torch.cuda.get_device_name()}")
+            elif device == "cuda" and not torch.cuda.is_available():
+                print(f"⚠️  CUDA requested but not available, falling back to CPU")
+                self.device = torch.device("cpu")
         
         # Training state
         self.training_history = []
@@ -59,6 +73,46 @@ class SelfPlayTrainer:
         
         print(f"🚀 Self-play trainer initialized on {self.device}")
         print(f"📁 Output directory: {self.output_dir}")
+        
+        # GPU memory optimization
+        if self.device.type == "cuda":
+            self._optimize_gpu_memory()
+    
+    def _optimize_gpu_memory(self) -> None:
+        """Optimize GPU memory usage for training."""
+        try:
+            # Clear GPU cache
+            torch.cuda.empty_cache()
+            
+            # Set memory fraction to avoid OOM
+            if hasattr(torch.cuda, 'set_per_process_memory_fraction'):
+                torch.cuda.set_per_process_memory_fraction(0.9)
+            
+            # Enable memory efficient attention if available
+            if hasattr(torch.backends.cuda, 'enable_flash_sdp'):
+                torch.backends.cuda.enable_flash_sdp(True)
+            
+            print(f"💾 GPU memory optimized for training")
+            
+        except Exception as e:
+            print(f"⚠️  GPU optimization failed: {e}")
+    
+    def _check_gpu_memory(self) -> None:
+        """Check and report GPU memory usage."""
+        if self.device.type == "cuda":
+            try:
+                allocated = torch.cuda.memory_allocated(self.device) / 1e9
+                reserved = torch.cuda.memory_reserved(self.device) / 1e9
+                total = torch.cuda.get_device_properties(self.device).total_memory / 1e9
+                
+                print(f"💾 GPU Memory: {allocated:.2f}GB allocated, {reserved:.2f}GB reserved, {total:.2f}GB total")
+                
+                # Warn if memory usage is high
+                if allocated / total > 0.8:
+                    print(f"⚠️  High GPU memory usage ({allocated/total*100:.1f}%)")
+                    
+            except Exception as e:
+                print(f"⚠️  Could not check GPU memory: {e}")
     
     def create_player_model(self, player_name: str, risk_profile: str = "balanced") -> Tuple[EuchreNN, ModelPlayer]:
         """Create a model and player instance for a specific player.
@@ -654,6 +708,9 @@ class SelfPlayTrainer:
             # Evaluate performance periodically
             if (game_num + 1) % evaluation_interval == 0:
                 self._evaluate_mixed_training_performance(game_num + 1, training_stats)
+                
+                # Check GPU memory usage
+                self._check_gpu_memory()
         
         # Final save
         self._save_mixed_training_checkpoint(num_games, training_stats, is_final=True)
@@ -743,6 +800,7 @@ class SelfPlayTrainer:
         print(f"📊 Games: {num_games:,}")
         print(f"💾 Save interval: {save_interval}")
         print(f"📈 Evaluation interval: {evaluation_interval}")
+        print(f"🖥️  Device: {self.device}")
         
         # Create the player model
         model, player = self.create_player_model(player_name, risk_profile)
@@ -798,6 +856,9 @@ class SelfPlayTrainer:
                     model, player_name, risk_profile, game_num + 1, current_win_rate
                 )
                 print(f"💾 Checkpoint saved: {checkpoint_path}")
+                
+                # Check GPU memory usage
+                self._check_gpu_memory()
             
             # Evaluate performance
             if (game_num + 1) % evaluation_interval == 0:
@@ -830,7 +891,7 @@ class SelfPlayTrainer:
         checkpoint_dir.mkdir(exist_ok=True)
         
         checkpoint_path = checkpoint_dir / f"{player_name}_{risk_profile}_checkpoint_{game_num}.json"
-        self._save_model_weights(model, checkpoint_path, player_name, risk_profile, game_num, win_rate)
+        self._save_model_weights(model, checkpoint_path)
         
         return str(checkpoint_path)
 
@@ -838,12 +899,11 @@ class SelfPlayTrainer:
                            win_rate: float, total_games: int) -> str:
         """Save the final trained profile."""
         final_path = self.output_dir / f"{player_name}.json"
-        self._save_model_weights(model, final_path, player_name, risk_profile, total_games, win_rate)
+        self._save_model_weights(model, final_path)
         
         return str(final_path)
     
-    def _save_model_weights(self, model, model_path: Path, player_name: str = None, 
-                           risk_profile: str = None, game_num: int = None, win_rate: float = None) -> None:
+    def _save_model_weights(self, model, model_path: Path) -> None:
         """Save model weights to a JSON file."""
         try:
             # Convert model state dict to JSON-serializable format
