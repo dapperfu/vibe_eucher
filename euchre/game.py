@@ -1,13 +1,14 @@
-"""Main game logic for the euchre card game."""
+"""Main game controller for the euchre card game."""
 
-from typing import List, Optional, Tuple, Dict
-import random
-from .models import (
-    Player, PlayerType, Card, Suit, Rank, GameState, Trick
-)
+from typing import List, Optional
+from .core.deck import Deck
+from .core.game_state import GameStateManager
+from .core.trick_manager import TrickManager
+from .core.scoring import ScoringManager
+from .game_logic.trump_selection import TrumpSelectionManager
+from .ai.ai_factory import AIFactory
+from .models import Player, PlayerType, Card, Suit
 from .game_logger import GameLogger
-from .ai_profiles import AggressiveAI, ConservativeAI, BalancedAI, OpportunisticAI
-from .adaptive_ai_profiles import create_adaptive_ai_profile, AdaptiveAIProfile
 import click
 
 
@@ -25,23 +26,18 @@ class EuchreGame:
             Whether to suppress console output (useful for training)
         """
         self.players: List[Player] = []
-        self.game_state: Optional[GameState] = None
-        self.deck: List[Card] = []
-        self.current_trick: Optional[Trick] = None
-        self.tricks_this_round: List[Trick] = []
-        self.top_card: Optional[Card] = None
+        self.deck = Deck()
+        self.game_state_manager = GameStateManager()
+        self.trick_manager = TrickManager()
+        self.scoring_manager = ScoringManager()
+        self.trump_selection_manager = TrumpSelectionManager()
         self.logger: Optional[GameLogger] = None
-        self.trump_caller: Optional[Player] = None  # Track who called trump
-        self.trump_caller_team: Optional[int] = None  # Track which team called trump
+        self.top_card: Optional[Card] = None
         self.quiet_mode = quiet_mode
-        self.current_dealer_index: int = 0  # Track current dealer position
-        self.renege_count: int = 0  # Track total reneges in the game
         
         if enable_logging:
             self.logger = GameLogger()
-            
-        self._initialize_deck()
-        
+    
     def add_ai_player(self, name: str, ai_type: str = "balanced", risk_ratio: float = 0.5) -> None:
         """Add an AI player with a specific profile.
         
@@ -54,34 +50,9 @@ class EuchreGame:
         risk_ratio : float
             Risk tolerance (0.0 = conservative, 1.0 = aggressive)
         """
-        ai_type = ai_type.lower()
-        
-        if ai_type == "aggressive":
-            player = AggressiveAI(name, risk_ratio)
-        elif ai_type == "conservative":
-            player = ConservativeAI(name, risk_ratio)
-        elif ai_type == "opportunistic":
-            player = OpportunisticAI(name, risk_ratio)
-        else:  # balanced or unknown
-            player = BalancedAI(name, risk_ratio)
-            
+        player = AIFactory.create_ai_player(name, ai_type, risk_ratio)
         self.players.append(player)
-        
-    def add_adaptive_ai_player(self, name: str, ai_type: str = "balanced", base_risk_ratio: float = 0.5) -> None:
-        """Add an adaptive AI player that adjusts risk based on game state.
-        
-        Parameters
-        ----------
-        name : str
-            The player's name
-        ai_type : str
-            Type of AI: "conservative", "balanced", "aggressive", "opportunistic"
-        base_risk_ratio : float
-            Base risk ratio (0.0 = conservative, 1.0 = aggressive)
-        """
-        player = create_adaptive_ai_profile(name, ai_type, base_risk_ratio)
-        self.players.append(player)
-        
+    
     def add_player(self, name: str, player_type: PlayerType) -> None:
         """Add a player to the game.
         
@@ -95,1056 +66,436 @@ class EuchreGame:
         player = Player(name=name, player_type=player_type)
         self.players.append(player)
     
-    def replace_player_with_ai_profile(self, player_name: str, ai_profile: "Player") -> None:
-        """Replace a basic player with an AI profile player.
-        
-        Parameters
-        ----------
-        player_name : str
-            The name of the player to replace
-        ai_profile : Player
-            The AI profile player to use as replacement
-        """
-        for i, player in enumerate(self.players):
-            if player.name == player_name:
-                # Copy the AI profile's attributes to maintain the same object reference
-                player.__class__ = ai_profile.__class__
-                player.__dict__.update(ai_profile.__dict__)
-                # Ensure the name stays the same
-                player.name = player_name
-                break
-        
-    def add_model_player(self, name: str, model, device, risk_profile: str = "balanced") -> None:
-        """Add a trained AI model player to the game.
-        
-        Parameters
-        ----------
-        name : str
-            The player's name
-        model : torch.nn.Module
-            The trained PyTorch model
-        device : torch.device
-            Device the model is running on
-        risk_profile : str
-            Risk profile for the model player
-        """
-        from .ai_model.model_player import ModelPlayer
-        player = ModelPlayer(name=name, model=model, device=device, risk_profile=risk_profile)
-        self.players.append(player)
-        
-        # Update game state to track model players
-        if not hasattr(self, 'model_players'):
-            self.model_players = []
-        self.model_players.append(player)
-        
     def start_new_game(self) -> None:
-        """Start a new game with the current players."""
-        if len(self.players) != 4:
-            raise ValueError("Euchre requires exactly 4 players")
-            
-        # Reset all players
-        for player in self.players:
-            player.clear_hand()
-            player.tricks_won = 0
-            player.is_dealer = False
-            
-        # Set dealer (rotate clockwise each game)
-        dealer_index = self.current_dealer_index
-        self.players[dealer_index].is_dealer = True
+        """Start a new game."""
+        if not self.quiet_mode:
+            print("DEBUG: start_new_game - Starting new game")
+            print("DEBUG: start_new_game - Number of players:", len(self.players))
+            print("DEBUG: start_new_game - Player objects:")
+            for i, player in enumerate(self.players):
+                print(f"DEBUG: Player {i}: {player.name} (id: {id(player)}) type: {player.player_type}")
+                print(f"DEBUG: Player {i}: {player.name} hand: {len(player.hand)} cards: {[str(card) for card in player.hand]}")
         
-        # Initialize game state
-        self.game_state = GameState(
-            players=self.players,
-            current_player_index=(dealer_index + 1) % 4,  # Start with player after dealer
-            trump_suit=None,
-            dealer_index=dealer_index,
-            round_number=1,
-            team1_score=0,
-            team2_score=0
+        # Reset game state
+        self.game_state_manager.initialize_game(self.players)
+        self.deck.reset()
+        self.trick_manager.reset()
+        
+        if not self.quiet_mode:
+            print("DEBUG: start_new_game - After resetting components")
+            print("DEBUG: start_new_game - Player hands after reset:")
+            for player in self.players:
+                print(f"DEBUG: {player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+        
+        # Deal cards
+        self._deal_cards()
+        
+        if not self.quiet_mode:
+            print("DEBUG: start_new_game - After dealing cards")
+            print("DEBUG: start_new_game - Player hands after dealing:")
+            for player in self.players:
+                print(f"DEBUG: {player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+        
+        # Reset round number
+        self.round_number = 1
+        
+        if not self.quiet_mode:
+            print("DEBUG: start_new_game - Game initialization complete")
+    
+    def _deal_cards(self):
+        """Deal 5 cards to each player and set the top card."""
+        hands = self.deck.deal_cards(len(self.players))
+        
+        # Debug: Print player objects and their hands
+        if not self.quiet_mode:
+            print(f"DEBUG: _deal_cards - Number of players: {len(self.players)}")
+            print(f"DEBUG: _deal_cards - Number of hands: {len(hands)}")
+            for i, (player, hand) in enumerate(zip(self.players, hands)):
+                print(f"DEBUG: _deal_cards - Player {i}: {player.name} (id: {id(player)}) got {len(hand)} cards: {[str(card) for card in hand]}")
+                player.hand = hand
+                print(f"DEBUG: _deal_cards - After assignment: {player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+        
+        # Set the top card
+        self.top_card = self.deck.draw_top_card()
+        if not self.quiet_mode:
+            print(f"DEBUG: Top card: {self.top_card}")
+        
+        # Debug: Verify all players have cards after dealing
+        if not self.quiet_mode:
+            print("DEBUG: Final hand verification after dealing:")
+            for player in self.players:
+                print(f"DEBUG: {player.name} (id: {id(player)}) final hand: {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+    
+    def _start_new_round(self) -> None:
+        """Start a new round of the game."""
+        if not self.quiet_mode:
+            print(f"\n=== Starting Round {self.round_number} ===")
+            print("DEBUG: _start_new_round - Player hands at start of round:")
+            for player in self.players:
+                print(f"DEBUG: {player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+        
+        # Reset round state
+        self.current_trick = None
+        self.tricks_won = {player.name: 0 for player in self.players}
+        self.trump_suit = None
+        
+        # Deal new cards for this round (unless it's the first round which was already dealt)
+        if self.round_number > 1:
+            if not self.quiet_mode:
+                print("DEBUG: _start_new_round - Dealing new cards for round", self.round_number)
+            # Reset the deck for the new round
+            self.deck.reset()
+            self._deal_cards()
+            if not self.quiet_mode:
+                print("DEBUG: _start_new_round - Player hands after dealing new cards:")
+                for player in self.players:
+                    print(f"DEBUG: {player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+        
+        # Select trump suit
+        trump_suit, caller = self.trump_selection_manager.select_trump_suit(
+            self.players, 
+            self.top_card, 
+            self.game_state_manager.get_dealer()
         )
         
-        self._deal_cards()
-        self._select_trump()
+        # Set the trump suit in the game state
+        if trump_suit:
+            self.trump_suit = trump_suit
+            self.game_state_manager.set_trump_suit(trump_suit, caller or self.game_state_manager.get_dealer())
+        else:
+            # If no trump was selected, dealer picks
+            dealer = self.game_state_manager.get_dealer()
+            trump_suit = self.trump_selection_manager._dealer_suit_selection(dealer, self.top_card)
+            self.trump_suit = trump_suit
+            self.game_state_manager.set_trump_suit(trump_suit, dealer)
         
-        # Log game start
-        if self.logger:
-            dealer = self.game_state.get_dealer()
-            self.logger.log_game_start(self.players, dealer)
-        
-        # Display dealer for this game
+        # Debug: Check hands after trump selection
         if not self.quiet_mode:
-            dealer = self.game_state.get_dealer()
-            click.echo(f"\n🎲 NEW GAME STARTED 🎲")
-            click.echo(f"🎯 DEALER: {dealer.name}")
-            click.echo(f"🔄 Dealer rotates clockwise each game")
-            click.echo("=" * 50)
-            
-        # Rotate dealer for next game (clockwise)
-        self.current_dealer_index = (self.current_dealer_index + 1) % 4
+            print("DEBUG: _start_new_round - Player hands after trump selection:")
+            for player in self.players:
+                print(f"DEBUG: {player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
         
-    def _initialize_deck(self) -> None:
-        """Initialize the deck with euchre cards (9-A of each suit)."""
-        self.deck.clear()
-        for suit in Suit:
-            for rank in Rank:
-                self.deck.append(Card(rank=rank, suit=suit))
-                
-    def _deal_cards(self) -> None:
-        """Deal 5 cards to each player."""
-        # Shuffle deck
-        random.shuffle(self.deck)
+        # Play 5 tricks
+        for trick_number in range(1, 6):
+            if not self.quiet_mode:
+                print(f"\n--- Trick {trick_number} ---")
+                print("DEBUG: Before starting trick - Player hands:")
+                for player in self.players:
+                    print(f"DEBUG: {player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+            
+            self._play_trick()
+            
+            if not self.quiet_mode:
+                print("DEBUG: After completing trick - Player hands:")
+                for player in self.players:
+                    print(f"DEBUG: {player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
         
-        # Deal 5 cards to each player
-        for i, player in enumerate(self.players):
-            start_idx = i * 5
-            end_idx = start_idx + 5
-            player.hand = self.deck[start_idx:end_idx]
-            
-        # Remove dealt cards from deck
-        self.deck = self.deck[20:]
+        # Score the round
+        # Determine which team called trump
+        trump_caller_team = 0 if caller and self.players.index(caller) % 2 == 0 else 1
+        team1_score, team2_score = self.scoring_manager.score_round(self.players, trump_caller_team)
         
-        # Set top card (for trump selection)
-        if self.deck:
-            self.top_card = self.deck[0]
-            
-    def _select_trump(self) -> None:
-        """Handle trump suit selection through proper euchre bidding."""
-        if not self.top_card:
-            return
-            
-        # Start with player after dealer (left of dealer)
-        current_player_idx = self.game_state.current_player_index
-        trump_selected = False
-        bidding_log = []
-        
-        # First round: players can order up the top card
-        for round_num in range(4):  # Each player gets one chance
-            player = self.players[current_player_idx]
-            
-            if player.player_type == PlayerType.AI:
-                # AI decision
-                if hasattr(player, 'should_order_up'):
-                    # Check if this player's partner is dealing
-                    is_partner_dealing = self._is_partner_dealing(player)
-                    
-                    # For adaptive AI players, provide context
-                    if hasattr(player, 'create_context'):
-                        context = self._create_adaptive_context(player, is_partner_dealing)
-                        # Update the adaptive AI's context
-                        player.create_context(
-                            hand=player.hand,
-                            team_score=self.game_state.team1_score if current_player_idx % 2 == 0 else self.game_state.team2_score,
-                            opponent_score=self.game_state.team2_score if current_player_idx % 2 == 0 else self.game_state.team1_score,
-                            round_number=self.game_state.round_number,
-                            tricks_won=player.tricks_won,
-                            partner_tricks_won=self._get_partner_tricks_won(player),
-                            is_partner_dealing=is_partner_dealing,
-                            trump_suit=self.game_state.trump_suit,
-                            top_card=self.top_card
-                        )
-                    
-                    # Call with only the top_card to maintain compatibility
-                    should_order = player.should_order_up(self.top_card)
-                else:
-                    # Fallback to generic AI
-                    ai_player = AIPlayer(player)
-                    is_partner_dealing = self._is_partner_dealing(player)
-                    should_order = ai_player.should_order_up(self.top_card, is_partner_dealing)
-                
-                if should_order:
-                    self.game_state.trump_suit = self.top_card.suit
-                    trump_selected = True
-                    self.trump_caller = player
-                    self.trump_caller_team = (current_player_idx % 2)  # 0 = team 1, 1 = team 2
-                    bidding_log.append(f"{player.name} orders up {self.top_card}")
-                    
-                    # Dealer picks up the top card and discards one card
-                    dealer = self.game_state.get_dealer()
-                    discarded_card = self._dealer_pickup_and_discard(dealer)
-                    if discarded_card:
-                        bidding_log.append(f"{dealer.name} (dealer) picks up {self.top_card} and discards {discarded_card}")
-                    break
-                else:
-                    bidding_log.append(f"{player.name} passes")
-            else:
-                # Human player - prompt for decision
-                should_order = self._prompt_human_trump_decision(player, self.top_card)
-                
-                if should_order:
-                    self.game_state.trump_suit = self.top_card.suit
-                    trump_selected = True
-                    self.trump_caller = player
-                    self.trump_caller_team = (current_player_idx % 2)  # 0 = team 1, 1 = team 2
-                    bidding_log.append(f"{player.name} orders up {self.top_card}")
-                    
-                    # Dealer picks up the top card and discards one card
-                    dealer = self.game_state.get_dealer()
-                    discarded_card = self._dealer_pickup_and_discard(dealer)
-                    if discarded_card:
-                        bidding_log.append(f"{dealer.name} (dealer) picks up {self.top_card} and discards {discarded_card}")
-                    break
-                else:
-                    bidding_log.append(f"{player.name} passes")
-                
-            current_player_idx = (current_player_idx + 1) % 4
-            
-        # If no one ordered up, dealer must choose trump
-        if not trump_selected:
-            dealer = self.game_state.get_dealer()
-            if dealer.player_type == PlayerType.AI:
-                # Dealer AI chooses trump based on their hand
-                ai_player = AIPlayer(dealer)
-                chosen_suit = ai_player.choose_trump_suit(dealer.hand)
-                self.game_state.trump_suit = chosen_suit
-                self.trump_caller = dealer
-                self.trump_caller_team = (self.game_state.dealer_index % 2)  # 0 = team 1, 1 = team 2
-                bidding_log.append(f"{dealer.name} (dealer) calls {chosen_suit.value}")
-            else:
-                # Human dealer - prompt for trump suit choice
-                chosen_suit = self._prompt_human_trump_suit_choice(dealer)
-                self.game_state.trump_suit = chosen_suit
-                self.trump_caller = dealer
-                self.trump_caller_team = (self.game_state.dealer_index % 2)  # 0 = team 1, 1 = team 2
-                bidding_log.append(f"{dealer.name} (dealer) calls {chosen_suit.value}")
-                
-        # Print the bidding process to console (unless in quiet mode)
-        if not self.quiet_mode:
-            print(f"\nTrump Selection:")
-            for bid in bidding_log:
-                print(f"  {bid}")
-            print(f"Trump suit: {self.game_state.trump_suit.value}")
-            
-        # Mark trump cards
-        self._mark_trump_cards()
-        
-    def _is_partner_dealing(self, player: "Player") -> bool:
-        """Check if a player's partner is the dealer.
+        # Update player scores (assuming team 1 is players 0,2 and team 2 is players 1,3)
+        for i in range(0, 4, 2):  # Team 1
+            self.players[i].score += team1_score
+        for i in range(1, 4, 2):  # Team 2
+            self.players[i].score += team2_score
+    
+    def _update_trump_status(self, trump_suit: Suit) -> None:
+        """Update the trump status of all cards.
         
         Parameters
         ----------
-        player : Player
-            The player to check
-            
-        Returns
-        -------
-        bool
-            True if the player's partner is dealing
+        trump_suit : Suit
+            The trump suit for this round
         """
-        if not self.game_state:
-            return False
-            
-        dealer_index = self.game_state.dealer_index
-        player_index = self.players.index(player)
+        for player in self.players:
+            for card in player.hand:
+                card.is_trump = (card.suit == trump_suit or 
+                               (card.suit == self.trump_selection_manager._get_left_bower_suit(trump_suit) and 
+                                card.rank.value == 11))  # Jack
+    
+    def run_full_game(self) -> None:
+        """Run a complete game of Euchre."""
+        if not self.quiet_mode:
+            print("DEBUG: run_full_game - Starting full game")
+            print("DEBUG: run_full_game - Number of players:", len(self.players))
+            print("DEBUG: run_full_game - Player objects:")
+            for i, player in enumerate(self.players):
+                print(f"DEBUG: Player {i}: {player.name} (id: {id(player)}) type: {player.player_type}")
         
-        # Players are on teams: 0,2 are team 1, 1,3 are team 2
-        # Partner is the other player on the same team
-        if player_index % 2 == 0:  # Team 1
-            partner_index = 2 if player_index == 0 else 0
-        else:  # Team 2
-            partner_index = 3 if player_index == 1 else 1
-            
-        return partner_index == dealer_index
+        # Start new game
+        self.start_new_game()
         
-    def _get_partner_tricks_won(self, player: "Player") -> int:
-        """Get the number of tricks won by the player's partner.
+        if not self.quiet_mode:
+            print("DEBUG: run_full_game - After start_new_game")
+            print("DEBUG: run_full_game - Player hands:")
+            for player in self.players:
+                print(f"DEBUG: {player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+        
+        # Start the first round
+        self._start_new_round()
+        
+        if not self.quiet_mode:
+            print("DEBUG: run_full_game - After _start_new_round")
+            print("DEBUG: run_full_game - Player hands:")
+            for player in self.players:
+                print(f"DEBUG: {player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+        
+        # Continue rounds until game is over
+        while not self.scoring_manager.is_game_over(self.players):
+            self.round_number += 1
+            if not self.quiet_mode:
+                print(f"DEBUG: run_full_game - Starting round {self.round_number}")
+                print("DEBUG: run_full_game - Player hands before new round:")
+                for player in self.players:
+                    print(f"DEBUG: {player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+            
+            # Start new round
+            self._start_new_round()
+            
+            if not self.quiet_mode:
+                print(f"DEBUG: run_full_game - Completed round {self.round_number}")
+                print("DEBUG: run_full_game - Player hands after round:")
+                for player in self.players:
+                    print(f"DEBUG: {player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+        
+        # Game is over
+        if not self.quiet_mode:
+            print("DEBUG: run_full_game - Game over")
+            final_scores = self.scoring_manager.get_team_scores(self.players)
+            print(f"DEBUG: Final scores: {final_scores}")
+    
+    def run_interactive_game(self, show_ai_hands: bool = False) -> None:
+        """Run an interactive game with human players.
         
         Parameters
         ----------
-        player : Player
-            The player whose partner's tricks we want to know
-            
-        Returns
-        -------
-        int
-            Number of tricks won by the partner
+        show_ai_hands : bool
+            Whether to show AI player hands (for debugging)
         """
-        if not self.game_state:
-            return 0
-            
-        player_index = self.players.index(player)
+        while not self.game_state_manager.is_game_over():
+            self._play_round()
+            self._start_new_round()
         
-        # Players are on teams: 0,2 are team 1, 1,3 are team 2
-        # Partner is the other player on the same team
-        if player_index % 2 == 0:  # Team 1
-            partner_index = 2 if player_index == 0 else 0
-        else:  # Team 2
-            partner_index = 3 if player_index == 1 else 1
-            
-        return self.players[partner_index].tricks_won
+        self._show_final_results()
+    
+    def _play_round(self) -> None:
+        """Play a single round."""
+        # Play 5 tricks
+        for trick_num in range(5):
+            self._play_trick(trick_num + 1)
         
-    def _create_adaptive_context(self, player: "Player", is_partner_dealing: bool) -> "AdaptiveContext":
-        """Create adaptive context for an AI player.
+        # Score the round
+        self._score_round()
+        
+        # Start new round
+        self.game_state_manager.start_new_round()
+    
+    def _play_trick(self) -> None:
+        """Play a single trick."""
+        if not self.quiet_mode:
+            print("DEBUG: _play_trick - Starting new trick")
+            print("DEBUG: _play_trick - Player hands at start of trick:")
+            for player in self.players:
+                print(f"DEBUG: {player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+        
+        # Start new trick
+        self.trick_manager.start_new_trick()
+        
+        # Determine starting player (first trick: player after dealer, subsequent tricks: winner of previous trick)
+        if not self.current_trick or self.current_trick.is_complete():
+            # First trick of the round
+            dealer_index = next(i for i, p in enumerate(self.players) if p.name == self.game_state_manager.get_dealer().name)
+            starting_player_index = (dealer_index + 1) % len(self.players)
+        else:
+            # Subsequent tricks
+            starting_player_index = next(i for i, p in enumerate(self.players) if p.name == self.current_trick.winner.name)
+        
+        # Play cards in order
+        current_player_index = starting_player_index
+        for _ in range(len(self.players)):
+            current_player = self.players[current_player_index]
+            
+            if not self.quiet_mode:
+                print(f"DEBUG: _play_trick - Current player: {current_player.name} (id: {id(current_player)})")
+                print(f"DEBUG: _play_trick - {current_player.name} hand before playing: {len(current_player.hand)} cards: {[str(card) for card in current_player.hand]}")
+            
+            # Get card to play
+            if current_player.player_type == PlayerType.AI:
+                card = self._ai_play_card(current_player)
+            else:
+                card = self._human_play_card(current_player, trick_number)
+            
+            if not self.quiet_mode:
+                print(f"DEBUG: _play_trick - {current_player.name} played: {card}")
+                print(f"DEBUG: _play_trick - {current_player.name} hand after playing: {len(current_player.hand)} cards: {[str(card) for card in current_player.hand]}")
+            
+            # Play the card
+            self.trick_manager.play_card(current_player, card)
+            
+            # Move to next player
+            current_player_index = (current_player_index + 1) % len(self.players)
+        
+        # Complete the trick
+        winner = self.trick_manager.complete_trick()
+        if not self.quiet_mode:
+            print(f"DEBUG: _play_trick - Trick won by: {winner.name}")
+            print("DEBUG: _play_trick - Player hands after completing trick:")
+            for player in self.players:
+                print(f"DEBUG: {player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+        
+        # Update trick count
+        self.tricks_won[winner.name] += 1
+    
+    def _ai_play_card(self, player: Player) -> Card:
+        """Get a card from an AI player."""
+        if not self.quiet_mode:
+            print(f"DEBUG: _ai_play_card - Player: {player.name} (id: {id(player)})")
+            print(f"DEBUG: _ai_play_card - Player type: {player.player_type}")
+            print(f"DEBUG: _ai_play_card - Player hand: {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+            print(f"DEBUG: _ai_play_card - Current trick: {self.current_trick}")
+            print(f"DEBUG: _ai_play_card - Trump suit: {self.trump_suit}")
+        
+        # Check if player has cards
+        if not player.hand:
+            if not self.quiet_mode:
+                print(f"DEBUG: _ai_play_card - ERROR: Player {player.name} has no cards!")
+                print(f"DEBUG: _ai_play_card - Player object: {player}")
+                print(f"DEBUG: _ai_play_card - Player hand attribute: {player.hand}")
+                print(f"DEBUG: _ai_play_card - All players and their hands:")
+                for p in self.players:
+                    print(f"DEBUG: {p.name} (id: {id(p)}) has {len(p.hand)} cards: {[str(card) for card in p.hand]}")
+            raise ValueError(f"AI player {player.name} has no cards to play")
+        
+        # Get the current trick state
+        current_trick = self.trick_manager.get_current_trick()
+        
+        # Choose card based on AI profile
+        if hasattr(player, 'choose_card_to_play'):
+            card = player.choose_card_to_play(current_trick, self.trump_suit)
+        else:
+            # Fallback for basic AI
+            card = player.hand[0]
+        
+        if not self.quiet_mode:
+            print(f"DEBUG: _ai_play_card - Chosen card: {card}")
+        
+        # Remove card from hand
+        player.hand.remove(card)
+        
+        if not self.quiet_mode:
+            print(f"DEBUG: _ai_play_card - After removing card: {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+        
+        return card
+    
+    def _basic_ai_card_choice(self, player: Player, lead_suit: Optional[Suit], trump_suit: Optional[Suit]) -> Card:
+        """Basic AI card choice logic.
         
         Parameters
         ----------
         player : Player
             The AI player
-        is_partner_dealing : bool
-            Whether the player's partner is dealing
-            
-        Returns
-        -------
-        AdaptiveContext
-            Context for adaptive decision making
-        """
-        from .adaptive_ai_profiles import AdaptiveContext
-        
-        if not self.game_state:
-            return None
-            
-        # Get team scores
-        player_index = self.players.index(player)
-        if player_index % 2 == 0:  # Team 1
-            team_score = self.game_state.team1_score
-            opponent_score = self.game_state.team2_score
-        else:  # Team 2
-            team_score = self.game_state.team2_score
-            opponent_score = self.game_state.team1_score
-        
-        # Create context
-        context = AdaptiveContext(
-            game_state=None,  # Will be set by the AI profile
-            hand_strength=None,  # Will be set by the AI profile
-            team_score=team_score,
-            opponent_score=opponent_score,
-            round_number=self.game_state.round_number,
-            tricks_won=player.tricks_won,
-            partner_tricks_won=self._get_partner_tricks_won(player),
-            is_partner_dealing=is_partner_dealing,
-            trump_suit=self.game_state.trump_suit,
-            top_card=self.top_card,
-            historical_performance=0.0  # Will be updated by the AI profile
-        )
-        
-        return context
-        
-    def is_team_set(self) -> bool:
-        """Check if the trump calling team gets set (loses after calling trump).
-        
-        Returns
-        -------
-        bool
-            True if the trump calling team gets set
-        """
-        if not self.trump_caller_team or not self.game_state:
-            return False
-            
-        # Count tricks won by each team
-        team1_tricks = 0
-        team2_tricks = 0
-        
-        for i, player in enumerate(self.players):
-            if i % 2 == 0:  # Team 1 (players 0 and 2)
-                team1_tricks += player.tricks_won
-            else:  # Team 2 (players 1 and 3)
-                team2_tricks += player.tricks_won
-                
-        # Check if trump calling team won less than 3 tricks
-        if self.trump_caller_team == 0:  # Team 1 called trump
-            return team1_tricks < 3
-        else:  # Team 2 called trump
-            return team2_tricks < 3
-        
-    def _mark_trump_cards(self) -> None:
-        """Mark all trump cards in the game."""
-        if not self.game_state.trump_suit:
-            return
-            
-        trump_suit = self.game_state.trump_suit
-        
-        for player in self.players:
-            for card in player.hand:
-                if self._is_trump_card(card, trump_suit):
-                    card.is_trump = True
-                    
-        if self.top_card and self._is_trump_card(self.top_card, trump_suit):
-            self.top_card.is_trump = True
-            
-    def _dealer_pickup_and_discard(self, dealer: "Player") -> Optional["Card"]:
-        """Dealer picks up the top card and discards one card from their hand.
-        
-        Parameters
-        ----------
-        dealer : Player
-            The dealer who is picking up the top card
-            
-        Returns
-        -------
-        Optional[Card]
-            The card that was discarded, or None if no discard occurred
-        """
-        if not self.top_card or not dealer.hand:
-            return None
-            
-        # Add top card to dealer's hand
-        dealer.hand.append(self.top_card)
-        
-        # Remove top card from deck
-        if self.deck:
-            self.deck.pop(0)
-        
-        # Determine which card to discard based on strategy
-        discarded_card = self._choose_card_to_discard(dealer)
-        
-        # Remove discarded card from dealer's hand
-        if discarded_card in dealer.hand:
-            dealer.hand.remove(discarded_card)
-            
-        return discarded_card
-        
-    def _choose_card_to_discard(self, dealer: "Player") -> "Card":
-        """Choose which card the dealer should discard when picking up the top card.
-        
-        Parameters
-        ----------
-        dealer : Player
-            The dealer choosing which card to discard
+        lead_suit : Optional[Suit]
+            The lead suit of the trick
+        trump_suit : Optional[Suit]
+            The trump suit for this round
             
         Returns
         -------
         Card
-            The card to discard
+            The card to play
         """
-        if dealer.player_type == PlayerType.AI:
-            # AI dealer uses strategic discard logic
-            return self._ai_choose_discard_card(dealer)
+        if not lead_suit:
+            # Leading - play highest card
+            return max(player.hand, key=lambda c: c.rank.value)
+        
+        # Must follow suit if possible
+        cards_of_suit = [card for card in player.hand if card.suit == lead_suit]
+        if cards_of_suit:
+            return max(cards_of_suit, key=lambda c: c.rank.value)
         else:
-            # Human dealer - for now, discard lowest value card
-            return self._human_choose_discard_card(dealer)
-            
-    def _ai_choose_discard_card(self, dealer: "Player") -> "Card":
-        """AI dealer chooses which card to discard using strategic logic.
-        
-        Parameters
-        ----------
-        dealer : Player
-            The AI dealer choosing which card to discard
-            
-        Returns
-        -------
-        Card
-            The card to discard
-        """
-        # Strategy: Discard the card that provides the least strategic value
-        
-        # First priority: Discard non-trump cards that don't help with suit reduction
-        non_trump_cards = [card for card in dealer.hand if not card.is_trump]
-        
-        if non_trump_cards:
-            # Find cards that don't help reduce the number of suits
-            suit_counts = {}
-            for card in dealer.hand:
-                if card.suit not in suit_counts:
-                    suit_counts[card.suit] = 0
-                suit_counts[card.suit] += 1
-                
-            # Find cards that are the only one of their suit (don't help reduce suits)
-            single_suit_cards = [card for card in non_trump_cards if suit_counts[card.suit] == 1]
-            
-            if single_suit_cards:
-                # Among single-suit cards, discard the lowest value
-                return min(single_suit_cards, key=lambda c: c.rank.value)
-            else:
-                # Among multi-suit cards, discard the lowest value
-                return min(non_trump_cards, key=lambda c: c.rank.value)
-        
-        # If all cards are trump, discard the lowest trump value
-        trump_cards = [card for card in dealer.hand if card.is_trump]
-        if trump_cards:
-            return min(trump_cards, key=lambda c: c.rank.value)
-            
-        # Fallback: discard the lowest value card overall
-        return min(dealer.hand, key=lambda c: c.rank.value)
-        
-    def _human_choose_discard_card(self, dealer: "Player") -> "Card":
-        """Human dealer chooses which card to discard (simple logic for now).
-        
-        Parameters
-        ----------
-        dealer : Player
-            The human dealer choosing which card to discard
-            
-        Returns
-        -------
-        Card
-            The card to discard
-        """
-        # For now, just discard the lowest value card
-        # This could be enhanced later with human input
-        return min(dealer.hand, key=lambda c: c.rank.value)
-        
-    def _is_renege(self, player: "Player", played_card: "Card", lead_suit: Suit) -> bool:
-        """Check if a player reneged (didn't follow suit when they should have).
+            # Can't follow suit - play any card
+            return max(player.hand, key=lambda c: c.rank.value)
+    
+    def _human_play_card(self, player: Player, trick_number: int) -> Card:
+        """Get a human player's card choice.
         
         Parameters
         ----------
         player : Player
-            The player who played the card
-        played_card : Card
-            The card that was played
-        lead_suit : Suit
-            The suit that was led in the trick
-            
-        Returns
-        -------
-        bool
-            True if the player reneged, False otherwise
-        """
-        # If the played card is the lead suit, no renege
-        if played_card.suit == lead_suit:
-            return False
-            
-        # If the played card is trump, no renege (trump can always be played)
-        if played_card.is_trump:
-            return False
-            
-        # Check if the player had any cards of the lead suit
-        # Note: We need to check the player's hand before they played the card
-        # For now, we'll use a simplified check - this could be enhanced later
-        
-        # If the player is AI, we can assume they follow the rules
-        # This is mainly for detecting human player mistakes
-        if player.player_type == PlayerType.AI:
-            return False
-            
-        # For human players, we'd need to track their hand before playing
-        # For now, return False to avoid false positives
-        return False
-        
-    def _choose_trump_for_human_dealer(self, hand: List[Card]) -> Suit:
-        """Human dealer chooses the trump suit based on their hand.
-        
-        Parameters
-        ----------
-        hand : List[Card]
-            The dealer's hand
-            
-        Returns
-        -------
-        Suit
-            The chosen trump suit
-        """
-        # Simple heuristic: choose the suit with the most cards
-        suit_counts = {}
-        for card in hand:
-            if card.suit not in suit_counts:
-                suit_counts[card.suit] = 0
-            suit_counts[card.suit] += 1
-            
-        # Find the suit with the most cards
-        best_suit = max(suit_counts.keys(), key=lambda s: suit_counts[s])
-        return best_suit
-        
-    def _deal_new_round(self) -> None:
-        """Deal new cards for a new round."""
-        # Reinitialize deck
-        self._initialize_deck()
-        
-        # Deal new cards
-        self._deal_cards()
-        
-        # Select new trump
-        self._select_trump()
-        
-        # Reset trick counts
-        for player in self.players:
-            player.tricks_won = 0
-        
-    def play_round(self) -> None:
-        """Play a complete round (5 tricks)."""
-        # If this is not the first round, deal new cards
-        if self.game_state and self.game_state.round_number > 1:
-            self._deal_new_round()
-            
-        # Log round start
-        if self.logger and self.game_state:
-            hands = {player.name: player.hand.copy() for player in self.players}
-            trump_suit = self.game_state.trump_suit.name.title() if self.game_state.trump_suit else "None"
-            self.logger.log_round_start(self.game_state.round_number, trump_suit, hands)
-        
-        # Display dealer for this round
-        if not self.quiet_mode and self.game_state:
-            dealer_idx = self.game_state.dealer_index
-            dealer = self.players[dealer_idx]
-            click.echo(f"\n🎲 ROUND {self.game_state.round_number} - DEALER: {dealer.name} 🎲")
-            click.echo("-" * 50)
-            
-            # Check if this is an AI-only game (no human players)
-            is_ai_only_game = all(player.player_type == PlayerType.AI for player in self.players)
-            
-            if is_ai_only_game:
-                # Display each player's dealt cards for AI-only games
-                click.echo("\n📋 DEALT CARDS:")
-                
-                # Find the longest player name for alignment
-                max_name_length = max(len(player.name) for player in self.players)
-                
-                for i, player in enumerate(self.players):
-                    # Sort cards by suit first, then by rank (high to low)
-                    sorted_cards = sorted(player.hand, key=lambda c: (c.suit.value, -c.rank.value))
-                    
-                    # Format cards in shorthand with unicode suits (no trump indicators yet)
-                    card_strings = []
-                    for card in sorted_cards:
-                        # Use shorthand format: rank + unicode suit (no trump indicator)
-                        rank_symbol = self._get_rank_symbol(card.rank)
-                        suit_symbol = self._get_suit_symbol(card.suit)
-                        card_strings.append(f"{rank_symbol}{suit_symbol}")
-                    
-                    # Align player names and use comma separation
-                    aligned_name = player.name.ljust(max_name_length)
-                    click.echo(f"  {aligned_name}: {', '.join(card_strings)}")
-                click.echo()
-            else:
-                # For human games, only show the human player's hand
-                human_players = [p for p in self.players if p.player_type == PlayerType.HUMAN]
-                for human_player in human_players:
-                    # Sort cards by suit first, then by rank (high to low)
-                    sorted_cards = sorted(human_player.hand, key=lambda c: (c.suit.value, -c.rank.value))
-                    
-                    # Format cards in shorthand with unicode suits (no trump indicators yet)
-                    card_strings = []
-                    for card in sorted_cards:
-                        # Use shorthand format: rank + unicode suit (no trump indicator)
-                        rank_symbol = self._get_rank_symbol(card.rank)
-                        suit_symbol = self._get_suit_symbol(card.suit)
-                        card_strings.append(f"{rank_symbol}{suit_symbol}")
-                    
-                    click.echo(f"\n📋 YOUR HAND ({human_player.name}):")
-                    click.echo(f"  {', '.join(card_strings)}")
-                    click.echo()
-            
-            # Display trump selection process right after dealt cards
-            self.display_trump_selection(self.game_state.round_number)
-            
-        self.tricks_this_round.clear()
-        
-        for trick_num in range(5):
-            # Create new trick
-            self.current_trick = Trick()
-            
-            # Play the trick (each player plays one card)
-            for player_idx in range(4):
-                current_player = self.game_state.get_current_player()
-                
-                if current_player.player_type == PlayerType.AI:
-                    # Use the AI profile's method directly
-                    if hasattr(current_player, 'choose_card_to_play'):
-                        card = current_player.choose_card_to_play(
-                            self.current_trick.lead_suit,
-                            self.game_state.trump_suit
-                        )
-                    else:
-                        # Fallback to generic AI if not a profile
-                        ai_player = AIPlayer(current_player)
-                        card = ai_player.choose_card_to_play(
-                            self.current_trick.lead_suit,
-                            self.game_state.trump_suit
-                        )
-                else:
-                    # Human player - for now, play first card
-                    card = current_player.hand[0]
-                    
-                # Remove card from hand
-                current_player.remove_card(card)
-                
-                # Add to trick
-                if not self.current_trick.lead_suit:
-                    self.current_trick.lead_suit = card.suit
-                self.current_trick.cards_played.append((current_player, card))
-                
-                # Check for reneging (not following suit when possible)
-                if self._is_renege(current_player, card, self.current_trick.lead_suit):
-                    self.renege_count += 1
-                    if not self.quiet_mode:
-                        click.echo(f"🚨 RENEGE! {current_player.name} played {card} but should have followed suit {self.current_trick.lead_suit.value}")
-                
-                # Move to next player
-                self.game_state.next_player()
-            
-            # Add completed trick to round
-            self.tricks_this_round.append(self.current_trick)
-            
-            # Award trick to winner
-            winner = self._determine_trick_winner()
-            winner.tricks_won += 1
-            
-            # Display the trick table
-            self.display_trick_table(self.current_trick, trick_num + 1)
-            
-            # Log trick completion
-            if self.logger:
-                winning_card = self._get_winning_card_from_trick(self.current_trick)
-                self.logger.log_trick(trick_num + 1, self.current_trick, winner, winning_card)
-            
-            # Set next trick leader
-            self.game_state.current_player_index = self.players.index(winner)
-        
-        # Get round results before scoring
-        round_results = [player.tricks_won for player in self.players]
-        
-        # Display round summary
-        self.display_round_summary(round_results)
-        
-        # Display kitty information at the end of the round
-        if not self.quiet_mode and self.game_state:
-            click.echo("\n📦 KITTY CONTENTS:")
-            if self.top_card:
-                click.echo(f"  Top card (flipped up): {self.top_card}")
-            else:
-                click.echo("  Top card: None")
-            
-            # Show remaining deck cards (if any)
-            if hasattr(self, 'deck') and self.deck:
-                remaining_cards = [str(card) for card in self.deck]
-                click.echo(f"  Remaining deck: {', '.join(remaining_cards)}")
-            else:
-                click.echo("  Remaining deck: None")
-            click.echo()
-        
-        # Log round end (before scoring resets trick counts)
-        if self.logger:
-            final_scores = {player.name: player.tricks_won for player in self.players}
-            team_scores = {
-                "Team 1": self.game_state.team1_score,
-                "Team 2": self.game_state.team2_score
-            }
-            self.logger.log_round_end(self.game_state.round_number, final_scores, team_scores)
-        
-        # Score the round
-        self._score_round()
-        
-        # Update model players' game context
-        if hasattr(self, 'model_players'):
-            # Check if team was set
-            was_set = any(player.tricks_won == 0 for player in self.players)
-            self._update_model_players_context(self.game_state.round_number, was_set)
-        
-        # Update adaptive AI players' performance
-        self._update_adaptive_ai_performance()
-        
-        # Increment round number
-        if self.game_state:
-            self.game_state.round_number += 1
-        
-        # Return the round results for testing/debugging
-        return round_results
-        
-    def run_full_game(self) -> None:
-        """Run a complete AI-only game without human interaction."""
-        if not self.game_state:
-            return
-            
-        # Play rounds until game ends
-        round_num = 1
-        while not self.is_game_over():
-            # Play the round
-            results = self.play_round()
-            
-            # Show round results
-            if not self.quiet_mode:
-                click.echo(f"Round {round_num} complete! Trick counts: {results}")
-                
-                # Show current scores
-                if self.game_state:
-                    click.echo(f"Team 1: {self.game_state.team1_score}, Team 2: {self.game_state.team2_score}")
-            
-            round_num += 1
-        
-        # Show final result
-        winner = self.get_winner()
-        if not self.quiet_mode:
-            click.echo(f"\n🎉 GAME OVER! {winner} wins! 🎉")
-            
-            if self.game_state:
-                click.echo(f"Final Score - Team 1: {self.game_state.team1_score}, Team 2: {self.game_state.team2_score}")
-            
-            # Check if team gets set
-            if self.is_team_set():
-                click.echo("\n🚨 TEAM SET! The trump calling team lost after calling trump!")
-            
-            # Show log filename
-            log_filename = self.get_log_filename()
-            if log_filename:
-                click.echo(f"\nGame log saved to: {log_filename}")
-                click.echo("You can review the detailed game log in this file.")
-
-    def display_trick_table(self, trick: Trick, trick_number: int) -> None:
-        """Display the trick as a formatted table.
-        
-        Parameters
-        ----------
-        trick : Trick
-            The completed trick to display
+            The human player
         trick_number : int
-            The number of the trick (1-5)
-        """
-        if not self.game_state or self.quiet_mode:
-            return
-            
-        dealer_index = self.game_state.dealer_index
-        trump_suit = self.game_state.trump_suit
-        
-        click.echo(f"\n🎴 TRICK {trick_number} COMPLETED 🎴")
-        click.echo(trick.format_as_table(dealer_index, self.players, trump_suit))
-        
-        # Show who won the trick
-        winner, winning_card = trick.get_winner(self.game_state.trump_suit)
-        click.echo(f"\n🏆 {winner.name} wins the trick with {winning_card}")
-        
-        # Show current trick counts
-        click.echo("\nCurrent Trick Counts:")
-        for player in self.players:
-            click.echo(f"  {player.name}: {player.tricks_won} tricks")
-    
-    def display_trump_selection(self, round_number: int) -> None:
-        """Display the trump selection process for the round.
-        
-        Parameters
-        ----------
-        round_number : int
-            The current round number
-        """
-        if not self.game_state or self.quiet_mode:
-            return
-            
-        dealer_idx = self.game_state.dealer_index
-        dealer = self.players[dealer_idx]
-        
-        click.echo(f"\n🎯 ROUND {round_number} - TRUMP SELECTION 🎯")
-        click.echo("=" * 60)
-        
-        # Show dealer prominently
-        click.echo(f"🎲 DEALER: {dealer.name} 🎲")
-        click.echo("-" * 30)
-        
-        # Show the top card that was flipped up
-        if self.top_card:
-            # Always show without trump indicator when just flipped up
-            # Use shorthand format: rank + unicode suit
-            rank_symbol = self._get_rank_symbol(self.top_card.rank)
-            suit_symbol = self._get_suit_symbol(self.top_card.suit)
-            click.echo(f"📋 Top card flipped up: {rank_symbol}{suit_symbol}")
-        
-        # Show first round of trump selection (ordering up)
-        click.echo("\n🔄 FIRST ROUND - Ordering up the top card:")
-        
-        # Show what actually happened in the first round
-        if self.trump_caller and self.game_state.trump_suit == self.top_card.suit:
-            # Someone ordered up the top card
-            for i in range(4):
-                player_idx = (dealer_idx + 1 + i) % 4
-                player = self.players[player_idx]
-                
-                if player == self.trump_caller:
-                    click.echo(f"  {player.name}: ORDERS UP {self.top_card}")
-                    break
-                else:
-                    click.echo(f"  {player.name}: passes")
-        else:
-            # No one ordered up - show all passes
-            for i in range(4):
-                player_idx = (dealer_idx + 1 + i) % 4
-                player = self.players[player_idx]
-                click.echo(f"  {player.name}: passes")
-        
-        # If no one ordered up, show second round
-        if not self.trump_caller or self.game_state.trump_suit != self.top_card.suit:
-            click.echo("\n🔄 SECOND ROUND - Calling trump suit:")
-            if self.trump_caller:
-                # Someone called a different trump suit
-                for i in range(4):
-                    player_idx = (dealer_idx + 1 + i) % 4
-                    player = self.players[player_idx]
-                    
-                    if player == self.trump_caller:
-                        click.echo(f"  {player.name}: calls {self.game_state.trump_suit.value.title()}")
-                        break
-                    else:
-                        click.echo(f"  {player.name}: passes")
-            else:
-                # Dealer had to choose
-                click.echo(f"  {dealer.name} (dealer): calls {self.game_state.trump_suit.value.title()}")
-        
-        # Show final result
-        if self.trump_caller:
-            click.echo(f"\n✅ Trump called by: {self.trump_caller.name}")
-            if self.game_state.trump_suit:
-                click.echo(f"🎯 Trump suit: {self.game_state.trump_suit.value.title()}")
-            team_name = "Team 1" if self.trump_caller_team == 0 else "Team 2"
-            click.echo(f"🏁 {team_name} will be defending")
-        else:
-            click.echo("\n❌ No trump called - round would be redealt")
-        
-        click.echo("=" * 60)
-
-    def display_round_summary(self, round_results: List[int]) -> None:
-        """Display a summary of the round showing all tricks and final results.
-        
-        Parameters
-        ----------
-        round_results : List[int]
-            List of trick counts for each player
-        """
-        if not self.game_state or self.quiet_mode:
-            return
-            
-        dealer_idx = self.game_state.dealer_index
-        dealer = self.players[dealer_idx]
-        
-        click.echo(f"\n{'='*60}")
-        click.echo(f"🎯 ROUND {self.game_state.round_number} SUMMARY 🎯")
-        click.echo(f"{'='*60}")
-        
-        # Show dealer prominently at the start
-        click.echo(f"🎲 DEALER: {dealer.name} 🎲")
-        click.echo(f"🔄 Dealer rotates clockwise each game")
-        click.echo("-" * 40)
-        
-        # Show trump selection process
-        self.display_trump_selection(self.game_state.round_number)
-        
-        # Show all tricks in the round
-        click.echo("\n📋 ALL TRICKS IN THIS ROUND:")
-        trump_suit = self.game_state.trump_suit
-        for i, trick in enumerate(self.tricks_this_round, 1):
-            click.echo(f"\n🎴 Trick {i}:")
-            click.echo(trick.format_as_table(self.game_state.dealer_index, self.players, trump_suit))
-            
-            # Show who won this trick
-            winner, winning_card = trick.get_winner(self.game_state.trump_suit)
-            click.echo(f"🏆 Winner: {winner.name} with {winning_card}")
-        
-        # Show final round results
-        click.echo(f"\n📊 FINAL ROUND RESULTS:")
-        for i, player in enumerate(self.players):
-            dealer_indicator = " 🎲" if i == dealer_idx else ""
-            click.echo(f"  {player.name}: {round_results[i]} tricks{dealer_indicator}")
-        
-        # Show team scores
-        if self.game_state:
-            click.echo(f"\n🏁 TEAM SCORES:")
-            click.echo(f"  Team 1: {self.game_state.team1_score}")
-            click.echo(f"  Team 2: {self.game_state.team2_score}")
-        
-        click.echo(f"\n{'='*60}")
-    
-    def get_round_results(self) -> List[int]:
-        """Get the trick counts for each player before scoring.
-        
-        Returns
-        -------
-        List[int]
-            List of trick counts for each player
-        """
-        return [player.tricks_won for player in self.players]
-        
-    def _get_winning_card_from_trick(self, trick: Trick) -> Card:
-        """Get the winning card from a completed trick.
-        
-        Parameters
-        ----------
-        trick : Trick
-            The completed trick
+            The current trick number
             
         Returns
         -------
         Card
-            The card that won the trick
+            The card chosen by the human player
         """
-        if not trick.cards_played:
-            raise ValueError("Trick has no cards played")
-            
-        winner, winning_card = trick.get_winner(self.game_state.trump_suit if self.game_state else None)
-        return winning_card
-        
-    def _determine_trick_winner(self) -> Player:
-        """Determine who won the current trick."""
-        if not self.current_trick or not self.current_trick.cards_played:
-            raise ValueError("No cards played in trick")
-            
-        winner = self.current_trick.cards_played[0][0]
-        winning_card = self.current_trick.cards_played[0][1]
-        
-        for player, card in self.current_trick.cards_played[1:]:
-            if self._card_beats(card, winning_card):
-                winner = player
-                winning_card = card
-                
-        return winner
-        
-    def _card_beats(self, card1: Card, card2: Card) -> bool:
-        """Determine if card1 beats card2."""
-        # Get current trump suit
-        trump_suit = self.game_state.trump_suit if self.game_state else None
-        
-        # Mark trump cards (including left bower)
-        is_trump1 = self._is_trump_card(card1, trump_suit)
-        is_trump2 = self._is_trump_card(card2, trump_suit)
-        
-        # Trump cards beat non-trump cards
-        if is_trump1 and not is_trump2:
-            return True
-        if not is_trump1 and is_trump2:
-            return False
-            
-        # If both are trump or both are non-trump, compare ranks
-        if is_trump1 == is_trump2:
-            return card1.rank.value > card2.rank.value
-            
-        # If one follows lead suit and other doesn't, lead suit wins
-        if self.current_trick and self.current_trick.lead_suit:
-            if card1.suit == self.current_trick.lead_suit and card2.suit != self.current_trick.lead_suit:
-                return True
-            if card2.suit == self.current_trick.lead_suit and card1.suit != self.current_trick.lead_suit:
-                return False
-                
-        # Same suit, compare ranks
-        if card1.suit == card2.suit:
-            return card1.rank.value > card2.rank.value
-            
-        # Different suits, neither trump, neither follows lead - first card wins
-        return False
+        # This would prompt the human player
+        # For now, use basic AI logic
+        return self._basic_ai_card_choice(player, 
+                                         self.trick_manager.current_trick.lead_suit if self.trick_manager.current_trick else None,
+                                         self.game_state_manager.get_state().trump_suit if self.game_state_manager.get_state() else None)
     
-    def _is_trump_card(self, card: Card, trump_suit: Optional[Suit]) -> bool:
-        """Check if a card is a trump card (including left bower)."""
-        if not trump_suit:
-            return False
-            
-        # Right bower (jack of trump suit)
-        if card.rank == Rank.JACK and card.suit == trump_suit:
-            return True
-            
-        # Left bower (jack of same color as trump)
-        if card.rank == Rank.JACK:
-            if (trump_suit == Suit.HEARTS and card.suit == Suit.DIAMONDS) or \
-               (trump_suit == Suit.DIAMONDS and card.suit == Suit.HEARTS) or \
-               (trump_suit == Suit.CLUBS and card.suit == Suit.SPADES) or \
-               (trump_suit == Suit.SPADES and card.suit == Suit.CLUBS):
-                return True
-                
-        # Regular trump suit cards
-        return card.suit == trump_suit
-        
     def _score_round(self) -> None:
         """Score the current round."""
-        team1_tricks = (self.players[0].tricks_won + self.players[2].tricks_won)
-        team2_tricks = (self.players[1].tricks_won + self.players[3].tricks_won)
+        game_state = self.game_state_manager.get_state()
+        if not game_state or not self.game_state_manager.trump_caller_team:
+            return
         
-        if team1_tricks >= 3:
-            self.game_state.team1_score += 1
-        if team2_tricks >= 3:
-            self.game_state.team2_score += 1
-            
-        # Check if game just ended and log it
-        self._check_and_log_game_end()
-            
-        # Reset trick counts for next round
-        for player in self.players:
-            player.tricks_won = 0
-            
+        # Get round results
+        round_results = self.trick_manager.get_round_results()
+        
+        # Score the round
+        team1_score, team2_score = self.scoring_manager.score_round(
+            self.players, self.game_state_manager.trump_caller_team
+        )
+        
+        # Update scores
+        new_team1_score = game_state.team1_score + team1_score
+        new_team2_score = game_state.team2_score + team2_score
+        self.game_state_manager.update_scores(new_team1_score, new_team2_score)
+        
+        # Show round results
+        if not self.quiet_mode:
+            self._show_round_results(round_results, new_team1_score, new_team2_score)
+    
+    def _show_round_results(self, round_results: List[int], team1_score: int, team2_score: int) -> None:
+        """Show the results of a round.
+        
+        Parameters
+        ----------
+        round_results : List[int]
+            Trick counts for each player
+        team1_score : int
+            Team 1's score
+        team2_score : int
+            Team 2's score
+        """
+        click.echo(f"\nRound complete! Trick counts: {round_results}")
+        click.echo(f"Team 1: {team1_score}, Team 2: {team2_score}")
+    
+    def _show_final_results(self) -> None:
+        """Show the final game results."""
+        if self.quiet_mode:
+            return
+        
+        winner = self.game_state_manager.get_winner()
+        click.echo(f"\n🎉 GAME OVER! {winner} wins! 🎉")
+        
+        game_state = self.game_state_manager.get_state()
+        if game_state:
+            click.echo(f"Final Score - Team 1: {game_state.team1_score}, Team 2: {game_state.team2_score}")
+        
+        # Check if team gets set
+        if self.game_state_manager.trump_caller_team is not None:
+            if self.scoring_manager.is_team_set(self.players, self.game_state_manager.trump_caller_team):
+                click.echo("\n🚨 TEAM SET! The trump calling team lost after calling trump!")
+    
     def get_player_hand(self, player_name: str) -> List[Card]:
-        """Get the hand of a specific player.
+        """Get a player's hand.
         
         Parameters
         ----------
@@ -1158,818 +509,83 @@ class EuchreGame:
         """
         for player in self.players:
             if player.name == player_name:
-                return player.hand.copy()
+                return player.hand
         return []
-        
-    def play_ai_turn(self, player: Player) -> Card:
-        """Play a turn for an AI player.
-        
-        Parameters
-        ----------
-        player : Player
-            The AI player
-            
-        Returns
-        -------
-        Card
-            The card the AI chose to play
-        """
-        # Simple AI: just play the first card in hand
-        # In a real implementation, this would be much more sophisticated
-        if not player.hand:
-            raise ValueError("AI player has no cards to play")
-            
-        card = player.hand[0]
-        player.remove_card(card)
-        return card
-        
+    
     def is_game_over(self) -> bool:
         """Check if the game is over.
         
         Returns
         -------
         bool
-            True if the game is over
+            True if game is over
         """
-        if not self.game_state:
-            return True
-            
-        return (self.game_state.team1_score >= 10 or 
-                self.game_state.team2_score >= 10)
-        
-    def _check_and_log_game_end(self) -> None:
-        """Check if game just ended and log it if so."""
-        if not self.game_state or not self.logger:
-            return
-            
-        # Check if game just ended
-        if (self.game_state.team1_score >= 10 or 
-            self.game_state.team2_score >= 10):
-            
-            winner = self.get_winner()
-            final_team_scores = {
-                "Team 1": self.game_state.team1_score,
-                "Team 2": self.game_state.team2_score
-            }
-            self.logger.log_game_end(winner or "Unknown", final_team_scores)
-            self.logger.write_summary_table()
-        
-    def get_winner(self) -> Optional[str]:
+        return self.game_state_manager.is_game_over()
+    
+    def get_winner(self) -> str:
         """Get the winning team.
         
         Returns
         -------
-        Optional[str]
-            The name of the winning team, or None if game not over
+        str
+            The winning team
         """
-        if not self.is_game_over():
-            return None
-            
-        if self.game_state and self.game_state.team1_score >= 10:
-            return "Team 1"
-        elif self.game_state and self.game_state.team2_score >= 10:
-            return "Team 2"
-        return None
+        return self.game_state_manager.get_winner()
+    
+    def is_team_set(self) -> bool:
+        """Check if the trump calling team got set.
         
+        Returns
+        -------
+        bool
+            True if trump calling team got set
+        """
+        if self.game_state_manager.trump_caller_team is None:
+            return False
+        return self.scoring_manager.is_team_set(self.players, self.game_state_manager.trump_caller_team)
+    
     def get_log_filename(self) -> Optional[str]:
-        """Get the filename of the game log.
+        """Get the log filename if logging is enabled.
         
         Returns
         -------
         Optional[str]
-            The log filename, or None if logging is disabled
+            The log filename or None
         """
-        return self.logger.get_log_filename() if self.logger else None
-
-    def _update_model_players_context(self, round_num: int, was_set: bool = False):
-        """Update game context for all model players."""
-        if hasattr(self, 'model_players'):
-            for player in self.model_players:
-                if hasattr(player, 'update_game_context'):
-                    # Determine team scores
-                    if player.name in ['North', 'South']:
-                        team_score = self.game_state.team1_score
-                        opponent_score = self.game_state.team2_score
-                    else:
-                        team_score = self.game_state.team2_score
-                        opponent_score = self.game_state.team1_score
-                    
-                    player.update_game_context(
-                        team_score=team_score,
-                        opponent_score=opponent_score,
-                        current_round=round_num,
-                        was_set=was_set
-                    )
-
-    def _update_adaptive_ai_performance(self) -> None:
-        """Update the performance of adaptive AI players based on their historical context."""
-        if not self.game_state:
-            return
-
-        for player in self.players:
-            if isinstance(player, AdaptiveAIProfile):
-                # Calculate performance score for this round
-                player_index = self.players.index(player)
-                if player_index % 2 == 0:  # Team 1
-                    team_score = self.game_state.team1_score
-                    opponent_score = self.game_state.team2_score
-                else:  # Team 2
-                    team_score = self.game_state.team2_score
-                    opponent_score = self.game_state.team1_score
-                
-                # Simple performance calculation
-                # Win: +1, Lose: -1, Team set: -2
-                if team_score > opponent_score:
-                    performance_score = 1.0
-                elif team_score < opponent_score:
-                    performance_score = -1.0
-                else:
-                    performance_score = 0.0
-                
-                # Penalty for team sets
-                if self.is_team_set():
-                    if (player_index % 2 == 0 and self.trump_caller_team == 0) or \
-                       (player_index % 2 == 1 and self.trump_caller_team == 1):
-                        # This player's team was set
-                        performance_score -= 2.0
-                
-                # Record performance
-                player.record_performance(performance_score)
-
-    def _get_rank_symbol(self, rank: Rank) -> str:
-        """Get a symbol representation of the rank.
-        
-        Parameters
-        ----------
-        rank : Rank
-            The rank to get symbol for
-            
-        Returns
-        -------
-        str
-            Symbol representation of the rank
-        """
-        rank_map = {
-            Rank.NINE: "9",
-            Rank.TEN: "10", 
-            Rank.JACK: "J",
-            Rank.QUEEN: "Q",
-            Rank.KING: "K",
-            Rank.ACE: "A"
-        }
-        return rank_map.get(rank, str(rank.value))
-    
-    def _get_suit_symbol(self, suit: Suit) -> str:
-        """Get a unicode symbol representation of the suit.
-        
-        Parameters
-        ----------
-        suit : Suit
-            The suit to get symbol for
-            
-        Returns
-        -------
-        str
-            Unicode symbol representation of the suit
-        """
-        suit_map = {
-            Suit.HEARTS: "♥",
-            Suit.DIAMONDS: "♦",
-            Suit.CLUBS: "♣",
-            Suit.SPADES: "♠"
-        }
-        return suit_map.get(suit, suit.name[0].upper()) 
-
-    def run_interactive_game(self, show_ai_hands: bool = False) -> None:
-        """Run an interactive single-player game with prompts for the human player.
-        
-        Parameters
-        ----------
-        show_ai_hands : bool
-            Whether to show AI player hands (for debugging)
-        """
-        if not self.game_state:
-            return
-            
-        # Play rounds until game ends
-        round_num = 1
-        while not self.is_game_over():
-            # Play the round interactively
-            results = self.play_interactive_round(show_ai_hands)
-            
-            # Show round results
-            click.echo(f"\n🎯 Round {round_num} complete!")
-            click.echo(f"Trick counts: {results}")
-            
-            # Show current scores
-            if self.game_state:
-                click.echo(f"Team 1: {self.game_state.team1_score}, Team 2: {self.game_state.team2_score}")
-            
-            round_num += 1
-        
-        # Show final result
-        winner = self.get_winner()
-        click.echo(f"\n🎉 GAME OVER! {winner} wins! 🎉")
-        
-        if self.game_state:
-            click.echo(f"Final Score - Team 1: {self.game_state.team1_score}, Team 2: {self.game_state.team2_score}")
-        
-        # Check if team gets set
-        if self.is_team_set():
-            click.echo("\n🚨 TEAM SET! The trump calling team lost after calling trump!")
-        
-        # Show log filename
-        log_filename = self.get_log_filename()
-        if log_filename:
-            click.echo(f"\nGame log saved to: {log_filename}")
-            click.echo("You can review the detailed game log in this file.")
-    
-    def play_interactive_round(self, show_ai_hands: bool = False) -> List[int]:
-        """Play a single round interactively, prompting the human player for decisions.
-        
-        Parameters
-        ----------
-        show_ai_hands : bool
-            Whether to show AI player hands (for debugging)
-            
-        Returns
-        -------
-        List[int]
-            Trick counts for each player
-        """
-        # If this is not the first round, deal new cards
-        if self.game_state and self.game_state.round_number > 1:
-            self._deal_new_round()
-        
-        # Log round start
-        if self.logger and self.game_state:
-            hands = {player.name: player.hand.copy() for player in self.players}
-            trump_suit = self.game_state.trump_suit.name.title() if self.game_state.trump_suit else "None"
-            self.logger.log_round_start(self.game_state.round_number, trump_suit, hands)
-        
-        # Display dealer for this round
-        if self.game_state:
-            dealer_idx = self.game_state.dealer_index
-            dealer = self.players[dealer_idx]
-            click.echo(f"\n🎲 ROUND {self.game_state.round_number} - DEALER: {dealer.name} 🎲")
-            click.echo("-" * 50)
-            
-            # Check if this is an AI-only game (no human players)
-            is_ai_only_game = all(player.player_type == PlayerType.AI for player in self.players)
-            
-            if is_ai_only_game:
-                # Display each player's dealt cards for AI-only games
-                click.echo("\n📋 DEALT CARDS:")
-                for i, player in enumerate(self.players):
-                    # Sort cards by suit first, then by rank (high to low)
-                    sorted_cards = sorted(player.hand, key=lambda c: (c.suit.value, -c.rank.value))
-                    
-                    # Format cards with suit symbols
-                    card_strings = []
-                    for card in sorted_cards:
-                        if card.is_trump:
-                            card_strings.append(f"{card}*")
-                        else:
-                            card_strings.append(str(card))
-                    
-                    click.echo(f"  {player.name}: {' '.join(card_strings)}")
-                click.echo()
-            else:
-                # For human games, show the human player's hand
-                human_players = [p for p in self.players if p.player_type == PlayerType.HUMAN]
-                for human_player in human_players:
-                    # Sort cards by suit first, then by rank (high to low)
-                    sorted_cards = sorted(human_player.hand, key=lambda c: (c.suit.value, -c.rank.value))
-                    
-                    # Format cards with suit symbols
-                    card_strings = []
-                    for card in sorted_cards:
-                        if card.is_trump:
-                            card_strings.append(f"{card}*")
-                        else:
-                            card_strings.append(str(card))
-                    
-                    click.echo(f"\n📋 YOUR HAND ({human_player.name}):")
-                    click.echo(f"  {' '.join(card_strings)}")
-                    click.echo()
-                
-                # Show AI hands if requested
-                if show_ai_hands:
-                    click.echo("🔍 AI PLAYER HANDS (for debugging):")
-                    for player in self.players:
-                        if player.player_type == PlayerType.AI:
-                            sorted_cards = sorted(player.hand, key=lambda c: (c.suit.value, -c.rank.value))
-                            card_strings = [f"{card}*" if card.is_trump else str(card) for card in sorted_cards]
-                            click.echo(f"  {player.name}: {' '.join(card_strings)}")
-                    click.echo()
-        
-        self.tricks_this_round.clear()
-        
-        # Play 5 tricks
-        for trick_num in range(5):
-            # Create new trick
-            self.current_trick = Trick()
-            
-            # Play the trick (each player plays one card)
-            for player_idx in range(4):
-                current_player = self.game_state.get_current_player()
-                
-                if current_player.player_type == PlayerType.AI:
-                    # AI plays automatically
-                    if hasattr(current_player, 'choose_card_to_play'):
-                        card = current_player.choose_card_to_play(
-                            self.current_trick.lead_suit,
-                            self.game_state.trump_suit
-                        )
-                    else:
-                        # Fallback to generic AI
-                        ai_player = AIPlayer(current_player)
-                        card = ai_player.choose_card_to_play(
-                            self.current_trick.lead_suit,
-                            self.game_state.trump_suit
-                        )
-                    
-                    # Show AI's play
-                    click.echo(f"🎴 {current_player.name} plays: {card}")
-                    
-                else:
-                    # Human player - prompt for card choice
-                    card = self._prompt_human_card_choice(current_player, trick_num + 1)
-                
-                # Remove card from hand
-                current_player.remove_card(card)
-                
-                # Add to trick
-                if not self.current_trick.lead_suit:
-                    self.current_trick.lead_suit = card.suit
-                self.current_trick.cards_played.append((current_player, card))
-                
-                # Check for reneging (not following suit when possible)
-                if self._is_renege(current_player, card, self.current_trick.lead_suit):
-                    self.renege_count += 1
-                    click.echo(f"🚨 RENEGE! {current_player.name} played {card} but should have followed suit {self.current_trick.lead_suit.value}")
-                
-                # Move to next player
-                self.game_state.next_player()
-            
-            # Add completed trick to round
-            self.tricks_this_round.append(self.current_trick)
-            
-            # Award trick to winner
-            winner = self._determine_trick_winner()
-            winner.tricks_won += 1
-            
-            # Display the trick table
-            self.display_trick_table(self.current_trick, trick_num + 1)
-            
-            # Log trick completion
-            if self.logger:
-                winning_card = self._get_winning_card_from_trick(self.current_trick)
-                self.logger.log_trick(trick_num + 1, self.current_trick, winner, winning_card)
-            
-            # Set next trick leader
-            self.game_state.current_player_index = self.players.index(winner)
-        
-        # Get round results before scoring
-        round_results = [player.tricks_won for player in self.players]
-        
-        # Display round summary
-        self.display_round_summary(round_results)
-        
-        # Display kitty information at the end of the round
-        if self.game_state:
-            click.echo("\n📦 KITTY CONTENTS:")
-            if self.top_card:
-                click.echo(f"  Top card (flipped up): {self.top_card}")
-            else:
-                click.echo("  Top card: None")
-            
-            # Show remaining deck cards (if any)
-            if hasattr(self, 'deck') and self.deck:
-                remaining_cards = [str(card) for card in self.deck]
-                click.echo(f"  Remaining deck: {', '.join(remaining_cards)}")
-            else:
-                click.echo("  Remaining deck: None")
-            click.echo()
-        
-        # Log round end (before scoring resets trick counts)
         if self.logger:
-            final_scores = {player.name: player.tricks_won for player in self.players}
-            team_scores = {
-                "Team 1": self.game_state.team1_score,
-                "Team 2": self.game_state.team2_score
-            }
-            self.logger.log_round_end(self.game_state.round_number, final_scores, team_scores)
-        
-        # Score the round
-        self._score_round()
-        
-        # Update model players' game context
-        if hasattr(self, 'model_players'):
-            # Check if team was set
-            was_set = any(player.tricks_won == 0 for player in self.players)
-            self._update_model_players_context(self.game_state.round_number, was_set)
-        
-        # Update adaptive AI players' performance
-        self._update_adaptive_ai_performance()
-        
-        # Increment round number
-        if self.game_state:
-            self.game_state.round_number += 1
-        
-        # Return the round results for testing/debugging
-        return round_results
+            return self.logger.get_log_filename()
+        return None
     
-    def _prompt_human_card_choice(self, player: "Player", trick_number: int) -> "Card":
-        """Prompt a human player to choose a card to play.
+    def run_tournament(self, num_games: int) -> None:
+        """Run a tournament with multiple games.
         
         Parameters
         ----------
-        player : Player
-            The human player choosing a card
-        trick_number : int
-            The current trick number (1-5)
-            
-        Returns
-        -------
-        Card
-            The card chosen by the human player
+        num_games : int
+            Number of games to play
         """
-        click.echo(f"\n🎴 TRICK {trick_number} - Your turn to play a card")
-        
-        # Show current trick state
-        if self.current_trick.cards_played:
-            click.echo("Cards played so far:")
-            for i, (played_player, played_card) in enumerate(self.current_trick.cards_played):
-                click.echo(f"  {i+1}. {played_player.name}: {played_card}")
+        for game_num in range(num_games):
+            if not self.quiet_mode:
+                click.echo(f"\n=== TOURNAMENT GAME {game_num + 1}/{num_games} ===")
             
-            if self.current_trick.lead_suit:
-                click.echo(f"Lead suit: {self.current_trick.lead_suit.value}")
-        
-        # Show player's hand with numbered options
-        click.echo(f"\nYour hand:")
-        valid_cards = self._get_valid_cards_to_play(player)
-        
-        for i, card in enumerate(valid_cards):
-            card_str = f"{card}*" if card.is_trump else str(card)
-            click.echo(f"  {i+1}. {card_str}")
-        
-        # Prompt for choice
-        while True:
-            try:
-                choice = click.prompt(f"Choose a card (1-{len(valid_cards)})", type=int)
-                if 1 <= choice <= len(valid_cards):
-                    chosen_card = valid_cards[choice - 1]
-                    click.echo(f"You chose: {chosen_card}")
-                    return chosen_card
-                else:
-                    click.echo(f"Please enter a number between 1 and {len(valid_cards)}")
-            except ValueError:
-                click.echo("Please enter a valid number")
+            self.start_new_game()
+            self.run_full_game()
+            
+            # Reset for next game
+            self.game_state_manager.reset()
+            self.trick_manager.reset()
     
-    def _get_valid_cards_to_play(self, player: "Player") -> List["Card"]:
-        """Get the valid cards a player can play in the current trick.
-        
-        Parameters
-        ----------
-        player : Player
-            The player choosing a card
-            
-        Returns
-        -------
-        List[Card]
-            List of valid cards to play
-        """
-        if not self.current_trick.lead_suit:
-            # First player - can play any card
-            return player.hand
-        
-        # Must follow suit if possible
-        cards_of_lead_suit = [card for card in player.hand if card.suit == self.current_trick.lead_suit]
-        
-        if cards_of_lead_suit:
-            # Must play a card of the lead suit
-            return cards_of_lead_suit
-        else:
-            # Can play any card (including trump)
-            return player.hand
+    @property
+    def game_state(self):
+        """Get the current game state."""
+        return self.game_state_manager.get_state()
     
-    def _prompt_human_trump_decision(self, player: "Player", top_card: "Card") -> bool:
-        """Prompt a human player to decide whether to order up the top card.
-        
-        Parameters
-        ----------
-        player : Player
-            The human player making the decision
-        top_card : Card
-            The top card that can be ordered up
-            
-        Returns
-        -------
-        bool
-            True if the player wants to order up the card, False otherwise
-        """
-        click.echo(f"\n🎯 TRUMP SELECTION - Your turn to decide")
-        click.echo(f"Top card: {top_card}")
-        click.echo(f"Your hand: {' '.join(str(card) for card in player.hand)}")
-        
-        while True:
-            choice = click.prompt("Do you want to order up this card? (y/n)", type=str).lower()
-            if choice in ['y', 'yes']:
-                return True
-            elif choice in ['n', 'no']:
-                return False
-            else:
-                click.echo("Please enter 'y' or 'n'")
+    @property
+    def trump_caller(self):
+        """Get the player who called trump."""
+        return self.game_state_manager.trump_caller
     
-    def _prompt_human_trump_suit_choice(self, player: "Player") -> "Suit":
-        """Prompt a human player to choose a trump suit.
-        
-        Parameters
-        ----------
-        player : Player
-            The human player choosing the trump suit
-            
-        Returns
-        -------
-        Suit
-            The chosen trump suit
-        """
-        click.echo(f"\n🎯 TRUMP SUIT SELECTION - Choose a trump suit")
-        click.echo(f"Your hand: {' '.join(str(card) for card in player.hand)}")
-        
-        # Show available suits
-        suits = list(Suit)
-        click.echo("Available suits:")
-        for i, suit in enumerate(suits):
-            click.echo(f"  {i+1}. {suit.value}")
-        
-        while True:
-            try:
-                choice = click.prompt(f"Choose a suit (1-{len(suits)})", type=int)
-                if 1 <= choice <= len(suits):
-                    chosen_suit = suits[choice - 1]
-                    click.echo(f"You chose: {chosen_suit.value}")
-                    return chosen_suit
-                else:
-                    click.echo(f"Please enter a number between 1 and {len(suits)}")
-            except ValueError:
-                click.echo("Please enter a valid number")
-
-
-class AIPlayer:
-    """AI player logic for euchre."""
-    
-    def __init__(self, player: Player) -> None:
-        """Initialize AI player.
-        
-        Parameters
-        ----------
-        player : Player
-            The player this AI controls
-        """
-        self.player = player
-        
-    def choose_card_to_play(self, lead_suit: Optional[Suit], trump_suit: Optional[Suit]) -> Card:
-        """Choose which card to play.
-        
-        Parameters
-        ----------
-        lead_suit : Optional[Suit]
-            The suit that was led (if any)
-        trump_suit : Optional[Suit]
-            The current trump suit
-            
-        Returns
-        -------
-        Card
-            The card to play
-        """
-        if not self.player.hand:
-            raise ValueError("AI player has no cards to play")
-            
-        # Must follow suit if possible
-        if lead_suit and self.player.has_suit(lead_suit):
-            cards_of_suit = self.player.get_cards_of_suit(lead_suit)
-            # Play highest card of lead suit
-            return max(cards_of_suit, key=lambda c: c.rank.value)
-        else:
-            # Can play any card - choose strategically
-            # If we're leading, play highest trump or highest card
-            if not lead_suit:
-                trump_cards = [c for c in self.player.hand if c.is_trump]
-                if trump_cards:
-                    return max(trump_cards, key=lambda c: c.rank.value)
-                else:
-                    # Lead with highest non-trump
-                    return max(self.player.hand, key=lambda c: c.rank.value)
-            else:
-                # Not leading - play lowest non-trump if possible
-                non_trump_cards = [c for c in self.player.hand if not c.is_trump]
-                if non_trump_cards:
-                    return min(non_trump_cards, key=lambda c: c.rank.value)
-                else:
-                    # Only trump cards left - play lowest
-                    return min(self.player.hand, key=lambda c: c.rank.value)
-            
-    def should_order_up(self, top_card: Card, is_partner_dealing: bool) -> bool:
-        """Decide whether to order up the top card.
-        
-        Parameters
-        ----------
-        top_card : Card
-            The top card that could be ordered up
-        is_partner_dealing : bool
-            True if the AI player's partner is the dealer
-            
-        Returns
-        -------
-        bool
-            True if the AI should order up the card
-        """
-        # Count cards of the potential trump suit
-        cards_of_suit = self.player.get_cards_of_suit(top_card.suit)
-        
-        # Also count left bower (jack of same color)
-        left_bower_suit = self._get_left_bower_suit(top_card.suit)
-        left_bower_cards = self.player.get_cards_of_suit(left_bower_suit)
-        
-        # Count high cards (J, Q, K, A) of the potential trump suit
-        high_cards = [c for c in cards_of_suit if c.rank.value >= 11]
-        left_bower_high = [c for c in left_bower_cards if c.rank == Rank.JACK]
-        
-        total_trump_potential = len(cards_of_suit) + len(left_bower_cards)
-        high_card_bonus = len(high_cards) + len(left_bower_high)
-        
-        # Order up if we have 2+ potential trump cards, or 1+ with multiple high cards
-        return total_trump_potential >= 2 or (total_trump_potential >= 1 and high_card_bonus >= 2)
-        
-    def _get_left_bower_suit(self, trump_suit: Suit) -> Suit:
-        """Get the left bower suit for a given trump suit."""
-        if trump_suit == Suit.HEARTS:
-            return Suit.DIAMONDS
-        elif trump_suit == Suit.DIAMONDS:
-            return Suit.HEARTS
-        elif trump_suit == Suit.CLUBS:
-            return Suit.SPADES
-        else:  # SPADES
-            return Suit.CLUBS
-
-    def choose_trump_suit(self, hand: List["Card"]) -> Suit:
-        """Choose the trump suit for the dealer.
-        
-        Parameters
-        ----------
-        hand : List[Card]
-            The dealer's hand
-            
-        Returns
-        -------
-        Suit
-            The chosen trump suit
-        """
-        # Count cards by suit
-        suit_counts = {}
-        for suit in Suit:
-            suit_counts[suit] = len([card for card in hand if card.suit == suit])
-            
-        # Choose suit with most cards, or highest cards if tied
-        best_suit = max(suit_counts.keys(), key=lambda s: (suit_counts[s], 
-                                                          max([card.rank.value for card in hand if card.suit == s] or [0])))
-        return best_suit
-    
-    def _prompt_human_card_choice(self, player: "Player", trick_number: int) -> "Card":
-        """Prompt a human player to choose a card to play.
-        
-        Parameters
-        ----------
-        player : Player
-            The human player choosing a card
-        trick_number : int
-            The current trick number (1-5)
-            
-        Returns
-        -------
-        Card
-            The card chosen by the human player
-        """
-        click.echo(f"\n🎴 TRICK {trick_number} - Your turn to play a card")
-        
-        # Show current trick state
-        if self.current_trick.cards_played:
-            click.echo("Cards played so far:")
-            for i, (played_player, played_card) in enumerate(self.current_trick.cards_played):
-                click.echo(f"  {i+1}. {played_player.name}: {played_card}")
-            
-            if self.current_trick.lead_suit:
-                click.echo(f"Lead suit: {self.current_trick.lead_suit.value}")
-        
-        # Show player's hand with numbered options
-        click.echo(f"\nYour hand:")
-        valid_cards = self._get_valid_cards_to_play(player)
-        
-        for i, card in enumerate(valid_cards):
-            card_str = f"{card}*" if card.is_trump else str(card)
-            click.echo(f"  {i+1}. {card_str}")
-        
-        # Prompt for choice
-        while True:
-            try:
-                choice = click.prompt(f"Choose a card (1-{len(valid_cards)})", type=int)
-                if 1 <= choice <= len(valid_cards):
-                    chosen_card = valid_cards[choice - 1]
-                    click.echo(f"You chose: {chosen_card}")
-                    return chosen_card
-                else:
-                    click.echo(f"Please enter a number between 1 and {len(valid_cards)}")
-            except ValueError:
-                click.echo("Please enter a valid number")
-    
-    def _get_valid_cards_to_play(self, player: "Player") -> List["Card"]:
-        """Get the valid cards a player can play in the current trick.
-        
-        Parameters
-        ----------
-        player : Player
-            The player choosing a card
-            
-        Returns
-        -------
-        List[Card]
-            List of valid cards to play
-        """
-        if not self.current_trick.lead_suit:
-            # First player - can play any card
-            return player.hand
-        
-        # Must follow suit if possible
-        cards_of_lead_suit = [card for card in player.hand if card.suit == self.current_trick.lead_suit]
-        
-        if cards_of_lead_suit:
-            # Must play a card of the lead suit
-            return cards_of_lead_suit
-        else:
-            # Can play any card (including trump)
-            return player.hand
-    
-    def _prompt_human_trump_decision(self, player: "Player", top_card: "Card") -> bool:
-        """Prompt a human player to decide whether to order up the top card.
-        
-        Parameters
-        ----------
-        player : Player
-            The human player making the decision
-        top_card : Card
-            The top card that can be ordered up
-            
-        Returns
-        -------
-        bool
-            True if the player wants to order up the card, False otherwise
-        """
-        click.echo(f"\n🎯 TRUMP SELECTION - Your turn to decide")
-        click.echo(f"Top card: {top_card}")
-        click.echo(f"Your hand: {' '.join(str(card) for card in player.hand)}")
-        
-        while True:
-            choice = click.prompt("Do you want to order up this card? (y/n)", type=str).lower()
-            if choice in ['y', 'yes']:
-                return True
-            elif choice in ['n', 'no']:
-                return False
-            else:
-                click.echo("Please enter 'y' or 'n'")
-    
-    def _prompt_human_trump_suit_choice(self, player: "Player") -> "Suit":
-        """Prompt a human player to choose a trump suit.
-        
-        Parameters
-        ----------
-        player : Player
-            The human player choosing the trump suit
-            
-        Returns
-        -------
-        Suit
-            The chosen trump suit
-        """
-        click.echo(f"\n🎯 TRUMP SUIT SELECTION - Choose a trump suit")
-        click.echo(f"Your hand: {' '.join(str(card) for card in player.hand)}")
-        
-        # Show available suits
-        suits = list(Suit)
-        click.echo("Available suits:")
-        for i, suit in enumerate(suits):
-            click.echo(f"  {i+1}. {suit.value}")
-        
-        while True:
-            try:
-                choice = click.prompt(f"Choose a suit (1-{len(suits)})", type=int)
-                if 1 <= choice <= len(suits):
-                    chosen_suit = suits[choice - 1]
-                    click.echo(f"You chose: {chosen_suit.value}")
-                    return chosen_suit
-                else:
-                    click.echo(f"Please enter a number between 1 and {len(suits)}")
-            except ValueError:
-                click.echo("Please enter a valid number") 
+    @property
+    def trump_caller_team(self):
+        """Get the team that called trump."""
+        return self.game_state_manager.trump_caller_team

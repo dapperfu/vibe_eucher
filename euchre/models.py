@@ -90,6 +90,7 @@ class Trick:
     
     lead_suit: Optional[Suit] = None
     cards_played: List[Tuple["Player", Card]] = None
+    winner: Optional["Player"] = None
     
     def __post_init__(self) -> None:
         """Initialize cards_played if None."""
@@ -101,6 +102,16 @@ class Trick:
         if not self.lead_suit:
             self.lead_suit = card.suit
         self.cards_played.append((player, card))
+    
+    def is_complete(self) -> bool:
+        """Check if the trick is complete (all 4 players have played).
+        
+        Returns
+        -------
+        bool
+            True if the trick is complete
+        """
+        return len(self.cards_played) == 4
     
     def get_winner(self, trump_suit: Optional[Suit]) -> Tuple["Player", Card]:
         """Get the winner of this trick."""
@@ -326,6 +337,7 @@ class Player:
         self.player_type: PlayerType = player_type
         self.hand: List[Card] = []
         self.tricks_won: int = 0
+        self.score: int = 0
         self.is_dealer: bool = False
         
     def add_card(self, card: Card) -> None:
