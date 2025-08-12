@@ -182,7 +182,7 @@ class GameCommands:
             click.echo(f"Error: {e}", err=True)
     
     @staticmethod
-    def ai_vs_ai_game(verbose: bool = False, very_verbose: bool = False) -> None:
+    def ai_vs_ai_game(verbose: bool = False, very_verbose: bool = False, dealer_method: str = "black_jack") -> None:
         """Run a basic AI vs AI game.
         
         Parameters
@@ -191,9 +191,11 @@ class GameCommands:
             Enable verbose logging
         very_verbose : bool
             Enable very verbose logging
+        dealer_method : str
+            Dealer selection method: "black_jack" or "high_card"
         """
         try:
-            click.echo("Starting AI vs AI euchre game...")
+            click.echo(f"Starting AI vs AI euchre game with {dealer_method} dealer selection...")
             
             # Create AI players
             ai_players = AIFactory.create_mixed_ai_players()
@@ -202,6 +204,9 @@ class GameCommands:
             game = EuchreGame(ai_players, verbose=verbose, very_verbose=very_verbose)
             
             click.echo(f"Players: {', '.join(p.name for p in game.players)}")
+            
+            # Set the dealer selection method
+            game.dealer_selection_method = dealer_method
             
             # Start and play the game
             game.start_new_game()
