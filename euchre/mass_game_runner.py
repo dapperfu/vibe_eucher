@@ -37,24 +37,24 @@ class MassGameRunner:
         # Game configurations
         self.team_configs = {
             "aggressive_vs_conservative": {
-                "team1": [("North", "aggressive", 0.8), ("South", "aggressive", 0.8)],
-                "team2": [("East", "conservative", 0.2), ("West", "conservative", 0.2)]
+                "team1": [("Alice", "aggressive", 0.8), ("Bob", "aggressive", 0.8)],
+                "team2": [("Charlie", "conservative", 0.2), ("David", "conservative", 0.2)]
             },
             "aggressive_vs_balanced": {
-                "team1": [("North", "aggressive", 0.8), ("South", "aggressive", 0.8)],
-                "team2": [("East", "balanced", 0.5), ("West", "balanced", 0.5)]
+                "team1": [("Alice", "aggressive", 0.8), ("Bob", "aggressive", 0.8)],
+                "team2": [("Charlie", "balanced", 0.5), ("David", "balanced", 0.5)]
             },
             "conservative_vs_balanced": {
-                "team1": [("North", "conservative", 0.2), ("South", "conservative", 0.2)],
-                "team2": [("East", "balanced", 0.5), ("West", "balanced", 0.5)]
+                "team1": [("Alice", "conservative", 0.2), ("Bob", "conservative", 0.2)],
+                "team2": [("Charlie", "balanced", 0.5), ("David", "balanced", 0.5)]
             },
             "opportunistic_vs_aggressive": {
-                "team1": [("North", "opportunistic", 0.7), ("South", "opportunistic", 0.7)],
-                "team2": [("East", "aggressive", 0.8), ("West", "aggressive", 0.8)]
+                "team1": [("Alice", "opportunistic", 0.7), ("Bob", "opportunistic", 0.7)],
+                "team2": [("Charlie", "aggressive", 0.8), ("David", "aggressive", 0.8)]
             },
             "mixed_vs_mixed": {
-                "team1": [("North", "aggressive", 0.8), ("South", "conservative", 0.2)],
-                "team2": [("East", "balanced", 0.5), ("West", "opportunistic", 0.7)]
+                "team1": [("Alice", "aggressive", 0.8), ("Bob", "conservative", 0.2)],
+                "team2": [("Charlie", "balanced", 0.5), ("David", "opportunistic", 0.7)]
             }
         }
         
