@@ -120,7 +120,7 @@ class DealerSelection:
         1. Shuffles the deck thoroughly
         2. Deals one card to each player
         3. Player with highest card becomes dealer
-        4. In case of ties, additional cards are drawn until a winner is determined
+        4. In case of ties, only tied players draw additional cards until a winner is determined
         
         Parameters
         ----------
@@ -144,14 +144,15 @@ class DealerSelection:
         
         dealt_cards = []
         round_number = 1
+        current_players = self.players.copy()  # Start with all players
         
         while not self.deck.is_empty:
             if verbose:
                 print(f"\n--- Round {round_number} ---")
             
-            # Deal one card to each player
+            # Deal one card to each current player (all players in round 1, tied players in subsequent rounds)
             round_cards = []
-            for i, player in enumerate(self.players):
+            for player in current_players:
                 if self.deck.is_empty:
                     break
                     
@@ -184,12 +185,14 @@ class DealerSelection:
                 
                 return winner, dealt_cards
             else:
-                # Tie - show tied players and continue to next round
+                # Tie - show tied players and continue to next round with only tied players
                 if verbose:
                     tied_names = [player.name for player, card in tied_players]
                     print(f"🤝 Tie between: {', '.join(tied_names)} with {highest_card[1].rank.name}")
                     print("🔄 Drawing additional cards to break tie...")
                 
+                # Update current_players to only include tied players for the next round
+                current_players = [player for player, card in tied_players]
                 round_number += 1
         
         # Fallback: if we run out of cards, pick the first player
