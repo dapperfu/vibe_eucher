@@ -120,8 +120,80 @@ def list_players() -> None:
 def list_neural_models() -> None:
     """List available neural network models."""
     try:
-        # This would list available neural models
-        click.echo("Neural models not yet implemented.")
+        import os
+        import glob
+        from pathlib import Path
+        
+        click.echo("=== Available Neural Network Models ===\n")
+        
+        # Check for models in different directories
+        model_dirs = [
+            "models",
+            "trained_models", 
+            "trained_models/mixed_training_checkpoints",
+            "trained_models/profile_checkpoints"
+        ]
+        
+        total_models = 0
+        
+        for model_dir in model_dirs:
+            if os.path.exists(model_dir):
+                click.echo(f"📁 {model_dir}/")
+                
+                # Look for .pth files (PyTorch models)
+                pth_files = glob.glob(os.path.join(model_dir, "*.pth"))
+                if pth_files:
+                    for pth_file in sorted(pth_files):
+                        file_size = os.path.getsize(pth_file)
+                        size_mb = file_size / (1024 * 1024)
+                        click.echo(f"  🧠 {os.path.basename(pth_file)} ({size_mb:.1f} MB)")
+                        total_models += 1
+                
+                # Look for .json files (trained player profiles)
+                json_files = glob.glob(os.path.join(model_dir, "*.json"))
+                if json_files:
+                    for json_file in sorted(json_files):
+                        file_size = os.path.getsize(json_file)
+                        size_mb = file_size / (1024 * 1024)
+                        click.echo(f"  📊 {os.path.basename(json_file)} ({size_mb:.1f} MB)")
+                        total_models += 1
+                
+                # Look for checkpoint files in subdirectories
+                checkpoint_patterns = [
+                    "*_checkpoint_*.json",
+                    "*_checkpoint_*.pth"
+                ]
+                
+                for pattern in checkpoint_patterns:
+                    checkpoint_files = glob.glob(os.path.join(model_dir, pattern))
+                    if checkpoint_files:
+                        for checkpoint_file in sorted(checkpoint_files):
+                            file_size = os.path.getsize(checkpoint_file)
+                            size_mb = file_size / (1024 * 1024)
+                            rel_path = os.path.relpath(checkpoint_file, model_dir)
+                            click.echo(f"  🔄 {rel_path} ({size_mb:.1f} MB)")
+                            total_models += 1
+                
+                click.echo()
+        
+        if total_models == 0:
+            click.echo("❌ No neural network models found.")
+            click.echo("\nTo create models, use:")
+            click.echo("  euchre generate-player-profiles")
+            click.echo("  euchre train-self-play")
+        else:
+            click.echo(f"✅ Found {total_models} neural network models/checkpoints")
+            
+            click.echo("\n📋 Model Types:")
+            click.echo("  🧠 .pth files: PyTorch neural network models")
+            click.echo("  📊 .json files: Trained player profiles")
+            click.echo("  🔄 checkpoints: Training checkpoints")
+            
+            click.echo("\n🚀 Usage Examples:")
+            click.echo("  euchre run-neural-games -m1 Alice -m2 Bob")
+            click.echo("  euchre play-trained-players -p1 Alice -p2 Bob")
+            click.echo("  euchre benchmark --device cpu")
+            
     except Exception as e:
         click.echo(f"Error listing neural models: {e}")
 
