@@ -67,17 +67,17 @@ class EuchreGame:
         self.logger.debug("Player objects:")
         for i, player in enumerate(self.players):
             self.logger.debug(f"Player {i}: {player.name} (id: {id(player)}) type: {player.player_type}")
-            self.logger.debug(f"Player {i}: {player.name} hand: {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+            self.logger.debug(f"Player {i}: {player.name} hand: {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
         
         # Reset game state
         self.game_state_manager.initialize_game(self.players)
-        self.deck.reset()
+        self.deck.reset_and_shuffle()
         self.trick_manager.reset()
         
         self.logger.debug("After resetting components")
         self.logger.debug("Player hands after reset:")
         for player in self.players:
-            self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+            self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
         
         # Deal cards
         self._deal_cards()
@@ -107,9 +107,9 @@ class EuchreGame:
         self.logger.debug(f"Number of players: {len(self.players)}")
         self.logger.debug(f"Number of hands: {len(hands)}")
         for i, (player, hand) in enumerate(zip(self.players, hands)):
-            self.logger.debug(f"Player {i}: {player.name} (id: {id(player)}) got {len(hand)} cards: {[str(card) for card in hand]}")
+            self.logger.debug(f"Player {i}: {player.name} (id: {id(player)}) got {len(hand)} cards: {[card.unicode_str() for card in hand]}")
             player.hand = hand
-            self.logger.debug(f"After assignment: {player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+            self.logger.debug(f"After assignment: {player.name} (id: {id(player)}) has {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
         
         # Set the top card
         self.top_card = self.deck.draw_top_card()
@@ -119,7 +119,7 @@ class EuchreGame:
         # Debug: Verify all players have cards after dealing
         self.logger.debug("Final hand verification after dealing:")
         for player in self.players:
-            self.logger.debug(f"{player.name} (id: {id(player)}) final hand: {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+            self.logger.debug(f"{player.name} (id: {id(player)}) final hand: {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
     
     def _start_new_round(self) -> None:
         """Start a new round of the game."""
@@ -136,12 +136,12 @@ class EuchreGame:
         # Deal new cards for this round (unless it's the first round which was already dealt)
         if self.round_number > 1:
             self.logger.debug(f"Dealing new cards for round {self.round_number}")
-            # Reset the deck for the new round
-            self.deck.reset()
+            # Reset and shuffle the deck for the new round
+            self.deck.reset_and_shuffle()
             self._deal_cards()
             self.logger.debug("Player hands after dealing new cards:")
             for player in self.players:
-                self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+                self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
         
         # Select trump suit
         trump_suit, caller = self.trump_selection_manager.select_trump_suit(
@@ -169,7 +169,7 @@ class EuchreGame:
         # Debug: Check hands after trump selection
         self.logger.debug("Player hands after trump selection:")
         for player in self.players:
-            self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+            self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
         
         # Play 5 tricks
         for trick_number in range(1, 6):
