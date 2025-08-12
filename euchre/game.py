@@ -921,8 +921,10 @@ class EuchreGame:
         # Show the top card that was flipped up
         if self.top_card:
             # Always show without trump indicator when just flipped up
-            # The is_trump property might be set from previous rounds
-            click.echo(f"📋 Top card flipped up: {self.top_card.rank.name.title()} of {self.top_card.suit.name.title()}")
+            # Use shorthand format: rank + unicode suit
+            rank_symbol = self._get_rank_symbol(self.top_card.rank)
+            suit_symbol = self._get_suit_symbol(self.top_card.suit)
+            click.echo(f"📋 Top card flipped up: {rank_symbol}{suit_symbol}")
         
         # Show first round of trump selection (ordering up)
         click.echo("\n🔄 FIRST ROUND - Ordering up the top card:")
@@ -1716,27 +1718,27 @@ class EuchreGame:
 
 
 class AIPlayer:
-    """Base AI player class that wraps a Player object."""
+    """AI player logic for euchre."""
     
-    def __init__(self, player: "Player"):
-        """Initialize with a Player object.
+    def __init__(self, player: Player) -> None:
+        """Initialize AI player.
         
         Parameters
         ----------
         player : Player
-            The player object to wrap
+            The player this AI controls
         """
         self.player = player
         
-    def choose_card_to_play(self, lead_suit: Optional[Suit], trump_suit: Optional[Suit]) -> "Card":
+    def choose_card_to_play(self, lead_suit: Optional[Suit], trump_suit: Optional[Suit]) -> Card:
         """Choose which card to play.
         
         Parameters
         ----------
         lead_suit : Optional[Suit]
-            The suit that was led (None if leading)
+            The suit that was led (if any)
         trump_suit : Optional[Suit]
-            The current trump suit (None if none selected)
+            The current trump suit
             
         Returns
         -------
@@ -1744,26 +1746,33 @@ class AIPlayer:
             The card to play
         """
         if not self.player.hand:
-            raise ValueError("Player has no cards to play")
+            raise ValueError("AI player has no cards to play")
             
-        # If leading (no lead suit), play highest card
-        if not lead_suit:
-            trump_cards = [c for c in self.player.hand if c.is_trump]
-            if trump_cards:
-                return max(trump_cards, key=lambda c: c.rank.value)
-            else:
-                # Lead with highest non-trump
-                return max(self.player.hand, key=lambda c: c.rank.value)
+        # Must follow suit if possible
+        if lead_suit and self.player.has_suit(lead_suit):
+            cards_of_suit = self.player.get_cards_of_suit(lead_suit)
+            # Play highest card of lead suit
+            return max(cards_of_suit, key=lambda c: c.rank.value)
         else:
-            # Not leading - play lowest non-trump if possible
-            non_trump_cards = [c for c in self.player.hand if not c.is_trump]
-            if non_trump_cards:
-                return min(non_trump_cards, key=lambda c: c.rank.value)
+            # Can play any card - choose strategically
+            # If we're leading, play highest trump or highest card
+            if not lead_suit:
+                trump_cards = [c for c in self.player.hand if c.is_trump]
+                if trump_cards:
+                    return max(trump_cards, key=lambda c: c.rank.value)
+                else:
+                    # Lead with highest non-trump
+                    return max(self.player.hand, key=lambda c: c.rank.value)
             else:
-                # Only trump cards left - play lowest
-                return min(self.player.hand, key=lambda c: c.rank.value)
+                # Not leading - play lowest non-trump if possible
+                non_trump_cards = [c for c in self.player.hand if not c.is_trump]
+                if non_trump_cards:
+                    return min(non_trump_cards, key=lambda c: c.rank.value)
+                else:
+                    # Only trump cards left - play lowest
+                    return min(self.player.hand, key=lambda c: c.rank.value)
             
-    def should_order_up(self, top_card: "Card", is_partner_dealing: bool) -> bool:
+    def should_order_up(self, top_card: Card, is_partner_dealing: bool) -> bool:
         """Decide whether to order up the top card.
         
         Parameters
@@ -1803,7 +1812,7 @@ class AIPlayer:
             return Suit.HEARTS
         elif trump_suit == Suit.CLUBS:
             return Suit.SPADES
-        else: # SPADES
+        else:  # SPADES
             return Suit.CLUBS
 
     def choose_trump_suit(self, hand: List["Card"]) -> Suit:
