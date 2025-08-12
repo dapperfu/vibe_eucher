@@ -209,7 +209,7 @@ class EuchreGame:
                     is_partner_dealing = self._is_partner_dealing(player)
                     
                     # For adaptive AI players, provide context
-                    if isinstance(player, AdaptiveAIProfile):
+                    if hasattr(player, 'create_context'):
                         context = self._create_adaptive_context(player, is_partner_dealing)
                         # Update the adaptive AI's context
                         player.create_context(
@@ -248,8 +248,24 @@ class EuchreGame:
                 else:
                     bidding_log.append(f"{player.name} passes")
             else:
-                # Human player - for now, always pass (can be enhanced later)
-                bidding_log.append(f"{player.name} passes")
+                # Human player - prompt for decision
+                should_order = self._prompt_human_trump_decision(player, self.top_card)
+                
+                if should_order:
+                    self.game_state.trump_suit = self.top_card.suit
+                    trump_selected = True
+                    self.trump_caller = player
+                    self.trump_caller_team = (current_player_idx % 2)  # 0 = team 1, 1 = team 2
+                    bidding_log.append(f"{player.name} orders up {self.top_card}")
+                    
+                    # Dealer picks up the top card and discards one card
+                    dealer = self.game_state.get_dealer()
+                    discarded_card = self._dealer_pickup_and_discard(dealer)
+                    if discarded_card:
+                        bidding_log.append(f"{dealer.name} (dealer) picks up {self.top_card} and discards {discarded_card}")
+                    break
+                else:
+                    bidding_log.append(f"{player.name} passes")
                 
             current_player_idx = (current_player_idx + 1) % 4
             
@@ -265,8 +281,8 @@ class EuchreGame:
                 self.trump_caller_team = (self.game_state.dealer_index % 2)  # 0 = team 1, 1 = team 2
                 bidding_log.append(f"{dealer.name} (dealer) calls {chosen_suit.value}")
             else:
-                # Human dealer - for now, pick based on hand strength
-                chosen_suit = self._choose_trump_for_human_dealer(dealer.hand)
+                # Human dealer - prompt for trump suit choice
+                chosen_suit = self._prompt_human_trump_suit_choice(dealer)
                 self.game_state.trump_suit = chosen_suit
                 self.trump_caller = dealer
                 self.trump_caller_team = (self.game_state.dealer_index % 2)  # 0 = team 1, 1 = team 2
@@ -640,19 +656,26 @@ class EuchreGame:
             if is_ai_only_game:
                 # Display each player's dealt cards for AI-only games
                 click.echo("\n📋 DEALT CARDS:")
+                
+                # Find the longest player name for alignment
+                max_name_length = max(len(player.name) for player in self.players)
+                
                 for i, player in enumerate(self.players):
                     # Sort cards by suit first, then by rank (high to low)
                     sorted_cards = sorted(player.hand, key=lambda c: (c.suit.value, -c.rank.value))
                     
-                    # Format cards with suit symbols
+                    # Format cards in shorthand with unicode suits
                     card_strings = []
                     for card in sorted_cards:
-                        if card.is_trump:
-                            card_strings.append(f"{card}*")
-                        else:
-                            card_strings.append(str(card))
+                        # Use shorthand format: rank + unicode suit + trump indicator
+                        rank_symbol = self._get_rank_symbol(card.rank)
+                        suit_symbol = self._get_suit_symbol(card.suit)
+                        trump_indicator = "*" if card.is_trump else ""
+                        card_strings.append(f"{rank_symbol}{suit_symbol}{trump_indicator}")
                     
-                    click.echo(f"  {player.name}: {' '.join(card_strings)}")
+                    # Align player names and use comma separation
+                    aligned_name = player.name.ljust(max_name_length)
+                    click.echo(f"  {aligned_name}: {', '.join(card_strings)}")
                 click.echo()
             else:
                 # For human games, only show the human player's hand
@@ -661,16 +684,17 @@ class EuchreGame:
                     # Sort cards by suit first, then by rank (high to low)
                     sorted_cards = sorted(human_player.hand, key=lambda c: (c.suit.value, -c.rank.value))
                     
-                    # Format cards with suit symbols
+                    # Format cards in shorthand with unicode suits
                     card_strings = []
                     for card in sorted_cards:
-                        if card.is_trump:
-                            card_strings.append(f"{card}*")
-                        else:
-                            card_strings.append(str(card))
+                        # Use shorthand format: rank + unicode suit + trump indicator
+                        rank_symbol = self._get_rank_symbol(card.rank)
+                        suit_symbol = self._get_suit_symbol(card.suit)
+                        trump_indicator = "*" if card.is_trump else ""
+                        card_strings.append(f"{rank_symbol}{suit_symbol}{trump_indicator}")
                     
                     click.echo(f"\n📋 YOUR HAND ({human_player.name}):")
-                    click.echo(f"  {' '.join(card_strings)}")
+                    click.echo(f"  {', '.join(card_strings)}")
                     click.echo()
             
         self.tricks_this_round.clear()
@@ -1252,6 +1276,50 @@ class EuchreGame:
                 
                 # Record performance
                 player.record_performance(performance_score)
+
+    def _get_rank_symbol(self, rank: Rank) -> str:
+        """Get a symbol representation of the rank.
+        
+        Parameters
+        ----------
+        rank : Rank
+            The rank to get symbol for
+            
+        Returns
+        -------
+        str
+            Symbol representation of the rank
+        """
+        rank_map = {
+            Rank.NINE: "9",
+            Rank.TEN: "10", 
+            Rank.JACK: "J",
+            Rank.QUEEN: "Q",
+            Rank.KING: "K",
+            Rank.ACE: "A"
+        }
+        return rank_map.get(rank, str(rank.value))
+    
+    def _get_suit_symbol(self, suit: Suit) -> str:
+        """Get a unicode symbol representation of the suit.
+        
+        Parameters
+        ----------
+        suit : Suit
+            The suit to get symbol for
+            
+        Returns
+        -------
+        str
+            Unicode symbol representation of the suit
+        """
+        suit_map = {
+            Suit.HEARTS: "♥",
+            Suit.DIAMONDS: "♦",
+            Suit.CLUBS: "♣",
+            Suit.SPADES: "♠"
+        }
+        return suit_map.get(suit, suit.name[0].upper()) 
 
 
 class AIPlayer:

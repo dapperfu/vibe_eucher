@@ -1190,6 +1190,49 @@ def train_adaptive(mode: str, games: int, model: str, output_dir: str) -> None:
         click.echo(f"Error during adaptive training: {e}", err=True)
 
 
+@click.command()
+@click.option('--player-name', default='You', help='Your player name')
+@click.option('--partner-ai', default='balanced', help='AI partner type: conservative, balanced, aggressive, ace_hunter, trump_caller')
+@click.option('--opponent1-ai', default='balanced', help='First opponent AI type')
+@click.option('--opponent2-ai', default='balanced', help='Second opponent AI type')
+@click.option('--opponent3-ai', default='balanced', help='Third opponent AI type')
+@click.option('--show-ai-hands', is_flag=True, default=False, help='Show AI player hands (for debugging)')
+def single_player(player_name, partner_ai, opponent1_ai, opponent2_ai, opponent3_ai, show_ai_hands):
+    """Play a single player euchre game against AI opponents."""
+    from euchre.game import EuchreGame
+    from euchre.ai_profiles import create_ai_profile
+    
+    click.echo(f"🎮 Starting Single Player Euchre Game")
+    click.echo(f"👤 Player: {player_name}")
+    click.echo(f"🤝 Partner AI: {partner_ai}")
+    click.echo(f"👥 Opponents: {opponent1_ai}, {opponent2_ai}, {opponent3_ai}")
+    click.echo("=" * 60)
+    
+    # Create game
+    game = EuchreGame(enable_logging=True, quiet_mode=False)
+    
+    # Add human player
+    from euchre.player import Player, PlayerType
+    human_player = Player(player_name, PlayerType.HUMAN)
+    game.add_player(human_player)
+    
+    # Add AI partner (same team as human)
+    partner = create_ai_profile(f"Partner_{partner_ai.title()}", partner_ai)
+    game.add_player(partner)
+    
+    # Add AI opponents (opposite team)
+    opponent1 = create_ai_profile(f"Opponent1_{opponent1_ai.title()}", opponent1_ai)
+    opponent2 = create_ai_profile(f"Opponent2_{opponent2_ai.title()}", opponent2_ai)
+    game.add_player(opponent1)
+    game.add_player(opponent2)
+    
+    # Start the game
+    game.start_new_game()
+    
+    # Run the interactive game
+    game.run_interactive_game(show_ai_hands=show_ai_hands)
+
+
 # Add commands to the main group
 main.add_command(train_self_play)
 main.add_command(list_players)
@@ -1205,6 +1248,7 @@ main.add_command(play_fine_tuned)
 main.add_command(list_models)
 main.add_command(find_optimal_model)
 main.add_command(train_adaptive)
+main.add_command(single_player)
 
 
 if __name__ == "__main__":
