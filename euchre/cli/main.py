@@ -5,13 +5,19 @@ from .commands import GameCommands
 
 
 @click.group()
+@click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging (INFO level)")
+@click.option("--very-verbose", "-vv", is_flag=True, help="Enable very verbose logging (DEBUG level)")
 @click.version_option(version="0.1.0")
-def main() -> None:
+@click.pass_context
+def main(ctx: click.Context, verbose: bool, very_verbose: bool) -> None:
     """Euchre - A CLI card game with AI opponents.
     
     Play the classic euchre card game against AI opponents.
     """
-    pass
+    # Store verbosity flags in context
+    ctx.ensure_object(dict)
+    ctx.obj['verbose'] = verbose
+    ctx.obj['very_verbose'] = very_verbose
 
 
 @main.command()
@@ -19,9 +25,12 @@ def main() -> None:
 @click.option("--ai-names", "-a", multiple=True, 
               default=["Alice", "Bob", "Charlie", "David"], 
               help="Names for AI opponents")
-def play(player_name: str, ai_names: tuple) -> None:
+@click.pass_context
+def play(ctx: click.Context, player_name: str, ai_names: tuple) -> None:
     """Start a new euchre game."""
-    GameCommands.play_game(player_name, ai_names)
+    verbose = ctx.obj.get('verbose', False)
+    very_verbose = ctx.obj.get('very_verbose', False)
+    GameCommands.play_game(player_name, ai_names, verbose, very_verbose)
 
 
 @main.command()
@@ -31,17 +40,21 @@ def play(player_name: str, ai_names: tuple) -> None:
 @click.option("--risk-ratios", "-r", multiple=True, 
               default=["0.5", "0.5", "0.5", "0.5"],
               help="Risk ratios (0.0-1.0) for each AI player")
-@click.option("--enable-logging", "-l", is_flag=True, default=True,
-              help="Enable game logging to file")
-def ai_profiles(ai_profiles: tuple, risk_ratios: tuple, enable_logging: bool) -> None:
+@click.pass_context
+def ai_profiles(ctx: click.Context, ai_profiles: tuple, risk_ratios: tuple) -> None:
     """Run a game with different AI profiles and risk ratios."""
-    GameCommands.ai_profiles_game(ai_profiles, risk_ratios, enable_logging)
+    verbose = ctx.obj.get('verbose', False)
+    very_verbose = ctx.obj.get('very_verbose', False)
+    GameCommands.ai_profiles_game(ai_profiles, risk_ratios, verbose, very_verbose)
 
 
 @main.command()
-def ai_vs_ai() -> None:
+@click.pass_context
+def ai_vs_ai(ctx: click.Context) -> None:
     """Run AI vs AI euchre game."""
-    GameCommands.ai_vs_ai_game()
+    verbose = ctx.obj.get('verbose', False)
+    very_verbose = ctx.obj.get('very_verbose', False)
+    GameCommands.ai_vs_ai_game(verbose, very_verbose)
 
 
 @main.command()
@@ -57,16 +70,22 @@ def ncurses() -> None:
 
 
 @main.command()
-def logged_game() -> None:
+@click.pass_context
+def logged_game(ctx: click.Context) -> None:
     """Run AI vs AI euchre game with logging (no ncurses)."""
-    GameCommands.ai_vs_ai_game()
+    verbose = ctx.obj.get('verbose', False)
+    very_verbose = ctx.obj.get('very_verbose', False)
+    GameCommands.ai_vs_ai_game(verbose, very_verbose)
 
 
 @main.command()
 @click.option("--num-games", "-n", default=100, help="Number of games to play")
-def tournament(num_games: int) -> None:
+@click.pass_context
+def tournament(ctx: click.Context, num_games: int) -> None:
     """Run a tournament between trained players."""
-    GameCommands.tournament_game(num_games)
+    verbose = ctx.obj.get('verbose', False)
+    very_verbose = ctx.obj.get('very_verbose', False)
+    GameCommands.tournament_game(num_games, verbose, very_verbose)
 
 
 @main.command()

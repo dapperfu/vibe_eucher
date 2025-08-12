@@ -11,7 +11,7 @@ class GameCommands:
     """CLI commands for managing euchre games."""
     
     @staticmethod
-    def play_game(player_name: Optional[str], ai_names: tuple) -> None:
+    def play_game(player_name: Optional[str], ai_names: tuple, verbose: bool = False, very_verbose: bool = False) -> None:
         """Start a new euchre game.
         
         Parameters
@@ -20,16 +20,36 @@ class GameCommands:
             Human player name (None for AI-only game)
         ai_names : tuple
             Names for AI opponents
+        verbose : bool
+            Enable verbose logging
+        very_verbose : bool
+            Enable very verbose logging
         """
         try:
-            # Create game
-            game = EuchreGame()
+            # Create players list
+            players = []
             
             # Check if this is a human game or AI-only game
             if player_name is not None:
-                GameCommands._setup_human_game(game, player_name, ai_names)
+                # Human game - prompt for name if not specified
+                if player_name == "":
+                    player_name = click.prompt("Enter your name", default="Player")
+                
+                click.echo(f"Welcome to Euchre, {player_name}!")
+                
+                # Add human player
+                from ..models import Player, PlayerType
+                human_player = Player(player_name, PlayerType.HUMAN)
+                players.append(human_player)
+                
+                # Add AI players
+                GameCommands._add_ai_players_to_list(players, ai_names)
             else:
-                GameCommands._setup_ai_only_game(game, ai_names)
+                click.echo("Starting AI-only Euchre game...")
+                GameCommands._add_ai_players_to_list(players, ai_names)
+            
+            # Create game with players
+            game = EuchreGame(players, verbose=verbose, very_verbose=very_verbose)
             
             # Start and play the game
             game.start_new_game()
@@ -47,72 +67,35 @@ class GameCommands:
             click.echo(f"Error: {e}", err=True)
     
     @staticmethod
-    def _setup_human_game(game: EuchreGame, player_name: str, ai_names: tuple) -> None:
-        """Set up a game with a human player.
+    def _add_ai_players_to_list(players: List, ai_names: tuple) -> None:
+        """Add AI players to the players list.
         
         Parameters
         ----------
-        game : EuchreGame
-            The game instance
-        player_name : str
-            Human player name
-        ai_names : tuple
-            AI opponent names
-        """
-        # Human game - prompt for name if not specified
-        if player_name == "":
-            player_name = click.prompt("Enter your name", default="Player")
-        
-        click.echo(f"Welcome to Euchre, {player_name}!")
-        
-        # Add human player
-        game.add_player(player_name, PlayerType.HUMAN)
-        
-        # Add AI players
-        GameCommands._add_ai_players(game, ai_names)
-    
-    @staticmethod
-    def _setup_ai_only_game(game: EuchreGame, ai_names: tuple) -> None:
-        """Set up an AI-only game.
-        
-        Parameters
-        ----------
-        game : EuchreGame
-            The game instance
-        ai_names : tuple
-            AI player names
-        """
-        click.echo("Starting AI-only Euchre game...")
-        
-        # Add AI players
-        GameCommands._add_ai_players(game, ai_names)
-    
-    @staticmethod
-    def _add_ai_players(game: EuchreGame, ai_names: tuple) -> None:
-        """Add AI players to the game.
-        
-        Parameters
-        ----------
-        game : EuchreGame
-            The game instance
+        players : List
+            List to add AI players to
         ai_names : tuple
             AI player names
         """
         ai_names_list = list(ai_names)
-        while len(game.players) < 4:
+        while len(players) < 4:
             if ai_names_list:
-                game.add_ai_player(ai_names_list.pop(0), "balanced", 0.5)
+                name = ai_names_list.pop(0)
+                ai_player = AIFactory.create_ai_player(name, "balanced", 0.5)
+                players.append(ai_player)
             else:
                 # Use default AI names if not enough provided
                 default_names = ["Alice", "Bob", "Charlie", "David"]
-                used_names = [p.name for p in game.players]
+                used_names = [p.name for p in players]
                 for default_name in default_names:
                     if default_name not in used_names:
-                        game.add_ai_player(default_name, "balanced", 0.5)
+                        ai_player = AIFactory.create_ai_player(default_name, "balanced", 0.5)
+                        players.append(ai_player)
                         break
                 else:
                     # Fallback if all default names are used
-                    game.add_ai_player(f"AI_{len(game.players)}", "balanced", 0.5)
+                    ai_player = AIFactory.create_ai_player(f"AI_{len(players)}", "balanced", 0.5)
+                    players.append(ai_player)
     
     @staticmethod
     def _show_human_game_info(game: EuchreGame, player_name: str) -> None:
@@ -131,16 +114,19 @@ class GameCommands:
             click.echo(f"  {i}. {card}")
         
         # Show trump information
-        if game.game_state and game.game_state.trump_suit:
-            click.echo(f"\nTrump suit: {game.game_state.trump_suit.value.title()}")
-            if game.trump_caller:
-                click.echo(f"Trump called by: {game.trump_caller.name}")
-                if game.trump_caller_team is not None:
-                    team_name = "Team 1" if game.trump_caller_team == 0 else "Team 2"
-                    click.echo(f"Team: {team_name}")
+        if game.trump_suit:
+            click.echo(f"\nTrump suit: {game.trump_suit.name}")
+            # Get trump caller from game state manager
+            trump_caller = game.game_state_manager.get_trump_caller()
+            if trump_caller:
+                click.echo(f"Trump called by: {trump_caller.name}")
+                # Determine team based on player index
+                caller_index = next(i for i, p in enumerate(game.players) if p.name == trump_caller.name)
+                team_name = "Team 1" if caller_index % 2 == 0 else "Team 2"
+                click.echo(f"Team: {team_name}")
     
     @staticmethod
-    def ai_profiles_game(ai_profiles: tuple, risk_ratios: tuple, enable_logging: bool) -> None:
+    def ai_profiles_game(ai_profiles: tuple, risk_ratios: tuple, verbose: bool = False, very_verbose: bool = False) -> None:
         """Run a game with different AI profiles and risk ratios.
         
         Parameters
@@ -149,14 +135,16 @@ class GameCommands:
             AI profiles for each player
         risk_ratios : tuple
             Risk ratios for each player
-        enable_logging : bool
-            Whether to enable game logging
+        verbose : bool
+            Enable verbose logging
+        very_verbose : bool
+            Enable very verbose logging
         """
         try:
             click.echo("Starting AI vs AI euchre game with custom profiles...")
             
-            # Create game with logging
-            game = EuchreGame(enable_logging=enable_logging)
+            # Create players list
+            players = []
             
             # Convert risk ratios to floats
             risk_values = []
@@ -176,13 +164,16 @@ class GameCommands:
             # Add AI players with profiles
             player_names = ["Alice", "Bob", "Charlie", "David"]
             for i, (name, profile, risk) in enumerate(zip(player_names, ai_profiles, risk_values)):
-                game.add_ai_player(name, profile, risk)
+                ai_player = AIFactory.create_ai_player(name, profile, risk)
+                players.append(ai_player)
                 click.echo(f"  {name}: {profile} AI (risk: {risk:.1f})")
+            
+            # Create game with players
+            game = EuchreGame(players, verbose=verbose, very_verbose=very_verbose)
             
             # Start and play the game
             game.start_new_game()
-            click.echo(f"Game started! Trump: {game.game_state.trump_suit.name.title()}")
-            click.echo("Playing rounds...")
+            click.echo("Game started! Playing rounds...")
             
             # Play the game
             game.run_full_game()
@@ -191,18 +182,24 @@ class GameCommands:
             click.echo(f"Error: {e}", err=True)
     
     @staticmethod
-    def ai_vs_ai_game() -> None:
-        """Run a basic AI vs AI game."""
+    def ai_vs_ai_game(verbose: bool = False, very_verbose: bool = False) -> None:
+        """Run a basic AI vs AI game.
+        
+        Parameters
+        ----------
+        verbose : bool
+            Enable verbose logging
+        very_verbose : bool
+            Enable very verbose logging
+        """
         try:
             click.echo("Starting AI vs AI euchre game...")
             
-            # Create game
-            game = EuchreGame()
-            
-            # Add AI players
+            # Create AI players
             ai_players = AIFactory.create_mixed_ai_players()
-            for player in ai_players:
-                game.players.append(player)
+            
+            # Create game with players
+            game = EuchreGame(ai_players, verbose=verbose, very_verbose=very_verbose)
             
             click.echo(f"Players: {', '.join(p.name for p in game.players)}")
             
@@ -214,24 +211,26 @@ class GameCommands:
             click.echo(f"Error: {e}", err=True)
     
     @staticmethod
-    def tournament_game(num_games: int) -> None:
+    def tournament_game(num_games: int, verbose: bool = False, very_verbose: bool = False) -> None:
         """Run a tournament between AI players.
         
         Parameters
         ----------
         num_games : int
             Number of games to play
+        verbose : bool
+            Enable verbose logging
+        very_verbose : bool
+            Enable very verbose logging
         """
         try:
             click.echo(f"Starting tournament with {num_games} games...")
             
-            # Create tournament game
-            game = EuchreGame()
-            
-            # Add AI players with different styles
+            # Create AI players with different styles
             ai_players = AIFactory.create_mixed_ai_players()
-            for player in ai_players:
-                game.players.append(player)
+            
+            # Create tournament game
+            game = EuchreGame(ai_players, verbose=verbose, very_verbose=very_verbose)
             
             click.echo(f"Tournament players: {', '.join(p.name for p in game.players)}")
             
