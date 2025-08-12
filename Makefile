@@ -15,7 +15,7 @@ test: install ## Run tests
 	venv/bin/pytest tests/ -v
 
 run: install ## Run the euchre game
-	venv/bin/python -m euchre.cli
+	venv/bin/python -m euchre.cli play
 
 clean: ## Clean up generated files
 	rm -rf venv/
