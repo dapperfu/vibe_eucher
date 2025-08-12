@@ -144,9 +144,11 @@ def validate_models(config: TrainingConfig) -> None:
             logger.info(f"✓ {name.capitalize()} risk profile created successfully")
             
             # Test forward pass
-            test_input = torch.randn(1, config.input_size)
+            test_input = torch.randn(4, config.input_size)  # Use batch size > 1 for BatchNorm
+            model.eval()  # Set to eval mode to avoid BatchNorm training issues
             with torch.no_grad():
                 outputs = model(test_input, risk_profile)
+            model.train()  # Set back to training mode
             logger.info(f"✓ {name.capitalize()} forward pass successful")
             
     except Exception as e:

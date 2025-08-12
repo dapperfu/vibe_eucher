@@ -797,7 +797,14 @@ class MSeriesBaseModel(nn.Module):
         
         # Enhanced forward pass through specialized layers
         h = F.relu(self.input_layer(combined_input))
-        h = self.batch_norm(h)
+        
+        # Use eval mode for batch norm during validation to avoid single sample issues
+        if self.training and h.size(0) > 1:
+            h = self.batch_norm(h)
+        else:
+            with torch.no_grad():
+                h = self.batch_norm(h)
+        
         h = self.dropout(h)
         
         # Process through specialized intuition and strategy layers
