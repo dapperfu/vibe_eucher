@@ -81,7 +81,7 @@ class TrainingConfig:
 class MSeriesGameDataset(Dataset):
     """Dataset for training M-Series models on Euchre game data."""
     
-    def __init__(self, game_data: List[Dict[str, Any]], encoder: MSeriesGameStateEncoder):
+    def __init__(self, game_data: List[Dict[str, Any]], encoder: MSeriesGameStateEncoder, sample_type: str = None):
         """Initialize the dataset.
         
         Parameters
@@ -90,9 +90,12 @@ class MSeriesGameDataset(Dataset):
             List of game data dictionaries
         encoder : MSeriesGameStateEncoder
             Game state encoder for feature extraction
+        sample_type : str, optional
+            Type of samples to include ('trump_decision', 'card_play', or None for all)
         """
         self.game_data = game_data
         self.encoder = encoder
+        self.sample_type = sample_type
         self.samples = self._prepare_samples()
         
     def _prepare_samples(self) -> List[Dict[str, Any]]:
@@ -100,13 +103,15 @@ class MSeriesGameDataset(Dataset):
         samples = []
         
         for game in self.game_data:
-            # Extract trump decision samples
-            trump_samples = self._extract_trump_samples(game)
-            samples.extend(trump_samples)
+            if self.sample_type is None or self.sample_type == 'trump_decision':
+                # Extract trump decision samples
+                trump_samples = self._extract_trump_samples(game)
+                samples.extend(trump_samples)
             
-            # Extract card play samples
-            card_samples = self._extract_card_samples(game)
-            samples.extend(card_samples)
+            if self.sample_type is None or self.sample_type == 'card_play':
+                # Extract card play samples
+                card_samples = self._extract_card_samples(game)
+                samples.extend(card_samples)
         
         return samples
     
@@ -150,13 +155,13 @@ class MSeriesGameDataset(Dataset):
         """Get the number of samples."""
         return len(self.samples)
     
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, str]:
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         """Get a training sample.
         
         Returns
         -------
-        Tuple[torch.Tensor, torch.Tensor, str]
-            (input_features, target, sample_type)
+        Tuple[torch.Tensor, torch.Tensor]
+            (input_features, target)
         """
         sample = self.samples[idx]
         
@@ -175,9 +180,14 @@ class MSeriesGameDataset(Dataset):
             )
         
         # Create target tensor
-        target = torch.tensor(sample['target'], dtype=torch.float32)
+        if sample['type'] == 'trump_decision':
+            # For trump decisions, we need the index of the chosen option
+            target = torch.tensor(sample['target'].index(1), dtype=torch.long)
+        else:  # card_play
+            # For card plays, we need the index of the chosen card
+            target = torch.tensor(sample['target'].index(1), dtype=torch.long)
         
-        return input_features, target, sample['type']
+        return input_features, target
 
 
 class MSeriesSelfPlayTrainer:
@@ -337,11 +347,55 @@ class MSeriesSelfPlayTrainer:
             'winner': None
         }
         
-        # Record trump decisions
-        # This would need to be implemented based on the actual game flow
+        # Generate synthetic training data for now
+        # In a real implementation, this would record actual game decisions
         
-        # Record card plays
-        # This would need to be implemented based on the actual game flow
+        # Create trump decision samples
+        for player_idx, player in enumerate(players):
+            # Simulate trump calling decisions
+            trump_sample = {
+                'type': 'trump_decision',
+                'game_state': {
+                    'player': player,
+                    'top_card': game.top_card if hasattr(game, 'top_card') else None,
+                    'dealer': game.game_state_manager.dealer if hasattr(game.game_state_manager, 'dealer') else players[0],
+                    'team_scores': game.game_state_manager.game_scores,
+                    'round_number': game.round_number if hasattr(game, 'round_number') else 1
+                },
+                'target': [1, 0] if player_idx % 2 == 0 else [0, 1],  # Simulate different decisions
+                'player': player,
+                'context': {
+                    'top_card': game.top_card if hasattr(game, 'top_card') else None,
+                    'dealer': game.game_state_manager.dealer if hasattr(game.game_state_manager, 'dealer') else players[0],
+                    'team_scores': game.game_state_manager.game_scores,
+                    'round_number': game.round_number if hasattr(game, 'round_number') else 1
+                }
+            }
+            game_data['trump_decision'].append(trump_sample)
+        
+        # Create card play samples
+        for player_idx, player in enumerate(players):
+            # Simulate card play decisions
+            for trick_num in range(5):  # 5 tricks per round
+                card_sample = {
+                    'type': 'card_play',
+                    'game_state': {
+                        'player': player,
+                        'lead_suit': None,  # Would be set based on actual game state
+                        'trump_suit': game.trump_suit if hasattr(game, 'trump_suit') else None,
+                        'current_trick': [],
+                        'team_scores': game.game_state_manager.game_scores
+                    },
+                    'target': [1, 0, 0, 0, 0],  # Simulate playing first card
+                    'player': player,
+                    'context': {
+                        'lead_suit': None,
+                        'trump_suit': game.trump_suit if hasattr(game, 'trump_suit') else None,
+                        'current_trick': [],
+                        'team_scores': game.game_state_manager.game_scores
+                    }
+                }
+                game_data['card_plays'].append(card_sample)
         
         return game_data
     
@@ -364,20 +418,36 @@ class MSeriesSelfPlayTrainer:
             for name, model in self.models.items():
                 model.train()
                 
-                # Get dataset for this model
+                # Get datasets for this model
                 if name in datasets:
-                    dataloader = DataLoader(
-                        datasets[name], 
+                    # Train on trump decisions
+                    trump_dataloader = DataLoader(
+                        datasets[name]['trump_decision'], 
                         batch_size=self.config.batch_size, 
                         shuffle=True
                     )
                     
-                    model_loss, model_accuracy = self._train_model_epoch(
-                        name, model, dataloader, epoch
+                    trump_loss, trump_accuracy = self._train_model_epoch(
+                        name, model, trump_dataloader, epoch, 'trump_decision'
                     )
                     
-                    epoch_losses[name] = model_loss
-                    epoch_accuracies[name] = model_accuracy
+                    # Train on card plays
+                    card_dataloader = DataLoader(
+                        datasets[name]['card_play'], 
+                        batch_size=self.config.batch_size, 
+                        shuffle=True
+                    )
+                    
+                    card_loss, card_accuracy = self._train_model_epoch(
+                        name, model, card_dataloader, epoch, 'card_play'
+                    )
+                    
+                    # Combine losses and accuracies
+                    total_loss = trump_loss + card_loss
+                    total_accuracy = (trump_accuracy + card_accuracy) / 2
+                    
+                    epoch_losses[name] = total_loss
+                    epoch_accuracies[name] = total_accuracy
             
             # Update learning rates
             for name in self.models:
@@ -404,19 +474,26 @@ class MSeriesSelfPlayTrainer:
             # Filter data for this model (could be model-specific)
             model_data = training_data  # For now, use all data
             
-            dataset = MSeriesGameDataset(model_data, self.encoders[name])
-            datasets[name] = dataset
+            # Create separate datasets for different sample types
+            trump_dataset = MSeriesGameDataset(model_data, self.encoders[name], sample_type='trump_decision')
+            card_dataset = MSeriesGameDataset(model_data, self.encoders[name], sample_type='card_play')
+            
+            # Store both datasets
+            datasets[name] = {
+                'trump_decision': trump_dataset,
+                'card_play': card_dataset
+            }
         
         return datasets
     
     def _train_model_epoch(self, name: str, model: nn.Module, 
-                          dataloader: DataLoader, epoch: int) -> Tuple[float, float]:
-        """Train a single model for one epoch."""
+                          dataloader: DataLoader, epoch: int, sample_type: str) -> Tuple[float, float]:
+        """Train a single model for one epoch on a specific sample type."""
         total_loss = 0.0
         total_correct = 0
         total_samples = 0
         
-        for batch_idx, (inputs, targets, sample_types) in enumerate(dataloader):
+        for batch_idx, (inputs, targets) in enumerate(dataloader):
             inputs = inputs.to(self.device)
             targets = targets.to(self.device)
             
@@ -425,18 +502,24 @@ class MSeriesSelfPlayTrainer:
             outputs = model(inputs, risk_profile)
             
             # Calculate loss based on sample type
-            loss = 0.0
-            for i, sample_type in enumerate(sample_types):
-                if sample_type == 'trump_decision':
-                    loss += self.criteria[name]['trump_decision'](
-                        outputs['trump_decision'][i:i+1], 
-                        targets[i:i+1].long()
-                    )
-                elif sample_type == 'card_play':
-                    loss += self.criteria[name]['card_selection'](
-                        outputs['card_selection'][i:i+1], 
-                        targets[i:i+1].long()
-                    )
+            if sample_type == 'trump_decision':
+                loss = self.criteria[name]['trump_decision'](
+                    outputs['trump_decision'], 
+                    targets.long()
+                )
+                # Calculate accuracy
+                pred = outputs['trump_decision'].argmax(dim=1)
+                total_correct += (pred == targets.long()).sum().item()
+            elif sample_type == 'card_play':
+                loss = self.criteria[name]['card_selection'](
+                    outputs['card_selection'], 
+                    targets.long()
+                )
+                # Calculate accuracy
+                pred = outputs['card_selection'].argmax(dim=1)
+                total_correct += (pred == targets.long()).sum().item()
+            else:
+                continue
             
             # Backward pass
             self.optimizers[name].zero_grad()
@@ -446,13 +529,8 @@ class MSeriesSelfPlayTrainer:
             # Statistics
             total_loss += loss.item()
             total_samples += inputs.size(0)
-            
-            # Calculate accuracy (simplified)
-            if 'trump_decision' in outputs:
-                pred = outputs['trump_decision'].argmax(dim=1)
-                total_correct += (pred == targets.long()).sum().item()
         
-        avg_loss = total_loss / len(dataloader)
+        avg_loss = total_loss / len(dataloader) if len(dataloader) > 0 else 0.0
         avg_accuracy = total_correct / total_samples if total_samples > 0 else 0.0
         
         return avg_loss, avg_accuracy

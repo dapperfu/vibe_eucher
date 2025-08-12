@@ -152,6 +152,18 @@ class MSeriesGameStateEncoder:
         historical = self._encode_historical_context(player, round_number)
         features.extend(historical)
         
+        # Encode partner coordination signals
+        partner_signals = self._encode_partner_coordination(player, round_number)
+        features.extend(partner_signals)
+        
+        # Encode advanced card counting
+        card_counting = self._encode_advanced_card_counting(player, round_number)
+        features.extend(card_counting)
+        
+        # Encode strategic game state
+        strategic_state = self._encode_strategic_game_state(player, team_scores, round_number)
+        features.extend(strategic_state)
+        
         # Pad to input_size if necessary
         if len(features) < self.input_size:
             features.extend([0.0] * (self.input_size - len(features)))
@@ -201,6 +213,14 @@ class MSeriesGameStateEncoder:
         # Encode player position and strategy
         position_encoding = self._encode_position_context(player, current_trick)
         features.extend(position_encoding)
+        
+        # Encode advanced card play strategy
+        card_strategy = self._encode_card_play_strategy(player, current_trick, lead_suit, trump_suit)
+        features.extend(card_strategy)
+        
+        # Encode partner coordination for card play
+        partner_card_coordination = self._encode_partner_card_coordination(player, current_trick)
+        features.extend(partner_card_coordination)
         
         # Pad to input_size if necessary
         if len(features) < self.input_size:
@@ -266,6 +286,118 @@ class MSeriesGameStateEncoder:
             features.append(1.0 if is_left_bower else 0.0)
         else:
             features.extend([0.0, 0.0])
+        
+        return features
+    
+    def _encode_partner_coordination(self, player: Player, round_number: int) -> List[float]:
+        """Encode partner coordination signals and intuition."""
+        features = []
+        
+        # Partner's previous plays and signals
+        if hasattr(player, 'game_history') and player.game_history:
+            partner_plays = [play for play in player.game_history if play['player'] != player.name]
+            
+            # Analyze partner's trump calling patterns
+            trump_calls = [play for play in partner_plays if play['action'] == 'trump_call']
+            features.extend([
+                float(len(trump_calls)),  # Number of trump calls by partner
+                float(1.0 if any(play['suit'] == 'hearts' for play in trump_calls) else 0.0),  # Partner likes hearts
+                float(1.0 if any(play['suit'] == 'diamonds' for play in trump_calls) else 0.0),  # Partner likes diamonds
+                float(1.0 if any(play['suit'] == 'clubs' for play in trump_calls) else 0.0),  # Partner likes clubs
+                float(1.0 if any(play['suit'] == 'spades' for play in trump_calls) else 0.0),  # Partner likes spades
+            ])
+            
+            # Partner's card playing patterns
+            card_plays = [play for play in partner_plays if play['action'] == 'card_play']
+            if card_plays:
+                # Partner's tendency to lead with high cards
+                high_card_leads = [play for play in card_plays if play['is_lead'] and play['card_rank'] >= 12]
+                features.extend([
+                    float(len(high_card_leads) / len(card_plays)),  # High card lead ratio
+                    float(1.0 if any(play['card_suit'] == 'hearts' for play in card_plays) else 0.0),  # Partner plays hearts
+                    float(1.0 if any(play['card_suit'] == 'diamonds' for play in card_plays) else 0.0),  # Partner plays diamonds
+                    float(1.0 if any(play['card_suit'] == 'clubs' for play in card_plays) else 0.0),  # Partner plays clubs
+                    float(1.0 if any(play['card_suit'] == 'spades' for play in card_plays) else 0.0),  # Partner plays spades
+                ])
+            else:
+                features.extend([0.0] * 5)
+        else:
+            features.extend([0.0] * 10)  # No history yet
+        
+        return features
+    
+    def _encode_advanced_card_counting(self, player: Player, round_number: int) -> List[float]:
+        """Encode advanced card counting and memory features."""
+        features = []
+        
+        # Track cards that have been played
+        if hasattr(player, 'game_history') and player.game_history:
+            played_cards = [play['card'] for play in player.game_history if 'card' in play]
+            
+            # Count remaining cards by suit
+            remaining_hearts = 6 - len([c for c in played_cards if c.suit == Suit.HEARTS])
+            remaining_diamonds = 6 - len([c for c in played_cards if c.suit == Suit.DIAMONDS])
+            remaining_clubs = 6 - len([c for c in played_cards if c.suit == Suit.CLUBS])
+            remaining_spades = 6 - len([c for c in played_cards if c.suit == Suit.SPADES])
+            
+            features.extend([
+                float(remaining_hearts) / 6.0,    # Remaining hearts ratio
+                float(remaining_diamonds) / 6.0,  # Remaining diamonds ratio
+                float(remaining_clubs) / 6.0,     # Remaining clubs ratio
+                float(remaining_spades) / 6.0,    # Remaining spades ratio
+            ])
+            
+            # Track high cards remaining
+            high_cards_remaining = 0
+            for suit in [Suit.HEARTS, Suit.DIAMONDS, Suit.CLUBS, Suit.SPADES]:
+                for rank in [Rank.ACE, Rank.KING, Rank.QUEEN, Rank.JACK]:
+                    card = Card(rank, suit)
+                    if card not in played_cards:
+                        high_cards_remaining += 1
+            
+            features.extend([
+                float(high_cards_remaining) / 16.0,  # High cards remaining ratio
+                float(1.0 if remaining_hearts <= 2 else 0.0),  # Hearts running low
+                float(1.0 if remaining_diamonds <= 2 else 0.0),  # Diamonds running low
+                float(1.0 if remaining_clubs <= 2 else 0.0),  # Clubs running low
+                float(1.0 if remaining_spades <= 2 else 0.0),  # Spades running low
+            ])
+        else:
+            features.extend([1.0] * 4 + [1.0] * 5)  # All cards available initially
+        
+        return features
+    
+    def _encode_strategic_game_state(self, player: Player, team_scores: Dict[str, int], round_number: int) -> List[float]:
+        """Encode strategic game state and decision context."""
+        features = []
+        
+        # Team score analysis
+        team1_score = team_scores.get("Team 1", 0)
+        team2_score = team_scores.get("Team 2", 0)
+        
+        # Determine which team the player is on
+        if player.name in ["Magnus", "Mentor"]:
+            player_team_score = team1_score
+            opponent_team_score = team2_score
+        else:
+            player_team_score = team2_score
+            opponent_team_score = team1_score
+        
+        features.extend([
+            float(player_team_score),           # Player's team score
+            float(opponent_team_score),        # Opponent's team score
+            float(player_team_score - opponent_team_score),  # Score difference
+            float(1.0 if player_team_score >= 8 else 0.0),  # Close to winning
+            float(1.0 if opponent_team_score >= 8 else 0.0),  # Opponent close to winning
+        ])
+        
+        # Round-based strategy
+        features.extend([
+            float(round_number),               # Current round
+            float(1.0 if round_number <= 2 else 0.0),  # Early game
+            float(1.0 if 3 <= round_number <= 4 else 0.0),  # Mid game
+            float(1.0 if round_number >= 5 else 0.0),  # Late game
+        ])
         
         return features
     
@@ -358,6 +490,88 @@ class MSeriesGameStateEncoder:
             features.append(0.0)
         
         return features
+    
+    def _encode_card_play_strategy(self, player: Player, current_trick: List[Tuple[str, Card]], 
+                                  lead_suit: Optional[Suit], trump_suit: Optional[Suit]) -> List[float]:
+        """Encode advanced card play strategy and decision making."""
+        features = []
+        
+        # Analyze current trick strength
+        if current_trick:
+            trick_cards = [card for _, card in current_trick]
+            trick_suits = [card.suit for card in trick_cards]
+            
+            # Determine if we can win the trick
+            can_win = False
+            if lead_suit:
+                # Check if we have a higher card of the lead suit
+                lead_suit_cards = [card for card in player.hand if card.suit == lead_suit]
+                if lead_suit_cards:
+                    highest_lead = max(lead_suit_cards, key=lambda c: c.rank.value)
+                    highest_trick = max([c for c in trick_cards if c.suit == lead_suit], key=lambda c: c.rank.value)
+                    can_win = highest_lead.rank.value > highest_trick.rank.value
+            
+            # Check if we can trump to win
+            can_trump_win = False
+            if trump_suit and lead_suit != trump_suit:
+                trump_cards = [card for card in player.hand if card.suit == trump_suit]
+                if trump_cards:
+                    can_trump_win = True
+            
+            features.extend([
+                float(1.0 if can_win else 0.0),      # Can win with lead suit
+                float(1.0 if can_trump_win else 0.0), # Can trump to win
+                float(len(current_trick) / 4.0),     # Trick progress
+            ])
+        else:
+            features.extend([0.0, 0.0, 0.0])
+        
+        # Strategic card counting
+        if trump_suit:
+            trump_cards_in_hand = sum(1 for card in player.hand if card.suit == trump_suit)
+            features.extend([
+                float(trump_cards_in_hand / 5.0),    # Trump cards in hand ratio
+                float(1.0 if trump_cards_in_hand >= 3 else 0.0),  # Strong trump hand
+                float(1.0 if trump_cards_in_hand <= 1 else 0.0),  # Weak trump hand
+            ])
+        else:
+            features.extend([0.0, 0.0, 0.0])
+        
+        return features
+    
+    def _encode_partner_card_coordination(self, player: Player, current_trick: List[Tuple[str, Card]]) -> List[float]:
+        """Encode partner coordination signals during card play."""
+        features = []
+        
+        # Analyze partner's card in current trick
+        partner_card = None
+        for player_name, card in current_trick:
+            if player_name != player.name and self._is_partner(player_name, player.name):
+                partner_card = card
+                break
+        
+        if partner_card:
+            # Partner's card strength and strategy
+            features.extend([
+                float(partner_card.rank.value - 9) / 5.0,  # Partner's card strength
+                float(1.0 if partner_card.rank.value >= 12 else 0.0),  # Partner played high card
+                float(1.0 if partner_card.rank.value <= 10 else 0.0),  # Partner played low card
+                float(1.0 if partner_card.suit == Suit.HEARTS else 0.0),  # Partner played hearts
+                float(1.0 if partner_card.suit == Suit.DIAMONDS else 0.0),  # Partner played diamonds
+                float(1.0 if partner_card.suit == Suit.CLUBS else 0.0),  # Partner played clubs
+                float(1.0 if partner_card.suit == Suit.SPADES else 0.0),  # Partner played spades
+            ])
+        else:
+            features.extend([0.0] * 7)
+        
+        return features
+    
+    def _is_partner(self, player1_name: str, player2_name: str) -> bool:
+        """Check if two players are partners."""
+        team1 = ["Magnus", "Mentor"]
+        team2 = ["Maverick", "Mystic"]
+        return (player1_name in team1 and player2_name in team1) or \
+               (player1_name in team2 and player2_name in team2)
     
     def _encode_position_context(self, player: Player, current_trick: List[Tuple[str, Card]]) -> List[float]:
         """Encode player position context."""
@@ -480,22 +694,82 @@ class MSeriesBaseModel(nn.Module):
         # Risk parameter embedding
         self.risk_embedding = nn.Linear(8, risk_embedding_size)
         
-        # Main network layers
+        # Enhanced input processing with specialized layers
         self.input_layer = nn.Linear(input_size + risk_embedding_size, hidden_size)
+        
+        # Partner coordination and intuition layers
+        self.partner_intuition_layer = nn.Sequential(
+            nn.Linear(hidden_size, hidden_size // 2),
+            nn.ReLU(),
+            nn.BatchNorm1d(hidden_size // 2),
+            nn.Dropout(0.2)
+        )
+        
+        # Advanced card counting and memory layers
+        self.card_memory_layer = nn.Sequential(
+            nn.Linear(hidden_size, hidden_size // 2),
+            nn.ReLU(),
+            nn.BatchNorm1d(hidden_size // 2),
+            nn.Dropout(0.2)
+        )
+        
+        # Strategic planning and game theory layers
+        self.strategic_planning_layer = nn.Sequential(
+            nn.Linear(hidden_size, hidden_size // 2),
+            nn.ReLU(),
+            nn.BatchNorm1d(hidden_size // 2),
+            nn.Dropout(0.2)
+        )
+        
+        # Trick analysis and pattern recognition layers
+        self.trick_analysis_layer = nn.Sequential(
+            nn.Linear(hidden_size, hidden_size // 2),
+            nn.ReLU(),
+            nn.BatchNorm1d(hidden_size // 2),
+            nn.Dropout(0.2)
+        )
+        
+        # Fusion layer to combine all specialized features
+        self.feature_fusion = nn.Sequential(
+            nn.Linear(hidden_size // 2 * 4, hidden_size),
+            nn.ReLU(),
+            nn.BatchNorm1d(hidden_size),
+            nn.Dropout(0.2)
+        )
+        
+        # Enhanced hidden layers with residual connections
         self.hidden_layers = nn.ModuleList([
             nn.Linear(hidden_size, hidden_size),
             nn.Linear(hidden_size, hidden_size),
             nn.Linear(hidden_size, hidden_size // 2)
         ])
         
-        # Output heads
-        self.trump_decision_head = nn.Linear(hidden_size // 2, 2)  # Order up or not
-        self.card_selection_head = nn.Linear(hidden_size // 2, 5)  # 5 cards in hand
-        self.suit_selection_head = nn.Linear(hidden_size // 2, 4)  # 4 suits for trump calling
+        # Output heads with strategic context
+        self.trump_decision_head = nn.Sequential(
+            nn.Linear(hidden_size // 2, hidden_size // 4),
+            nn.ReLU(),
+            nn.Dropout(0.1),
+            nn.Linear(hidden_size // 4, 2)  # Order up or not
+        )
         
-        # Regularization
+        self.card_selection_head = nn.Sequential(
+            nn.Linear(hidden_size // 2, hidden_size // 4),
+            nn.ReLU(),
+            nn.Dropout(0.1),
+            nn.Linear(hidden_size // 4, 5)  # 5 cards in hand
+        )
+        
+        self.suit_selection_head = nn.Sequential(
+            nn.Linear(hidden_size // 2, hidden_size // 4),
+            nn.ReLU(),
+            nn.Dropout(0.1),
+            nn.Linear(hidden_size // 4, 4)  # 4 suits for trump calling
+        )
+        
+        # Regularization and normalization
         self.dropout = nn.Dropout(0.3)
         self.layer_norm = nn.LayerNorm(hidden_size)
+        self.batch_norm = nn.BatchNorm1d(hidden_size)
         
     def forward(self, x: torch.Tensor, risk_params: MSeriesRiskProfile) -> Dict[str, torch.Tensor]:
         """Forward pass with risk parameters.
@@ -521,11 +795,28 @@ class MSeriesBaseModel(nn.Module):
         # Combine input with risk embedding
         combined_input = torch.cat([x, risk_embedded], dim=1)
         
-        # Forward pass through network
+        # Enhanced forward pass through specialized layers
         h = F.relu(self.input_layer(combined_input))
+        h = self.batch_norm(h)
+        h = self.dropout(h)
+        
+        # Process through specialized intuition and strategy layers
+        partner_features = self.partner_intuition_layer(h)
+        card_memory_features = self.card_memory_layer(h)
+        strategic_features = self.strategic_planning_layer(h)
+        trick_features = self.trick_analysis_layer(h)
+        
+        # Fusion of all specialized features
+        combined_features = torch.cat([
+            partner_features, card_memory_features, 
+            strategic_features, trick_features
+        ], dim=1)
+        
+        h = self.feature_fusion(combined_features)
         h = self.layer_norm(h)
         h = self.dropout(h)
         
+        # Process through enhanced hidden layers
         for layer in self.hidden_layers:
             h = F.relu(layer(h))
             h = self.dropout(h)
