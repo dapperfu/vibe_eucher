@@ -195,7 +195,8 @@ class EuchreGame:
                 else:
                     # Fallback to generic AI
                     ai_player = AIPlayer(player)
-                    should_order = ai_player.should_order_up(self.top_card)
+                    is_partner_dealing = self._is_partner_dealing(player)
+                    should_order = ai_player.should_order_up(self.top_card, is_partner_dealing)
                 
                 if should_order:
                     self.game_state.trump_suit = self.top_card.suit
@@ -345,6 +346,23 @@ class EuchreGame:
             click.echo(f"\n🎲 ROUND {self.game_state.round_number} - DEALER: {dealer.name} 🎲")
             click.echo("-" * 50)
             
+            # Display each player's dealt cards
+            click.echo("\n📋 DEALT CARDS:")
+            for i, player in enumerate(self.players):
+                # Sort cards by suit first, then by rank (high to low)
+                sorted_cards = sorted(player.hand, key=lambda c: (c.suit.value, -c.rank.value))
+                
+                # Format cards with suit symbols
+                card_strings = []
+                for card in sorted_cards:
+                    if card.is_trump:
+                        card_strings.append(f"{card}*")
+                    else:
+                        card_strings.append(str(card))
+                
+                click.echo(f"  {player.name}: {' '.join(card_strings)}")
+            click.echo()
+            
         self.tricks_this_round.clear()
         
         for trick_num in range(5):
@@ -432,6 +450,45 @@ class EuchreGame:
         
         # Return the round results for testing/debugging
         return round_results
+        
+    def run_full_game(self) -> None:
+        """Run a complete AI-only game without human interaction."""
+        if not self.game_state:
+            return
+            
+        # Play rounds until game ends
+        round_num = 1
+        while not self.is_game_over():
+            # Play the round
+            results = self.play_round()
+            
+            # Show round results
+            if not self.quiet_mode:
+                click.echo(f"Round {round_num} complete! Trick counts: {results}")
+                
+                # Show current scores
+                if self.game_state:
+                    click.echo(f"Team 1: {self.game_state.team1_score}, Team 2: {self.game_state.team2_score}")
+            
+            round_num += 1
+        
+        # Show final result
+        winner = self.get_winner()
+        if not self.quiet_mode:
+            click.echo(f"\n🎉 GAME OVER! {winner} wins! 🎉")
+            
+            if self.game_state:
+                click.echo(f"Final Score - Team 1: {self.game_state.team1_score}, Team 2: {self.game_state.team2_score}")
+            
+            # Check if team gets set
+            if self.is_team_set():
+                click.echo("\n🚨 TEAM SET! The trump calling team lost after calling trump!")
+            
+            # Show log filename
+            log_filename = self.get_log_filename()
+            if log_filename:
+                click.echo(f"\nGame log saved to: {log_filename}")
+                click.echo("You can review the detailed game log in this file.")
 
     def display_trick_table(self, trick: Trick, trick_number: int) -> None:
         """Display the trick as a formatted table.

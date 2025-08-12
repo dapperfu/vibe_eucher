@@ -17,106 +17,132 @@ def main() -> None:
 
 
 @main.command()
-@click.option("--player-name", "-n", default=None, help="Your player name")
+@click.option("--player-name", "-n", default=None, help="Your player name (omit for AI-only game)")
 @click.option("--ai-names", "-a", multiple=True, 
-              default=["Alice", "Bob", "Charlie"], 
+              default=["Alice", "Bob", "Charlie", "David"], 
               help="Names for AI opponents")
 def play(player_name: str, ai_names: tuple) -> None:
     """Start a new euchre game."""
     try:
         from .game import EuchreGame
         
-        # Prompt for player name if not specified
-        if player_name is None:
-            player_name = click.prompt("Enter your name", default="Player")
-        
-        click.echo(f"Welcome to Euchre, {player_name}!")
-        
         # Create game
         game = EuchreGame()
         
-        # Add human player
-        game.add_player(player_name, PlayerType.HUMAN)
-        
-        # Add AI players with proper names
-        ai_names_list = list(ai_names)
-        while len(game.players) < 4:
-            if len(ai_names_list) > 0:
-                game.add_player(ai_names_list.pop(0), PlayerType.AI)
-            else:
-                # Use default AI names if not enough provided
-                default_names = ["Alice", "Bob", "Charlie", "David"]
-                used_names = [p.name for p in game.players]
-                for default_name in default_names:
-                    if default_name not in used_names:
-                        game.add_player(default_name, PlayerType.AI)
-                        break
+        # Check if this is a human game or AI-only game
+        if player_name is not None:
+            # Human game - prompt for name if not specified
+            if player_name == "":
+                player_name = click.prompt("Enter your name", default="Player")
+            
+            click.echo(f"Welcome to Euchre, {player_name}!")
+            
+            # Add human player
+            game.add_player(player_name, PlayerType.HUMAN)
+            
+            # Add AI players with proper names
+            ai_names_list = list(ai_names)
+            while len(game.players) < 4:
+                if len(ai_names_list) > 0:
+                    game.add_player(ai_names_list.pop(0), PlayerType.AI)
                 else:
-                    # Fallback if all default names are used
-                    game.add_player(f"AI_{len(game.players)}", PlayerType.AI)
+                    # Use default AI names if not enough provided
+                    default_names = ["Alice", "Bob", "Charlie", "David"]
+                    used_names = [p.name for p in game.players]
+                    for default_name in default_names:
+                        if default_name not in used_names:
+                            game.add_player(default_name, PlayerType.AI)
+                            break
+                    else:
+                        # Fallback if all default names are used
+                        game.add_player(f"AI_{len(game.players)}", PlayerType.AI)
+        else:
+            # AI-only game - no prompts
+            click.echo("Starting AI-only Euchre game...")
+            
+            # Add AI players with proper names
+            ai_names_list = list(ai_names)
+            while len(game.players) < 4:
+                if len(ai_names_list) > 0:
+                    game.add_player(ai_names_list.pop(0), PlayerType.AI)
+                else:
+                    # Use default AI names if not enough provided
+                    default_names = ["Alice", "Bob", "Charlie", "David"]
+                    used_names = [p.name for p in game.players]
+                    for default_name in default_names:
+                        if default_name not in used_names:
+                            game.add_player(default_name, PlayerType.AI)
+                            break
+                    else:
+                        # Fallback if all default names are used
+                        game.add_player(f"AI_{len(game.players)}", PlayerType.AI)
         
         click.echo(f"Players: {', '.join(p.name for p in game.players)}")
         
         game.start_new_game()
         click.echo("Game started! Dealing cards...")
         
-        # Show human player's hand
-        human_hand = game.get_player_hand(player_name)
-        click.echo(f"\nYour hand:")
-        for i, card in enumerate(human_hand, 1):
-            click.echo(f"  {i}. {card}")
+        # Show human player's hand if this is a human game
+        if player_name is not None:
+            human_hand = game.get_player_hand(player_name)
+            click.echo(f"\nYour hand:")
+            for i, card in enumerate(human_hand, 1):
+                click.echo(f"  {i}. {card}")
+                
+            # Show trump information
+            if game.game_state and game.game_state.trump_suit:
+                click.echo(f"\nTrump suit: {game.game_state.trump_suit.value.title()}")
+                if game.trump_caller:
+                    click.echo(f"Trump called by: {game.trump_caller.name}")
+                    if game.trump_caller_team is not None:
+                        team_name = "Team 1" if game.trump_caller_team == 0 else "Team 2"
+                        click.echo(f"Team: {team_name}")
+                        
+            # Check if team gets set
+            if game.is_team_set():
+                click.echo("\n🚨 TEAM SET! The trump calling team lost after calling trump!")
+                
+            # Play the full game
+            click.echo("\nStarting the game...")
             
-        # Show trump information
-        if game.game_state and game.game_state.trump_suit:
-            click.echo(f"\nTrump suit: {game.game_state.trump_suit.value.title()}")
-            if game.trump_caller:
-                click.echo(f"Trump called by: {game.trump_caller.name}")
-                if game.trump_caller_team is not None:
-                    team_name = "Team 1" if game.trump_caller_team == 0 else "Team 2"
-                    click.echo(f"Team: {team_name}")
-                    
-        # Check if team gets set
-        if game.is_team_set():
-            click.echo("\n🚨 TEAM SET! The trump calling team lost after calling trump!")
+            # Play rounds until game ends
+            round_num = 1
+            while not game.is_game_over():
+                click.echo(f"\n=== ROUND {round_num} ===")
+                
+                # Play the round
+                results = game.play_round()
+                
+                # Show round results
+                click.echo(f"Round {round_num} complete!")
+                for i, player in enumerate(game.players):
+                    click.echo(f"  {player.name}: {results[i]} tricks")
+                
+                # Show current scores
+                if game.game_state:
+                    click.echo(f"Team 1: {game.game_state.team1_score}, Team 2: {game.game_state.team2_score}")
+                
+                round_num += 1
             
-        # Play the full game
-        click.echo("\nStarting the game...")
-        
-        # Play rounds until game ends
-        round_num = 1
-        while not game.is_game_over():
-            click.echo(f"\n=== ROUND {round_num} ===")
+            # Show final result
+            winner = game.get_winner()
+            click.echo(f"\n🎉 GAME OVER! {winner} wins! 🎉")
             
-            # Play the round
-            results = game.play_round()
-            
-            # Show round results
-            click.echo(f"Round {round_num} complete!")
-            for i, player in enumerate(game.players):
-                click.echo(f"  {player.name}: {results[i]} tricks")
-            
-            # Show current scores
             if game.game_state:
-                click.echo(f"Team 1: {game.game_state.team1_score}, Team 2: {game.game_state.team2_score}")
+                click.echo(f"Final Score - Team 1: {game.game_state.team1_score}, Team 2: {game.game_state.team2_score}")
             
-            round_num += 1
-        
-        # Show final result
-        winner = game.get_winner()
-        click.echo(f"\n🎉 GAME OVER! {winner} wins! 🎉")
-        
-        if game.game_state:
-            click.echo(f"Final Score - Team 1: {game.game_state.team1_score}, Team 2: {game.game_state.team2_score}")
-        
-        # Check if team gets set
-        if game.is_team_set():
-            click.echo("\n🚨 TEAM SET! The trump calling team lost after calling trump!")
-        
-        # Show log filename
-        log_filename = game.get_log_filename()
-        if log_filename:
-            click.echo(f"\nGame log saved to: {log_filename}")
+            # Check if team gets set
+            if game.is_team_set():
+                click.echo("\n🚨 TEAM SET! The trump calling team lost after calling trump!")
             
+            # Show log filename
+            log_filename = game.get_log_filename()
+            if log_filename:
+                click.echo(f"\nGame log saved to: {log_filename}")
+        else:
+            # AI-only game - just run it
+            game.run_full_game()
+        
     except ValueError as e:
         click.echo(f"Error: {e}", err=True)
 
