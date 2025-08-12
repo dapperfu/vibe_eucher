@@ -583,6 +583,7 @@ class SelfPlayTrainer:
             model, player = self.create_integer_player_model(player_name, risk_profile)
             self.models[player_name] = model
             self.players[player_name] = player
+            self.players[player_name].risk_profile_name = risk_profile  # Store the risk profile name
             print(f"✅ Created integer model: {player_name} ({risk_profile})")
         
         # Create float models
@@ -591,6 +592,7 @@ class SelfPlayTrainer:
             model, player = self.create_player_model(player_name, risk_profile)
             self.models[player_name] = model
             self.players[player_name] = player
+            self.players[player_name].risk_profile_name = risk_profile  # Store the risk profile name
             print(f"✅ Created float model: {player_name} ({risk_profile})")
         
         # Training statistics
@@ -614,17 +616,19 @@ class SelfPlayTrainer:
             
             # Play game
             game = EuchreGame()
-            game.add_player(self.players[team1[0]])
-            game.add_player(self.players[team2[0]])
-            game.add_player(self.players[team1[1]])
-            game.add_player(self.players[team2[1]])
+            game.add_model_player(team1[0], self.models[team1[0]], self.device, self.players[team1[0]].risk_profile_name)
+            game.add_model_player(team2[0], self.models[team2[0]], self.device, self.players[team2[0]].risk_profile_name)
+            game.add_model_player(team1[1], self.models[team1[1]], self.device, self.players[team1[1]].risk_profile_name)
+            game.add_model_player(team2[1], self.models[team2[1]], self.device, self.players[team2[1]].risk_profile_name)
             
-            # Play the game
-            game.play_game()
+            # Play the complete game
+            game.start_new_game()
+            while not game.is_game_over():
+                game.play_round()
             
             # Record results
-            team1_score = game.get_team_score(0)  # Integer team
-            team2_score = game.get_team_score(1)  # Float team
+            team1_score = game.game_state.team1_score  # Integer team
+            team2_score = game.game_state.team2_score  # Float team
             
             if team1_score > team2_score:
                 training_stats["integer_team_wins"] += 1
@@ -708,6 +712,155 @@ class SelfPlayTrainer:
             print(f"   🚀 Float models are dominating!")
         else:
             print(f"   ⚖️  Models are well balanced")
+    
+    def train_single_profile(self,
+                            player_name: str,
+                            risk_profile: str,
+                            num_games: int,
+                            save_interval: int = 1000,
+                            evaluation_interval: int = 2000) -> Dict[str, Any]:
+        """Train a single player profile with a specific risk profile.
+        
+        Parameters
+        ----------
+        player_name : str
+            Name of the player to train
+        risk_profile : str
+            Risk profile to use for training
+        num_games : int
+            Number of games to play
+        save_interval : int
+            How often to save checkpoints
+        evaluation_interval : int
+            How often to evaluate performance
+            
+        Returns
+        -------
+        Dict[str, Any]
+            Training results
+        """
+        print(f"🧠 Training {player_name} with {risk_profile} profile")
+        print(f"📊 Games: {num_games:,}")
+        print(f"💾 Save interval: {save_interval}")
+        print(f"📈 Evaluation interval: {evaluation_interval}")
+        
+        # Create the player model
+        model, player = self.create_player_model(player_name, risk_profile)
+        
+        # Create opponent models for training
+        opponent_names = ['Opponent1', 'Opponent2', 'Opponent3']
+        opponents = {}
+        
+        for opp_name in opponent_names:
+            # Use different risk profiles for variety
+            opp_risk = np.random.choice(['balanced', 'conservative', 'aggressive'])
+            _, opp_player = self.create_player_model(opp_name, opp_risk)
+            opponents[opp_name] = opp_player
+        
+        # Training loop
+        wins = 0
+        total_games = 0
+        training_history = []
+        
+        for game_num in tqdm(range(num_games), desc=f"Training {player_name}"):
+            # Randomly select opponents
+            opponent_list = list(opponents.values())
+            np.random.shuffle(opponent_list)
+            
+            # Create game with player and 3 opponents
+            game_players = {player_name: player}
+            for i, opp in enumerate(opponent_list[:3]):
+                game_players[f"Opponent{i+1}"] = opp
+            
+            # Play training game
+            game_result = self._play_training_game(game_players, [player_name], list(game_players.keys())[1:])
+            
+            # Update statistics
+            if game_result['winner'] == 'team1' and player_name in game_result.get('team1_players', []):
+                wins += 1
+            elif game_result['winner'] == 'team2' and player_name in game_result.get('team2_players', []):
+                wins += 1
+            
+            total_games += 1
+            current_win_rate = wins / total_games
+            
+            # Record training progress
+            training_history.append({
+                'game': game_num + 1,
+                'win_rate': current_win_rate,
+                'wins': wins,
+                'total': total_games
+            })
+            
+            # Save checkpoints
+            if (game_num + 1) % save_interval == 0:
+                checkpoint_path = self._save_profile_checkpoint(
+                    model, player_name, risk_profile, game_num + 1, current_win_rate
+                )
+                print(f"💾 Checkpoint saved: {checkpoint_path}")
+            
+            # Evaluate performance
+            if (game_num + 1) % evaluation_interval == 0:
+                print(f"📊 Game {game_num + 1}: {player_name} win rate: {current_win_rate:.3f}")
+        
+        # Final evaluation and save
+        final_win_rate = wins / total_games
+        final_model_path = self._save_final_profile(model, player_name, risk_profile, final_win_rate, num_games)
+        
+        results = {
+            'player_name': player_name,
+            'risk_profile': risk_profile,
+            'final_win_rate': final_win_rate,
+            'total_games': total_games,
+            'wins': wins,
+            'training_history': training_history,
+            'model_path': final_model_path
+        }
+        
+        print(f"✅ {player_name} training completed!")
+        print(f"   Final win rate: {final_win_rate*100:.1f}%")
+        print(f"   Model saved: {final_model_path}")
+        
+        return results
+
+    def _save_profile_checkpoint(self, model: EuchreNN, player_name: str, risk_profile: str, 
+                                game_num: int, win_rate: float) -> str:
+        """Save a checkpoint during profile training."""
+        checkpoint_dir = self.output_dir / "profile_checkpoints"
+        checkpoint_dir.mkdir(exist_ok=True)
+        
+        checkpoint_path = checkpoint_dir / f"{player_name}_{risk_profile}_checkpoint_{game_num}.json"
+        self._save_model_weights(model, checkpoint_path, player_name, risk_profile, game_num, win_rate)
+        
+        return str(checkpoint_path)
+
+    def _save_final_profile(self, model: EuchreNN, player_name: str, risk_profile: str, 
+                           win_rate: float, total_games: int) -> str:
+        """Save the final trained profile."""
+        final_path = self.output_dir / f"{player_name}.json"
+        self._save_model_weights(model, final_path, player_name, risk_profile, total_games, win_rate)
+        
+        return str(final_path)
+    
+    def _save_model_weights(self, model, model_path: Path, player_name: str = None, 
+                           risk_profile: str = None, game_num: int = None, win_rate: float = None) -> None:
+        """Save model weights to a JSON file."""
+        try:
+            # Convert model state dict to JSON-serializable format
+            state_dict = model.state_dict()
+            json_state = {}
+            
+            for key, tensor in state_dict.items():
+                if isinstance(tensor, torch.Tensor):
+                    json_state[key] = tensor.cpu().numpy().tolist()
+                else:
+                    json_state[key] = tensor
+            
+            with open(model_path, 'w') as f:
+                json.dump(json_state, f, indent=2)
+                
+        except Exception as e:
+            print(f"Warning: Failed to save model weights: {e}")
 
 
 def main():
