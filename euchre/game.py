@@ -94,6 +94,25 @@ class EuchreGame:
         """
         player = Player(name=name, player_type=player_type)
         self.players.append(player)
+    
+    def replace_player_with_ai_profile(self, player_name: str, ai_profile: "Player") -> None:
+        """Replace a basic player with an AI profile player.
+        
+        Parameters
+        ----------
+        player_name : str
+            The name of the player to replace
+        ai_profile : Player
+            The AI profile player to use as replacement
+        """
+        for i, player in enumerate(self.players):
+            if player.name == player_name:
+                # Copy the AI profile's attributes to maintain the same object reference
+                player.__class__ = ai_profile.__class__
+                player.__dict__.update(ai_profile.__dict__)
+                # Ensure the name stays the same
+                player.name = player_name
+                break
         
     def add_model_player(self, name: str, model, device, risk_profile: str = "balanced") -> None:
         """Add a trained AI model player to the game.
@@ -664,14 +683,13 @@ class EuchreGame:
                     # Sort cards by suit first, then by rank (high to low)
                     sorted_cards = sorted(player.hand, key=lambda c: (c.suit.value, -c.rank.value))
                     
-                    # Format cards in shorthand with unicode suits
+                    # Format cards in shorthand with unicode suits (no trump indicators yet)
                     card_strings = []
                     for card in sorted_cards:
-                        # Use shorthand format: rank + unicode suit + trump indicator
+                        # Use shorthand format: rank + unicode suit (no trump indicator)
                         rank_symbol = self._get_rank_symbol(card.rank)
                         suit_symbol = self._get_suit_symbol(card.suit)
-                        trump_indicator = "*" if card.is_trump else ""
-                        card_strings.append(f"{rank_symbol}{suit_symbol}{trump_indicator}")
+                        card_strings.append(f"{rank_symbol}{suit_symbol}")
                     
                     # Align player names and use comma separation
                     aligned_name = player.name.ljust(max_name_length)
@@ -684,18 +702,20 @@ class EuchreGame:
                     # Sort cards by suit first, then by rank (high to low)
                     sorted_cards = sorted(human_player.hand, key=lambda c: (c.suit.value, -c.rank.value))
                     
-                    # Format cards in shorthand with unicode suits
+                    # Format cards in shorthand with unicode suits (no trump indicators yet)
                     card_strings = []
                     for card in sorted_cards:
-                        # Use shorthand format: rank + unicode suit + trump indicator
+                        # Use shorthand format: rank + unicode suit (no trump indicator)
                         rank_symbol = self._get_rank_symbol(card.rank)
                         suit_symbol = self._get_suit_symbol(card.suit)
-                        trump_indicator = "*" if card.is_trump else ""
-                        card_strings.append(f"{rank_symbol}{suit_symbol}{trump_indicator}")
+                        card_strings.append(f"{rank_symbol}{suit_symbol}")
                     
                     click.echo(f"\n📋 YOUR HAND ({human_player.name}):")
                     click.echo(f"  {', '.join(card_strings)}")
                     click.echo()
+            
+            # Display trump selection process right after dealt cards
+            self.display_trump_selection(self.game_state.round_number)
             
         self.tricks_this_round.clear()
         
@@ -900,12 +920,9 @@ class EuchreGame:
         
         # Show the top card that was flipped up
         if self.top_card:
-            # Only show trump indicator if the card was actually ordered up
-            if self.trump_caller and self.game_state.trump_suit == self.top_card.suit:
-                click.echo(f"📋 Top card flipped up: {self.top_card}")
-            else:
-                # Show without trump indicator since it wasn't ordered up
-                click.echo(f"📋 Top card flipped up: {self.top_card.rank.name.title()} of {self.top_card.suit.name.title()}")
+            # Always show without trump indicator when just flipped up
+            # The is_trump property might be set from previous rounds
+            click.echo(f"📋 Top card flipped up: {self.top_card.rank.name.title()} of {self.top_card.suit.name.title()}")
         
         # Show first round of trump selection (ordering up)
         click.echo("\n🔄 FIRST ROUND - Ordering up the top card:")
@@ -1321,29 +1338,405 @@ class EuchreGame:
         }
         return suit_map.get(suit, suit.name[0].upper()) 
 
-
-class AIPlayer:
-    """AI player logic for euchre."""
+    def run_interactive_game(self, show_ai_hands: bool = False) -> None:
+        """Run an interactive single-player game with prompts for the human player.
+        
+        Parameters
+        ----------
+        show_ai_hands : bool
+            Whether to show AI player hands (for debugging)
+        """
+        if not self.game_state:
+            return
+            
+        # Play rounds until game ends
+        round_num = 1
+        while not self.is_game_over():
+            # Play the round interactively
+            results = self.play_interactive_round(show_ai_hands)
+            
+            # Show round results
+            click.echo(f"\n🎯 Round {round_num} complete!")
+            click.echo(f"Trick counts: {results}")
+            
+            # Show current scores
+            if self.game_state:
+                click.echo(f"Team 1: {self.game_state.team1_score}, Team 2: {self.game_state.team2_score}")
+            
+            round_num += 1
+        
+        # Show final result
+        winner = self.get_winner()
+        click.echo(f"\n🎉 GAME OVER! {winner} wins! 🎉")
+        
+        if self.game_state:
+            click.echo(f"Final Score - Team 1: {self.game_state.team1_score}, Team 2: {self.game_state.team2_score}")
+        
+        # Check if team gets set
+        if self.is_team_set():
+            click.echo("\n🚨 TEAM SET! The trump calling team lost after calling trump!")
+        
+        # Show log filename
+        log_filename = self.get_log_filename()
+        if log_filename:
+            click.echo(f"\nGame log saved to: {log_filename}")
+            click.echo("You can review the detailed game log in this file.")
     
-    def __init__(self, player: Player) -> None:
-        """Initialize AI player.
+    def play_interactive_round(self, show_ai_hands: bool = False) -> List[int]:
+        """Play a single round interactively, prompting the human player for decisions.
+        
+        Parameters
+        ----------
+        show_ai_hands : bool
+            Whether to show AI player hands (for debugging)
+            
+        Returns
+        -------
+        List[int]
+            Trick counts for each player
+        """
+        # If this is not the first round, deal new cards
+        if self.game_state and self.game_state.round_number > 1:
+            self._deal_new_round()
+        
+        # Log round start
+        if self.logger and self.game_state:
+            hands = {player.name: player.hand.copy() for player in self.players}
+            trump_suit = self.game_state.trump_suit.name.title() if self.game_state.trump_suit else "None"
+            self.logger.log_round_start(self.game_state.round_number, trump_suit, hands)
+        
+        # Display dealer for this round
+        if self.game_state:
+            dealer_idx = self.game_state.dealer_index
+            dealer = self.players[dealer_idx]
+            click.echo(f"\n🎲 ROUND {self.game_state.round_number} - DEALER: {dealer.name} 🎲")
+            click.echo("-" * 50)
+            
+            # Check if this is an AI-only game (no human players)
+            is_ai_only_game = all(player.player_type == PlayerType.AI for player in self.players)
+            
+            if is_ai_only_game:
+                # Display each player's dealt cards for AI-only games
+                click.echo("\n📋 DEALT CARDS:")
+                for i, player in enumerate(self.players):
+                    # Sort cards by suit first, then by rank (high to low)
+                    sorted_cards = sorted(player.hand, key=lambda c: (c.suit.value, -c.rank.value))
+                    
+                    # Format cards with suit symbols
+                    card_strings = []
+                    for card in sorted_cards:
+                        if card.is_trump:
+                            card_strings.append(f"{card}*")
+                        else:
+                            card_strings.append(str(card))
+                    
+                    click.echo(f"  {player.name}: {' '.join(card_strings)}")
+                click.echo()
+            else:
+                # For human games, show the human player's hand
+                human_players = [p for p in self.players if p.player_type == PlayerType.HUMAN]
+                for human_player in human_players:
+                    # Sort cards by suit first, then by rank (high to low)
+                    sorted_cards = sorted(human_player.hand, key=lambda c: (c.suit.value, -c.rank.value))
+                    
+                    # Format cards with suit symbols
+                    card_strings = []
+                    for card in sorted_cards:
+                        if card.is_trump:
+                            card_strings.append(f"{card}*")
+                        else:
+                            card_strings.append(str(card))
+                    
+                    click.echo(f"\n📋 YOUR HAND ({human_player.name}):")
+                    click.echo(f"  {' '.join(card_strings)}")
+                    click.echo()
+                
+                # Show AI hands if requested
+                if show_ai_hands:
+                    click.echo("🔍 AI PLAYER HANDS (for debugging):")
+                    for player in self.players:
+                        if player.player_type == PlayerType.AI:
+                            sorted_cards = sorted(player.hand, key=lambda c: (c.suit.value, -c.rank.value))
+                            card_strings = [f"{card}*" if card.is_trump else str(card) for card in sorted_cards]
+                            click.echo(f"  {player.name}: {' '.join(card_strings)}")
+                    click.echo()
+        
+        self.tricks_this_round.clear()
+        
+        # Play 5 tricks
+        for trick_num in range(5):
+            # Create new trick
+            self.current_trick = Trick()
+            
+            # Play the trick (each player plays one card)
+            for player_idx in range(4):
+                current_player = self.game_state.get_current_player()
+                
+                if current_player.player_type == PlayerType.AI:
+                    # AI plays automatically
+                    if hasattr(current_player, 'choose_card_to_play'):
+                        card = current_player.choose_card_to_play(
+                            self.current_trick.lead_suit,
+                            self.game_state.trump_suit
+                        )
+                    else:
+                        # Fallback to generic AI
+                        ai_player = AIPlayer(current_player)
+                        card = ai_player.choose_card_to_play(
+                            self.current_trick.lead_suit,
+                            self.game_state.trump_suit
+                        )
+                    
+                    # Show AI's play
+                    click.echo(f"🎴 {current_player.name} plays: {card}")
+                    
+                else:
+                    # Human player - prompt for card choice
+                    card = self._prompt_human_card_choice(current_player, trick_num + 1)
+                
+                # Remove card from hand
+                current_player.remove_card(card)
+                
+                # Add to trick
+                if not self.current_trick.lead_suit:
+                    self.current_trick.lead_suit = card.suit
+                self.current_trick.cards_played.append((current_player, card))
+                
+                # Check for reneging (not following suit when possible)
+                if self._is_renege(current_player, card, self.current_trick.lead_suit):
+                    self.renege_count += 1
+                    click.echo(f"🚨 RENEGE! {current_player.name} played {card} but should have followed suit {self.current_trick.lead_suit.value}")
+                
+                # Move to next player
+                self.game_state.next_player()
+            
+            # Add completed trick to round
+            self.tricks_this_round.append(self.current_trick)
+            
+            # Award trick to winner
+            winner = self._determine_trick_winner()
+            winner.tricks_won += 1
+            
+            # Display the trick table
+            self.display_trick_table(self.current_trick, trick_num + 1)
+            
+            # Log trick completion
+            if self.logger:
+                winning_card = self._get_winning_card_from_trick(self.current_trick)
+                self.logger.log_trick(trick_num + 1, self.current_trick, winner, winning_card)
+            
+            # Set next trick leader
+            self.game_state.current_player_index = self.players.index(winner)
+        
+        # Get round results before scoring
+        round_results = [player.tricks_won for player in self.players]
+        
+        # Display round summary
+        self.display_round_summary(round_results)
+        
+        # Display kitty information at the end of the round
+        if self.game_state:
+            click.echo("\n📦 KITTY CONTENTS:")
+            if self.top_card:
+                click.echo(f"  Top card (flipped up): {self.top_card}")
+            else:
+                click.echo("  Top card: None")
+            
+            # Show remaining deck cards (if any)
+            if hasattr(self, 'deck') and self.deck:
+                remaining_cards = [str(card) for card in self.deck]
+                click.echo(f"  Remaining deck: {', '.join(remaining_cards)}")
+            else:
+                click.echo("  Remaining deck: None")
+            click.echo()
+        
+        # Log round end (before scoring resets trick counts)
+        if self.logger:
+            final_scores = {player.name: player.tricks_won for player in self.players}
+            team_scores = {
+                "Team 1": self.game_state.team1_score,
+                "Team 2": self.game_state.team2_score
+            }
+            self.logger.log_round_end(self.game_state.round_number, final_scores, team_scores)
+        
+        # Score the round
+        self._score_round()
+        
+        # Update model players' game context
+        if hasattr(self, 'model_players'):
+            # Check if team was set
+            was_set = any(player.tricks_won == 0 for player in self.players)
+            self._update_model_players_context(self.game_state.round_number, was_set)
+        
+        # Update adaptive AI players' performance
+        self._update_adaptive_ai_performance()
+        
+        # Increment round number
+        if self.game_state:
+            self.game_state.round_number += 1
+        
+        # Return the round results for testing/debugging
+        return round_results
+    
+    def _prompt_human_card_choice(self, player: "Player", trick_number: int) -> "Card":
+        """Prompt a human player to choose a card to play.
         
         Parameters
         ----------
         player : Player
-            The player this AI controls
+            The human player choosing a card
+        trick_number : int
+            The current trick number (1-5)
+            
+        Returns
+        -------
+        Card
+            The card chosen by the human player
+        """
+        click.echo(f"\n🎴 TRICK {trick_number} - Your turn to play a card")
+        
+        # Show current trick state
+        if self.current_trick.cards_played:
+            click.echo("Cards played so far:")
+            for i, (played_player, played_card) in enumerate(self.current_trick.cards_played):
+                click.echo(f"  {i+1}. {played_player.name}: {played_card}")
+            
+            if self.current_trick.lead_suit:
+                click.echo(f"Lead suit: {self.current_trick.lead_suit.value}")
+        
+        # Show player's hand with numbered options
+        click.echo(f"\nYour hand:")
+        valid_cards = self._get_valid_cards_to_play(player)
+        
+        for i, card in enumerate(valid_cards):
+            card_str = f"{card}*" if card.is_trump else str(card)
+            click.echo(f"  {i+1}. {card_str}")
+        
+        # Prompt for choice
+        while True:
+            try:
+                choice = click.prompt(f"Choose a card (1-{len(valid_cards)})", type=int)
+                if 1 <= choice <= len(valid_cards):
+                    chosen_card = valid_cards[choice - 1]
+                    click.echo(f"You chose: {chosen_card}")
+                    return chosen_card
+                else:
+                    click.echo(f"Please enter a number between 1 and {len(valid_cards)}")
+            except ValueError:
+                click.echo("Please enter a valid number")
+    
+    def _get_valid_cards_to_play(self, player: "Player") -> List["Card"]:
+        """Get the valid cards a player can play in the current trick.
+        
+        Parameters
+        ----------
+        player : Player
+            The player choosing a card
+            
+        Returns
+        -------
+        List[Card]
+            List of valid cards to play
+        """
+        if not self.current_trick.lead_suit:
+            # First player - can play any card
+            return player.hand
+        
+        # Must follow suit if possible
+        cards_of_lead_suit = [card for card in player.hand if card.suit == self.current_trick.lead_suit]
+        
+        if cards_of_lead_suit:
+            # Must play a card of the lead suit
+            return cards_of_lead_suit
+        else:
+            # Can play any card (including trump)
+            return player.hand
+    
+    def _prompt_human_trump_decision(self, player: "Player", top_card: "Card") -> bool:
+        """Prompt a human player to decide whether to order up the top card.
+        
+        Parameters
+        ----------
+        player : Player
+            The human player making the decision
+        top_card : Card
+            The top card that can be ordered up
+            
+        Returns
+        -------
+        bool
+            True if the player wants to order up the card, False otherwise
+        """
+        click.echo(f"\n🎯 TRUMP SELECTION - Your turn to decide")
+        click.echo(f"Top card: {top_card}")
+        click.echo(f"Your hand: {' '.join(str(card) for card in player.hand)}")
+        
+        while True:
+            choice = click.prompt("Do you want to order up this card? (y/n)", type=str).lower()
+            if choice in ['y', 'yes']:
+                return True
+            elif choice in ['n', 'no']:
+                return False
+            else:
+                click.echo("Please enter 'y' or 'n'")
+    
+    def _prompt_human_trump_suit_choice(self, player: "Player") -> "Suit":
+        """Prompt a human player to choose a trump suit.
+        
+        Parameters
+        ----------
+        player : Player
+            The human player choosing the trump suit
+            
+        Returns
+        -------
+        Suit
+            The chosen trump suit
+        """
+        click.echo(f"\n🎯 TRUMP SUIT SELECTION - Choose a trump suit")
+        click.echo(f"Your hand: {' '.join(str(card) for card in player.hand)}")
+        
+        # Show available suits
+        suits = list(Suit)
+        click.echo("Available suits:")
+        for i, suit in enumerate(suits):
+            click.echo(f"  {i+1}. {suit.value}")
+        
+        while True:
+            try:
+                choice = click.prompt(f"Choose a suit (1-{len(suits)})", type=int)
+                if 1 <= choice <= len(suits):
+                    chosen_suit = suits[choice - 1]
+                    click.echo(f"You chose: {chosen_suit.value}")
+                    return chosen_suit
+                else:
+                    click.echo(f"Please enter a number between 1 and {len(suits)}")
+            except ValueError:
+                click.echo("Please enter a valid number")
+
+
+class AIPlayer:
+    """Base AI player class that wraps a Player object."""
+    
+    def __init__(self, player: "Player"):
+        """Initialize with a Player object.
+        
+        Parameters
+        ----------
+        player : Player
+            The player object to wrap
         """
         self.player = player
         
-    def choose_card_to_play(self, lead_suit: Optional[Suit], trump_suit: Optional[Suit]) -> Card:
+    def choose_card_to_play(self, lead_suit: Optional[Suit], trump_suit: Optional[Suit]) -> "Card":
         """Choose which card to play.
         
         Parameters
         ----------
         lead_suit : Optional[Suit]
-            The suit that was led (if any)
+            The suit that was led (None if leading)
         trump_suit : Optional[Suit]
-            The current trump suit
+            The current trump suit (None if none selected)
             
         Returns
         -------
@@ -1351,33 +1744,26 @@ class AIPlayer:
             The card to play
         """
         if not self.player.hand:
-            raise ValueError("AI player has no cards to play")
+            raise ValueError("Player has no cards to play")
             
-        # Must follow suit if possible
-        if lead_suit and self.player.has_suit(lead_suit):
-            cards_of_suit = self.player.get_cards_of_suit(lead_suit)
-            # Play highest card of lead suit
-            return max(cards_of_suit, key=lambda c: c.rank.value)
-        else:
-            # Can play any card - choose strategically
-            # If we're leading, play highest trump or highest card
-            if not lead_suit:
-                trump_cards = [c for c in self.player.hand if c.is_trump]
-                if trump_cards:
-                    return max(trump_cards, key=lambda c: c.rank.value)
-                else:
-                    # Lead with highest non-trump
-                    return max(self.player.hand, key=lambda c: c.rank.value)
+        # If leading (no lead suit), play highest card
+        if not lead_suit:
+            trump_cards = [c for c in self.player.hand if c.is_trump]
+            if trump_cards:
+                return max(trump_cards, key=lambda c: c.rank.value)
             else:
-                # Not leading - play lowest non-trump if possible
-                non_trump_cards = [c for c in self.player.hand if not c.is_trump]
-                if non_trump_cards:
-                    return min(non_trump_cards, key=lambda c: c.rank.value)
-                else:
-                    # Only trump cards left - play lowest
-                    return min(self.player.hand, key=lambda c: c.rank.value)
+                # Lead with highest non-trump
+                return max(self.player.hand, key=lambda c: c.rank.value)
+        else:
+            # Not leading - play lowest non-trump if possible
+            non_trump_cards = [c for c in self.player.hand if not c.is_trump]
+            if non_trump_cards:
+                return min(non_trump_cards, key=lambda c: c.rank.value)
+            else:
+                # Only trump cards left - play lowest
+                return min(self.player.hand, key=lambda c: c.rank.value)
             
-    def should_order_up(self, top_card: Card, is_partner_dealing: bool) -> bool:
+    def should_order_up(self, top_card: "Card", is_partner_dealing: bool) -> bool:
         """Decide whether to order up the top card.
         
         Parameters
@@ -1417,10 +1803,10 @@ class AIPlayer:
             return Suit.HEARTS
         elif trump_suit == Suit.CLUBS:
             return Suit.SPADES
-        else:  # SPADES
-            return Suit.CLUBS 
+        else: # SPADES
+            return Suit.CLUBS
 
-    def choose_trump_suit(self, hand: List[Card]) -> Suit:
+    def choose_trump_suit(self, hand: List["Card"]) -> Suit:
         """Choose the trump suit for the dealer.
         
         Parameters
@@ -1441,4 +1827,381 @@ class AIPlayer:
         # Choose suit with most cards, or highest cards if tied
         best_suit = max(suit_counts.keys(), key=lambda s: (suit_counts[s], 
                                                           max([card.rank.value for card in hand if card.suit == s] or [0])))
-        return best_suit 
+        return best_suit
+
+
+class AIPlayer:
+    """Run an interactive single-player game with prompts for the human player.
+    
+    Parameters
+    ----------
+    show_ai_hands : bool
+        Whether to show AI player hands (for debugging)
+    """
+    if not self.game_state:
+        return
+        
+    # Play rounds until game ends
+    round_num = 1
+    while not self.is_game_over():
+        # Play the round interactively
+        results = self.play_interactive_round(show_ai_hands)
+        
+        # Show round results
+        click.echo(f"\n🎯 Round {round_num} complete!")
+        click.echo(f"Trick counts: {results}")
+        
+        # Show current scores
+        if self.game_state:
+            click.echo(f"Team 1: {self.game_state.team1_score}, Team 2: {self.game_state.team2_score}")
+        
+        round_num += 1
+    
+    # Show final result
+    winner = self.get_winner()
+    click.echo(f"\n🎉 GAME OVER! {winner} wins! 🎉")
+    
+    if self.game_state:
+        click.echo(f"Final Score - Team 1: {self.game_state.team1_score}, Team 2: {self.game_state.team2_score}")
+    
+    # Check if team gets set
+    if self.is_team_set():
+        click.echo("\n🚨 TEAM SET! The trump calling team lost after calling trump!")
+    
+    # Show log filename
+    log_filename = self.get_log_filename()
+    if log_filename:
+        click.echo(f"\nGame log saved to: {log_filename}")
+        click.echo("You can review the detailed game log in this file.")
+    
+    def play_interactive_round(self, show_ai_hands: bool = False) -> List[int]:
+        """Play a single round interactively, prompting the human player for decisions.
+        
+        Parameters
+        ----------
+        show_ai_hands : bool
+            Whether to show AI player hands (for debugging)
+            
+        Returns
+        -------
+        List[int]
+            Trick counts for each player
+        """
+        # If this is not the first round, deal new cards
+        if self.game_state and self.game_state.round_number > 1:
+            self._deal_new_round()
+        
+        # Log round start
+        if self.logger and self.game_state:
+            hands = {player.name: player.hand.copy() for player in self.players}
+            trump_suit = self.game_state.trump_suit.name.title() if self.game_state.trump_suit else "None"
+            self.logger.log_round_start(self.game_state.round_number, trump_suit, hands)
+        
+        # Display dealer for this round
+        if self.game_state:
+            dealer_idx = self.game_state.dealer_index
+            dealer = self.players[dealer_idx]
+            click.echo(f"\n🎲 ROUND {self.game_state.round_number} - DEALER: {dealer.name} 🎲")
+            click.echo("-" * 50)
+            
+            # Check if this is an AI-only game (no human players)
+            is_ai_only_game = all(player.player_type == PlayerType.AI for player in self.players)
+            
+            if is_ai_only_game:
+                # Display each player's dealt cards for AI-only games
+                click.echo("\n📋 DEALT CARDS:")
+                for i, player in enumerate(self.players):
+                    # Sort cards by suit first, then by rank (high to low)
+                    sorted_cards = sorted(player.hand, key=lambda c: (c.suit.value, -c.rank.value))
+                    
+                    # Format cards with suit symbols
+                    card_strings = []
+                    for card in sorted_cards:
+                        if card.is_trump:
+                            card_strings.append(f"{card}*")
+                        else:
+                            card_strings.append(str(card))
+                    
+                    click.echo(f"  {player.name}: {' '.join(card_strings)}")
+                click.echo()
+            else:
+                # For human games, show the human player's hand
+                human_players = [p for p in self.players if p.player_type == PlayerType.HUMAN]
+                for human_player in human_players:
+                    # Sort cards by suit first, then by rank (high to low)
+                    sorted_cards = sorted(human_player.hand, key=lambda c: (c.suit.value, -c.rank.value))
+                    
+                    # Format cards with suit symbols
+                    card_strings = []
+                    for card in sorted_cards:
+                        if card.is_trump:
+                            card_strings.append(f"{card}*")
+                        else:
+                            card_strings.append(str(card))
+                    
+                    click.echo(f"\n📋 YOUR HAND ({human_player.name}):")
+                    click.echo(f"  {' '.join(card_strings)}")
+                    click.echo()
+                
+                # Show AI hands if requested
+                if show_ai_hands:
+                    click.echo("🔍 AI PLAYER HANDS (for debugging):")
+                    for player in self.players:
+                        if player.player_type == PlayerType.AI:
+                            sorted_cards = sorted(player.hand, key=lambda c: (c.suit.value, -c.rank.value))
+                            card_strings = [f"{card}*" if card.is_trump else str(card) for card in sorted_cards]
+                            click.echo(f"  {player.name}: {' '.join(card_strings)}")
+                    click.echo()
+        
+        self.tricks_this_round.clear()
+        
+        # Play 5 tricks
+        for trick_num in range(5):
+            # Create new trick
+            self.current_trick = Trick()
+            
+            # Play the trick (each player plays one card)
+            for player_idx in range(4):
+                current_player = self.game_state.get_current_player()
+                
+                if current_player.player_type == PlayerType.AI:
+                    # AI plays automatically
+                    if hasattr(current_player, 'choose_card_to_play'):
+                        card = current_player.choose_card_to_play(
+                            self.current_trick.lead_suit,
+                            self.game_state.trump_suit
+                        )
+                    else:
+                        # Fallback to generic AI
+                        ai_player = AIPlayer(current_player)
+                        card = ai_player.choose_card_to_play(
+                            self.current_trick.lead_suit,
+                            self.game_state.trump_suit
+                        )
+                    
+                    # Show AI's play
+                    click.echo(f"🎴 {current_player.name} plays: {card}")
+                    
+                else:
+                    # Human player - prompt for card choice
+                    card = self._prompt_human_card_choice(current_player, trick_num + 1)
+                
+                # Remove card from hand
+                current_player.remove_card(card)
+                
+                # Add to trick
+                if not self.current_trick.lead_suit:
+                    self.current_trick.lead_suit = card.suit
+                self.current_trick.cards_played.append((current_player, card))
+                
+                # Check for reneging (not following suit when possible)
+                if self._is_renege(current_player, card, self.current_trick.lead_suit):
+                    self.renege_count += 1
+                    click.echo(f"🚨 RENEGE! {current_player.name} played {card} but should have followed suit {self.current_trick.lead_suit.value}")
+                
+                # Move to next player
+                self.game_state.next_player()
+            
+            # Add completed trick to round
+            self.tricks_this_round.append(self.current_trick)
+            
+            # Award trick to winner
+            winner = self._determine_trick_winner()
+            winner.tricks_won += 1
+            
+            # Display the trick table
+            self.display_trick_table(self.current_trick, trick_num + 1)
+            
+            # Log trick completion
+            if self.logger:
+                winning_card = self._get_winning_card_from_trick(self.current_trick)
+                self.logger.log_trick(trick_num + 1, self.current_trick, winner, winning_card)
+            
+            # Set next trick leader
+            self.game_state.current_player_index = self.players.index(winner)
+        
+        # Get round results before scoring
+        round_results = [player.tricks_won for player in self.players]
+        
+        # Display round summary
+        self.display_round_summary(round_results)
+        
+        # Display kitty information at the end of the round
+        if self.game_state:
+            click.echo("\n📦 KITTY CONTENTS:")
+            if self.top_card:
+                click.echo(f"  Top card (flipped up): {self.top_card}")
+            else:
+                click.echo("  Top card: None")
+            
+            # Show remaining deck cards (if any)
+            if hasattr(self, 'deck') and self.deck:
+                remaining_cards = [str(card) for card in self.deck]
+                click.echo(f"  Remaining deck: {', '.join(remaining_cards)}")
+            else:
+                click.echo("  Remaining deck: None")
+            click.echo()
+        
+        # Log round end (before scoring resets trick counts)
+        if self.logger:
+            final_scores = {player.name: player.tricks_won for player in self.players}
+            team_scores = {
+                "Team 1": self.game_state.team1_score,
+                "Team 2": self.game_state.team2_score
+            }
+            self.logger.log_round_end(self.game_state.round_number, final_scores, team_scores)
+        
+        # Score the round
+        self._score_round()
+        
+        # Update model players' game context
+        if hasattr(self, 'model_players'):
+            # Check if team was set
+            was_set = any(player.tricks_won == 0 for player in self.players)
+            self._update_model_players_context(self.game_state.round_number, was_set)
+        
+        # Update adaptive AI players' performance
+        self._update_adaptive_ai_performance()
+        
+        # Increment round number
+        if self.game_state:
+            self.game_state.round_number += 1
+        
+        # Return the round results for testing/debugging
+        return round_results
+    
+    def _prompt_human_card_choice(self, player: "Player", trick_number: int) -> "Card":
+        """Prompt a human player to choose a card to play.
+        
+        Parameters
+        ----------
+        player : Player
+            The human player choosing a card
+        trick_number : int
+            The current trick number (1-5)
+            
+        Returns
+        -------
+        Card
+            The card chosen by the human player
+        """
+        click.echo(f"\n🎴 TRICK {trick_number} - Your turn to play a card")
+        
+        # Show current trick state
+        if self.current_trick.cards_played:
+            click.echo("Cards played so far:")
+            for i, (played_player, played_card) in enumerate(self.current_trick.cards_played):
+                click.echo(f"  {i+1}. {played_player.name}: {played_card}")
+            
+            if self.current_trick.lead_suit:
+                click.echo(f"Lead suit: {self.current_trick.lead_suit.value}")
+        
+        # Show player's hand with numbered options
+        click.echo(f"\nYour hand:")
+        valid_cards = self._get_valid_cards_to_play(player)
+        
+        for i, card in enumerate(valid_cards):
+            card_str = f"{card}*" if card.is_trump else str(card)
+            click.echo(f"  {i+1}. {card_str}")
+        
+        # Prompt for choice
+        while True:
+            try:
+                choice = click.prompt(f"Choose a card (1-{len(valid_cards)})", type=int)
+                if 1 <= choice <= len(valid_cards):
+                    chosen_card = valid_cards[choice - 1]
+                    click.echo(f"You chose: {chosen_card}")
+                    return chosen_card
+                else:
+                    click.echo(f"Please enter a number between 1 and {len(valid_cards)}")
+            except ValueError:
+                click.echo("Please enter a valid number")
+    
+    def _get_valid_cards_to_play(self, player: "Player") -> List["Card"]:
+        """Get the valid cards a player can play in the current trick.
+        
+        Parameters
+        ----------
+        player : Player
+            The player choosing a card
+            
+        Returns
+        -------
+        List[Card]
+            List of valid cards to play
+        """
+        if not self.current_trick.lead_suit:
+            # First player - can play any card
+            return player.hand
+        
+        # Must follow suit if possible
+        cards_of_lead_suit = [card for card in player.hand if card.suit == self.current_trick.lead_suit]
+        
+        if cards_of_lead_suit:
+            # Must play a card of the lead suit
+            return cards_of_lead_suit
+        else:
+            # Can play any card (including trump)
+            return player.hand
+    
+    def _prompt_human_trump_decision(self, player: "Player", top_card: "Card") -> bool:
+        """Prompt a human player to decide whether to order up the top card.
+        
+        Parameters
+        ----------
+        player : Player
+            The human player making the decision
+        top_card : Card
+            The top card that can be ordered up
+            
+        Returns
+        -------
+        bool
+            True if the player wants to order up the card, False otherwise
+        """
+        click.echo(f"\n🎯 TRUMP SELECTION - Your turn to decide")
+        click.echo(f"Top card: {top_card}")
+        click.echo(f"Your hand: {' '.join(str(card) for card in player.hand)}")
+        
+        while True:
+            choice = click.prompt("Do you want to order up this card? (y/n)", type=str).lower()
+            if choice in ['y', 'yes']:
+                return True
+            elif choice in ['n', 'no']:
+                return False
+            else:
+                click.echo("Please enter 'y' or 'n'")
+    
+    def _prompt_human_trump_suit_choice(self, player: "Player") -> "Suit":
+        """Prompt a human player to choose a trump suit.
+        
+        Parameters
+        ----------
+        player : Player
+            The human player choosing the trump suit
+            
+        Returns
+        -------
+        Suit
+            The chosen trump suit
+        """
+        click.echo(f"\n🎯 TRUMP SUIT SELECTION - Choose a trump suit")
+        click.echo(f"Your hand: {' '.join(str(card) for card in player.hand)}")
+        
+        # Show available suits
+        suits = list(Suit)
+        click.echo("Available suits:")
+        for i, suit in enumerate(suits):
+            click.echo(f"  {i+1}. {suit.value}")
+        
+        while True:
+            try:
+                choice = click.prompt(f"Choose a suit (1-{len(suits)})", type=int)
+                if 1 <= choice <= len(suits):
+                    chosen_suit = suits[choice - 1]
+                    click.echo(f"You chose: {chosen_suit.value}")
+                    return chosen_suit
+                else:
+                    click.echo(f"Please enter a number between 1 and {len(suits)}")
+            except ValueError:
+                click.echo("Please enter a valid number") 
