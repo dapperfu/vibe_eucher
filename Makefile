@@ -1,4 +1,4 @@
-.PHONY: help venv install test run clean ai-game ncurses logged profiles mass-games analyze cleanup
+.PHONY: help venv install test run clean ai-game ncurses logged profiles mass-games analyze cleanup jupyter jupyter-lab
 
 help: ## Show this help message
 	@echo "Available commands:"
@@ -37,6 +37,12 @@ analyze: install ## Analyze game results and generate statistics
 
 cleanup: install ## Clean up old game result files
 	venv/bin/python -m euchre.cli cleanup-games
+
+jupyter: install ## Start Jupyter Notebook
+	cd notebooks && ../venv/bin/jupyter notebook
+
+jupyter-lab: install ## Start Jupyter Lab
+	cd notebooks && ../venv/bin/jupyter lab
 
 clean: ## Clean up generated files
 	rm -rf venv/
