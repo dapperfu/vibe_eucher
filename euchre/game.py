@@ -296,41 +296,38 @@ class EuchreGame:
             # Create new trick
             self.current_trick = Trick()
             
-                    # Play the trick (each player plays one card)
-        for player_idx in range(4):
-            current_player = self.game_state.get_current_player()
-            
-            if current_player.player_type == PlayerType.AI:
-                # Use the AI profile's method directly
-                if hasattr(current_player, 'choose_card_to_play'):
-                    card = current_player.choose_card_to_play(
-                        self.current_trick.lead_suit,
-                        self.game_state.trump_suit
-                    )
-                else:
-                    # Fallback to generic AI if not a profile
-                    ai_player = AIPlayer(current_player)
-                    card = ai_player.choose_card_to_play(
-                        self.current_trick.lead_suit,
-                        self.game_state.trump_suit
-                    )
-            else:
-                # Human player - for now, play first card
-                card = current_player.hand[0]
+            # Play the trick (each player plays one card)
+            for player_idx in range(4):
+                current_player = self.game_state.get_current_player()
                 
-            # Remove card from hand
-            current_player.remove_card(card)
-            
-            # Add to trick
-            if not self.current_trick.lead_suit:
-                self.current_trick.lead_suit = card.suit
-            self.current_trick.cards_played.append((current_player, card))
-            
-            # Debug output
-            print(f"  {current_player.name} plays {card.short_str()}")
-            
-            # Move to next player
-            self.game_state.next_player()
+                if current_player.player_type == PlayerType.AI:
+                    # Use the AI profile's method directly
+                    if hasattr(current_player, 'choose_card_to_play'):
+                        card = current_player.choose_card_to_play(
+                            self.current_trick.lead_suit,
+                            self.game_state.trump_suit
+                        )
+                    else:
+                        # Fallback to generic AI if not a profile
+                        ai_player = AIPlayer(current_player)
+                        card = ai_player.choose_card_to_play(
+                            self.current_trick.lead_suit,
+                            self.game_state.trump_suit
+                        )
+                else:
+                    # Human player - for now, play first card
+                    card = current_player.hand[0]
+                    
+                # Remove card from hand
+                current_player.remove_card(card)
+                
+                # Add to trick
+                if not self.current_trick.lead_suit:
+                    self.current_trick.lead_suit = card.suit
+                self.current_trick.cards_played.append((current_player, card))
+                
+                # Move to next player
+                self.game_state.next_player()
             
             # Add completed trick to round
             self.tricks_this_round.append(self.current_trick)
@@ -339,17 +336,14 @@ class EuchreGame:
             winner = self._determine_trick_winner()
             winner.tricks_won += 1
             
-            # Debug output
-            winning_card = self._get_winning_card_from_trick(self.current_trick)
-            print(f"  {winner.name} wins trick with {winning_card.short_str()}")
-            
             # Log trick completion
             if self.logger:
+                winning_card = self._get_winning_card_from_trick(self.current_trick)
                 self.logger.log_trick(trick_num + 1, self.current_trick, winner, winning_card)
             
             # Set next trick leader
             self.game_state.current_player_index = self.players.index(winner)
-            
+        
         # Get round results before scoring
         round_results = [player.tricks_won for player in self.players]
         
@@ -693,8 +687,8 @@ class AIPlayer:
         total_trump_potential = len(cards_of_suit) + len(left_bower_cards)
         high_card_bonus = len(high_cards) + len(left_bower_high)
         
-        # Order up if we have 2+ potential trump cards, or 1+ with high cards
-        return total_trump_potential >= 2 or (total_trump_potential >= 1 and high_card_bonus >= 1)
+        # Order up if we have 2+ potential trump cards, or 1+ with multiple high cards
+        return total_trump_potential >= 2 or (total_trump_potential >= 1 and high_card_bonus >= 2)
         
     def _get_left_bower_suit(self, trump_suit: Suit) -> Suit:
         """Get the left bower suit for a given trump suit."""
