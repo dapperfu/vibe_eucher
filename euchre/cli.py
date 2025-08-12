@@ -1017,6 +1017,179 @@ def train(mode: str, games: int, ai_types: tuple, risk_ratios: tuple, output_dir
         click.echo(f"Error during training: {e}", err=True)
 
 
+@main.command()
+@click.option("--model", "-m", 
+              type=click.Choice(["gold_mixed_conservative_balanced", "gold_conservative_dominance", 
+                                "silver_balanced_team", "silver_conservative_balanced",
+                                "bronze_risk_optimized", "bronze_mixed_personalities"]),
+              default="gold_mixed_conservative_balanced",
+              help="Fine-tuned model to use")
+@click.option("--player-names", "-n", multiple=True, 
+              default=["Alice", "Bob", "Charlie", "David"],
+              help="Names for the AI players")
+def play_fine_tuned(model: str, player_names: tuple) -> None:
+    """Play a game using fine-tuned AI models."""
+    try:
+        from .fine_tuned_models import create_fine_tuned_team
+        
+        # Create fine-tuned team
+        ai_players = create_fine_tuned_team(model, list(player_names))
+        
+        # Create game
+        game = EuchreGame()
+        
+        # Add AI players
+        for player in ai_players:
+            game.players.append(player)
+        
+        click.echo(f"🎯 Using Fine-Tuned Model: {model}")
+        click.echo(f"Players: {', '.join(p.name for p in game.players)}")
+        
+        # Start and run the game
+        game.start_new_game()
+        click.echo("Game started! Dealing cards...")
+        
+        # Run the full game
+        game.run_full_game()
+        
+    except ImportError as e:
+        click.echo(f"Error: Could not import fine-tuned models: {e}", err=True)
+    except Exception as e:
+        click.echo(f"Error during game: {e}", err=True)
+
+
+@main.command()
+def list_models() -> None:
+    """List all available fine-tuned AI models."""
+    try:
+        from .fine_tuned_models import list_available_models
+        list_available_models()
+    except ImportError as e:
+        click.echo(f"Error: Could not import fine-tuned models: {e}", err=True)
+
+
+@main.command()
+@click.option("--use-case", "-u", 
+              type=click.Choice(["Maximum performance", "Balanced competition", "Educational purposes", 
+                                "Risk management", "Team coordination"]),
+              default="Maximum performance",
+              help="Use case to find optimal model for")
+def find_optimal_model(use_case: str) -> None:
+    """Find the optimal fine-tuned model for a specific use case."""
+    try:
+        from .fine_tuned_models import get_optimal_model_for_use_case
+        
+        model = get_optimal_model_for_use_case(use_case)
+        
+        if model:
+            click.echo(f"🎯 OPTIMAL MODEL FOR: {use_case}")
+            click.echo("=" * 50)
+            click.echo(f"Model: {model.name}")
+            click.echo(f"Tier: {model.tier.value.title()}")
+            click.echo(f"Description: {model.description}")
+            click.echo(f"Expected Win Rate: {model.expected_win_rate:.1f}%")
+            click.echo(f"Team Sets: {model.team_sets_percentage:.1f}%")
+            click.echo(f"AI Types: {', '.join(model.ai_types)}")
+            click.echo(f"Risk Ratios: {', '.join(map(str, model.risk_ratios))}")
+            click.echo(f"Use Cases: {', '.join(model.use_cases)}")
+            
+            click.echo(f"\nTo use this model:")
+            click.echo(f"euchre play-fine-tuned --model {model.name.lower().replace(' ', '_')}")
+        else:
+            click.echo(f"No optimal model found for use case: {use_case}")
+            
+    except ImportError as e:
+        click.echo(f"Error: Could not import fine-tuned models: {e}", err=True)
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+
+
+@main.command()
+@click.option("--mode", "-m", 
+              type=click.Choice(["same_model", "team_vs_team", "mixed_teams"]),
+              default="mixed_teams",
+              help="Training mode")
+@click.option("--games", "-g", default=100, help="Number of games to run")
+@click.option("--model", "-t", 
+              type=click.Choice(["gold_mixed_conservative_balanced", "gold_conservative_dominance", 
+                                "silver_balanced_team", "silver_conservative_balanced"]),
+              default="gold_mixed_conservative_balanced",
+              help="Fine-tuned model to use")
+@click.option("--output-dir", "-o", default="adaptive_training_results", help="Output directory for results")
+def train_adaptive(mode: str, games: int, model: str, output_dir: str) -> None:
+    """Run training sessions with adaptive AI profiles using fine-tuned models."""
+    try:
+        from .ai_training_framework import AITrainingFramework, TrainingConfig, TrainingMode
+        from .fine_tuned_models import FineTunedModelLibrary
+        
+        # Get the fine-tuned model configuration
+        library = FineTunedModelLibrary()
+        fine_tuned_model = library.get_model(model)
+        
+        if not fine_tuned_model:
+            click.echo(f"Error: Unknown model: {model}", err=True)
+            return
+        
+        # Convert string mode to enum
+        mode_enum = TrainingMode(mode)
+        
+        # Create training configuration using fine-tuned parameters
+        config = TrainingConfig(
+            mode=mode_enum,
+            num_games=games,
+            ai_types=fine_tuned_model.ai_types,
+            risk_ratios=fine_tuned_model.risk_ratios,
+            output_dir=output_dir,
+            quiet_mode=True
+        )
+        
+        click.echo(f"🎯 ADAPTIVE TRAINING WITH FINE-TUNED MODEL")
+        click.echo(f"Model: {fine_tuned_model.name}")
+        click.echo(f"Expected Win Rate: {fine_tuned_model.expected_win_rate:.1f}%")
+        click.echo(f"AI Types: {', '.join(fine_tuned_model.ai_types)}")
+        click.echo(f"Risk Ratios: {', '.join(map(str, fine_tuned_model.risk_ratios))}")
+        click.echo(f"Games: {games}")
+        click.echo("-" * 60)
+        
+        # Create and run training framework
+        framework = AITrainingFramework(config)
+        results = framework.run_training_session()
+        
+        # Display summary
+        click.echo(f"\n🎯 ADAPTIVE TRAINING COMPLETED! 🎯")
+        click.echo(f"Model: {fine_tuned_model.name}")
+        click.echo(f"Mode: {mode}")
+        click.echo(f"Games: {games}")
+        click.echo(f"Results saved to: {output_dir}/")
+        
+        # Show key statistics
+        overall = results["overall_stats"]
+        click.echo(f"\n📊 OVERALL STATISTICS:")
+        click.echo(f"Team 1 Wins: {overall['team1_wins']} ({overall['team1_wins']/overall['total_games']*100:.1f}%)")
+        click.echo(f"Team 2 Wins: {overall['team2_wins']} ({overall['team2_wins']/overall['total_games']*100:.1f}%)")
+        click.echo(f"Team Sets: {overall['total_team_sets']}")
+        click.echo(f"Total Reneges: {overall['total_reneges']}")
+        
+        # Compare with expected performance
+        actual_win_rate = overall['team1_wins'] / overall['total_games'] * 100
+        expected_win_rate = fine_tuned_model.expected_win_rate
+        
+        click.echo(f"\n📈 PERFORMANCE COMPARISON:")
+        click.echo(f"Expected Win Rate: {expected_win_rate:.1f}%")
+        click.echo(f"Actual Win Rate: {actual_win_rate:.1f}%")
+        click.echo(f"Difference: {actual_win_rate - expected_win_rate:+.1f}%")
+        
+        if actual_win_rate >= expected_win_rate:
+            click.echo("✅ Performance meets or exceeds expectations!")
+        else:
+            click.echo("⚠️  Performance below expectations - may need further tuning")
+        
+    except ImportError as e:
+        click.echo(f"Error: Could not import required modules: {e}", err=True)
+    except Exception as e:
+        click.echo(f"Error during adaptive training: {e}", err=True)
+
+
 # Add commands to the main group
 main.add_command(train_self_play)
 main.add_command(list_players)
@@ -1028,6 +1201,10 @@ main.add_command(run_all_neural_combinations)
 main.add_command(list_neural_models)
 main.add_command(train_integer_vs_float)
 main.add_command(generate_player_profiles)
+main.add_command(play_fine_tuned)
+main.add_command(list_models)
+main.add_command(find_optimal_model)
+main.add_command(train_adaptive)
 
 
 if __name__ == "__main__":

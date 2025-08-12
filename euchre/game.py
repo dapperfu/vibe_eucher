@@ -7,6 +7,7 @@ from .models import (
 )
 from .game_logger import GameLogger
 from .ai_profiles import AggressiveAI, ConservativeAI, BalancedAI, OpportunisticAI
+from .adaptive_ai_profiles import create_adaptive_ai_profile, AdaptiveAIProfile
 import click
 
 
@@ -64,6 +65,21 @@ class EuchreGame:
         else:  # balanced or unknown
             player = BalancedAI(name, risk_ratio)
             
+        self.players.append(player)
+        
+    def add_adaptive_ai_player(self, name: str, ai_type: str = "balanced", base_risk_ratio: float = 0.5) -> None:
+        """Add an adaptive AI player that adjusts risk based on game state.
+        
+        Parameters
+        ----------
+        name : str
+            The player's name
+        ai_type : str
+            Type of AI: "conservative", "balanced", "aggressive", "opportunistic"
+        base_risk_ratio : float
+            Base risk ratio (0.0 = conservative, 1.0 = aggressive)
+        """
+        player = create_adaptive_ai_profile(name, ai_type, base_risk_ratio)
         self.players.append(player)
         
     def add_player(self, name: str, player_type: PlayerType) -> None:
@@ -191,6 +207,23 @@ class EuchreGame:
                 if hasattr(player, 'should_order_up'):
                     # Check if this player's partner is dealing
                     is_partner_dealing = self._is_partner_dealing(player)
+                    
+                    # For adaptive AI players, provide context
+                    if isinstance(player, AdaptiveAIProfile):
+                        context = self._create_adaptive_context(player, is_partner_dealing)
+                        # Update the adaptive AI's context
+                        player.create_context(
+                            hand=player.hand,
+                            team_score=self.game_state.team1_score if current_player_idx % 2 == 0 else self.game_state.team2_score,
+                            opponent_score=self.game_state.team2_score if current_player_idx % 2 == 0 else self.game_state.team1_score,
+                            round_number=self.game_state.round_number,
+                            tricks_won=player.tricks_won,
+                            partner_tricks_won=self._get_partner_tricks_won(player),
+                            is_partner_dealing=is_partner_dealing,
+                            trump_suit=self.game_state.trump_suit,
+                            top_card=self.top_card
+                        )
+                    
                     # Call with only the top_card to maintain compatibility
                     should_order = player.should_order_up(self.top_card)
                 else:
@@ -276,6 +309,79 @@ class EuchreGame:
             partner_index = 3 if player_index == 1 else 1
             
         return partner_index == dealer_index
+        
+    def _get_partner_tricks_won(self, player: "Player") -> int:
+        """Get the number of tricks won by the player's partner.
+        
+        Parameters
+        ----------
+        player : Player
+            The player whose partner's tricks we want to know
+            
+        Returns
+        -------
+        int
+            Number of tricks won by the partner
+        """
+        if not self.game_state:
+            return 0
+            
+        player_index = self.players.index(player)
+        
+        # Players are on teams: 0,2 are team 1, 1,3 are team 2
+        # Partner is the other player on the same team
+        if player_index % 2 == 0:  # Team 1
+            partner_index = 2 if player_index == 0 else 0
+        else:  # Team 2
+            partner_index = 3 if player_index == 1 else 1
+            
+        return self.players[partner_index].tricks_won
+        
+    def _create_adaptive_context(self, player: "Player", is_partner_dealing: bool) -> "AdaptiveContext":
+        """Create adaptive context for an AI player.
+        
+        Parameters
+        ----------
+        player : Player
+            The AI player
+        is_partner_dealing : bool
+            Whether the player's partner is dealing
+            
+        Returns
+        -------
+        AdaptiveContext
+            Context for adaptive decision making
+        """
+        from .adaptive_ai_profiles import AdaptiveContext
+        
+        if not self.game_state:
+            return None
+            
+        # Get team scores
+        player_index = self.players.index(player)
+        if player_index % 2 == 0:  # Team 1
+            team_score = self.game_state.team1_score
+            opponent_score = self.game_state.team2_score
+        else:  # Team 2
+            team_score = self.game_state.team2_score
+            opponent_score = self.game_state.team1_score
+        
+        # Create context
+        context = AdaptiveContext(
+            game_state=None,  # Will be set by the AI profile
+            hand_strength=None,  # Will be set by the AI profile
+            team_score=team_score,
+            opponent_score=opponent_score,
+            round_number=self.game_state.round_number,
+            tricks_won=player.tricks_won,
+            partner_tricks_won=self._get_partner_tricks_won(player),
+            is_partner_dealing=is_partner_dealing,
+            trump_suit=self.game_state.trump_suit,
+            top_card=self.top_card,
+            historical_performance=0.0  # Will be updated by the AI profile
+        )
+        
+        return context
         
     def is_team_set(self) -> bool:
         """Check if the trump calling team gets set (loses after calling trump).
@@ -669,6 +775,9 @@ class EuchreGame:
             # Check if team was set
             was_set = any(player.tricks_won == 0 for player in self.players)
             self._update_model_players_context(self.game_state.round_number, was_set)
+        
+        # Update adaptive AI players' performance
+        self._update_adaptive_ai_performance()
         
         # Increment round number
         if self.game_state:
@@ -1105,6 +1214,41 @@ class EuchreGame:
                         current_round=round_num,
                         was_set=was_set
                     )
+
+    def _update_adaptive_ai_performance(self) -> None:
+        """Update the performance of adaptive AI players based on their historical context."""
+        if not self.game_state:
+            return
+
+        for player in self.players:
+            if isinstance(player, AdaptiveAIProfile):
+                # Calculate performance score for this round
+                player_index = self.players.index(player)
+                if player_index % 2 == 0:  # Team 1
+                    team_score = self.game_state.team1_score
+                    opponent_score = self.game_state.team2_score
+                else:  # Team 2
+                    team_score = self.game_state.team2_score
+                    opponent_score = self.game_state.team1_score
+                
+                # Simple performance calculation
+                # Win: +1, Lose: -1, Team set: -2
+                if team_score > opponent_score:
+                    performance_score = 1.0
+                elif team_score < opponent_score:
+                    performance_score = -1.0
+                else:
+                    performance_score = 0.0
+                
+                # Penalty for team sets
+                if self.is_team_set():
+                    if (player_index % 2 == 0 and self.trump_caller_team == 0) or \
+                       (player_index % 2 == 1 and self.trump_caller_team == 1):
+                        # This player's team was set
+                        performance_score -= 2.0
+                
+                # Record performance
+                player.record_performance(performance_score)
 
 
 class AIPlayer:
