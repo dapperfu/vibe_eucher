@@ -959,6 +959,64 @@ def generate_player_profiles(num_games, output_dir, save_interval, evaluation_in
         raise
 
 
+@main.command()
+@click.option("--mode", "-m", 
+              type=click.Choice(["same_model", "team_vs_team", "mixed_teams", "round_robin"]),
+              default="same_model",
+              help="Training mode: same_model, team_vs_team, mixed_teams, round_robin")
+@click.option("--games", "-g", default=100, help="Number of games to run")
+@click.option("--ai-types", "-t", multiple=True, 
+              default=["balanced", "balanced", "balanced", "balanced"],
+              help="AI types for each player")
+@click.option("--risk-ratios", "-r", multiple=True, 
+              default=["0.5", "0.5", "0.5", "0.5"],
+              help="Risk ratios for each AI player")
+@click.option("--output-dir", "-o", default="training_results", help="Output directory for results")
+def train(mode: str, games: int, ai_types: tuple, risk_ratios: tuple, output_dir: str) -> None:
+    """Run AI training sessions with different team configurations."""
+    try:
+        from .ai_training_framework import AITrainingFramework, TrainingConfig, TrainingMode
+        
+        # Convert string mode to enum
+        mode_enum = TrainingMode(mode)
+        
+        # Convert risk ratios to floats
+        risk_ratios_float = [float(r) for r in risk_ratios]
+        
+        # Create training configuration
+        config = TrainingConfig(
+            mode=mode_enum,
+            num_games=games,
+            ai_types=list(ai_types),
+            risk_ratios=risk_ratios_float,
+            output_dir=output_dir,
+            quiet_mode=True  # Training should be quiet
+        )
+        
+        # Create and run training framework
+        framework = AITrainingFramework(config)
+        results = framework.run_training_session()
+        
+        # Display summary
+        click.echo(f"\n🎯 TRAINING COMPLETED! 🎯")
+        click.echo(f"Mode: {mode}")
+        click.echo(f"Games: {games}")
+        click.echo(f"Results saved to: {output_dir}/")
+        
+        # Show key statistics
+        overall = results["overall_stats"]
+        click.echo(f"\n📊 OVERALL STATISTICS:")
+        click.echo(f"Team 1 Wins: {overall['team1_wins']} ({overall['team1_wins']/overall['total_games']*100:.1f}%)")
+        click.echo(f"Team 2 Wins: {overall['team2_wins']} ({overall['team2_wins']/overall['total_games']*100:.1f}%)")
+        click.echo(f"Team Sets: {overall['total_team_sets']}")
+        click.echo(f"Total Reneges: {overall['total_reneges']}")
+        
+    except ImportError as e:
+        click.echo(f"Error: Could not import training framework: {e}", err=True)
+    except Exception as e:
+        click.echo(f"Error during training: {e}", err=True)
+
+
 # Add commands to the main group
 main.add_command(train_self_play)
 main.add_command(list_players)

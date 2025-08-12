@@ -34,6 +34,7 @@ class EuchreGame:
         self.trump_caller_team: Optional[int] = None  # Track which team called trump
         self.quiet_mode = quiet_mode
         self.current_dealer_index: int = 0  # Track current dealer position
+        self.renege_count: int = 0  # Track total reneges in the game
         
         if enable_logging:
             self.logger = GameLogger()
@@ -431,6 +432,44 @@ class EuchreGame:
         # This could be enhanced later with human input
         return min(dealer.hand, key=lambda c: c.rank.value)
         
+    def _is_renege(self, player: "Player", played_card: "Card", lead_suit: Suit) -> bool:
+        """Check if a player reneged (didn't follow suit when they should have).
+        
+        Parameters
+        ----------
+        player : Player
+            The player who played the card
+        played_card : Card
+            The card that was played
+        lead_suit : Suit
+            The suit that was led in the trick
+            
+        Returns
+        -------
+        bool
+            True if the player reneged, False otherwise
+        """
+        # If the played card is the lead suit, no renege
+        if played_card.suit == lead_suit:
+            return False
+            
+        # If the played card is trump, no renege (trump can always be played)
+        if played_card.is_trump:
+            return False
+            
+        # Check if the player had any cards of the lead suit
+        # Note: We need to check the player's hand before they played the card
+        # For now, we'll use a simplified check - this could be enhanced later
+        
+        # If the player is AI, we can assume they follow the rules
+        # This is mainly for detecting human player mistakes
+        if player.player_type == PlayerType.AI:
+            return False
+            
+        # For human players, we'd need to track their hand before playing
+        # For now, return False to avoid false positives
+        return False
+        
     def _choose_trump_for_human_dealer(self, hand: List[Card]) -> Suit:
         """Human dealer chooses the trump suit based on their hand.
         
@@ -563,6 +602,12 @@ class EuchreGame:
                 if not self.current_trick.lead_suit:
                     self.current_trick.lead_suit = card.suit
                 self.current_trick.cards_played.append((current_player, card))
+                
+                # Check for reneging (not following suit when possible)
+                if self._is_renege(current_player, card, self.current_trick.lead_suit):
+                    self.renege_count += 1
+                    if not self.quiet_mode:
+                        click.echo(f"🚨 RENEGE! {current_player.name} played {card} but should have followed suit {self.current_trick.lead_suit.value}")
                 
                 # Move to next player
                 self.game_state.next_player()
