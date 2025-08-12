@@ -1,4 +1,4 @@
-.PHONY: help venv install test run clean train-ai evaluate-ai ai-game ncurses logged profiles mass-games analyze cleanup jupyter jupyter-lab
+.PHONY: help venv install test run clean train-ai evaluate-ai ai-game ncurses logged profiles mass-games analyze cleanup jupyter jupyter-lab train-self-play list-players play-trained tournament
 
 help: ## Show this help message
 	@echo "Available commands:"
@@ -53,4 +53,16 @@ train-ai: install ## Train the euchre AI model
 	venv/bin/python train_euchre_ai.py --data-dir data/games --generate-data --evaluate
 
 evaluate-ai: install ## Evaluate a trained AI model
-	venv/bin/python -m euchre.ai_model.model_evaluator --model models/euchre_model.pth --games 100 
+	venv/bin/python -m euchre.ai_model.model_evaluator --model models/euchre_model.pth --games 100
+
+train-self-play: install ## Train AI models using self-play
+	venv/bin/python -m euchre.cli train-self-play --num-games 100000 --players Alice Bob Charlie David
+
+list-players: install ## List available trained AI players
+	venv/bin/python -m euchre.cli list-players
+
+play-trained: install ## Play a game with trained AI players
+	venv/bin/python -m euchre.cli play-trained-players --player1 Alice --player2 Bob --player3 Charlie --player4 David
+
+tournament: install ## Run a tournament between trained players
+	venv/bin/python -m euchre.cli tournament --num-games 100 
