@@ -7,6 +7,7 @@ from .models import (
 )
 from .game_logger import GameLogger
 from .ai_profiles import AggressiveAI, ConservativeAI, BalancedAI, OpportunisticAI
+import click
 
 
 class EuchreGame:
@@ -340,6 +341,9 @@ class EuchreGame:
             winner = self._determine_trick_winner()
             winner.tricks_won += 1
             
+            # Display the trick table
+            self.display_trick_table(self.current_trick, trick_num + 1)
+            
             # Log trick completion
             if self.logger:
                 winning_card = self._get_winning_card_from_trick(self.current_trick)
@@ -350,6 +354,9 @@ class EuchreGame:
         
         # Get round results before scoring
         round_results = [player.tricks_won for player in self.players]
+        
+        # Display round summary
+        self.display_round_summary(round_results)
         
         # Log round end (before scoring resets trick counts)
         if self.logger:
@@ -375,7 +382,71 @@ class EuchreGame:
         
         # Return the round results for testing/debugging
         return round_results
+
+    def display_trick_table(self, trick: Trick, trick_number: int) -> None:
+        """Display the trick as a formatted table.
         
+        Parameters
+        ----------
+        trick : Trick
+            The completed trick to display
+        trick_number : int
+            The number of the trick (1-5)
+        """
+        if not self.game_state or self.quiet_mode:
+            return
+            
+        dealer_index = self.game_state.dealer_index
+        
+        click.echo(f"\n🎴 TRICK {trick_number} COMPLETED 🎴")
+        click.echo(trick.format_as_table(dealer_index, self.players))
+        
+        # Show who won the trick
+        winner, winning_card = trick.get_winner(self.game_state.trump_suit)
+        click.echo(f"\n🏆 {winner.name} wins the trick with {winning_card}")
+        
+        # Show current trick counts
+        click.echo("\nCurrent Trick Counts:")
+        for player in self.players:
+            click.echo(f"  {player.name}: {player.tricks_won} tricks")
+
+    def display_round_summary(self, round_results: List[int]) -> None:
+        """Display a summary of the round showing all tricks and final results.
+        
+        Parameters
+        ----------
+        round_results : List[int]
+            List of trick counts for each player
+        """
+        if not self.game_state or self.quiet_mode:
+            return
+            
+        click.echo(f"\n{'='*60}")
+        click.echo(f"🎯 ROUND {self.game_state.round_number} SUMMARY 🎯")
+        click.echo(f"{'='*60}")
+        
+        # Show all tricks in the round
+        click.echo("\n📋 ALL TRICKS IN THIS ROUND:")
+        for i, trick in enumerate(self.tricks_this_round, 1):
+            click.echo(f"\n🎴 Trick {i}:")
+            click.echo(trick.format_as_table(self.game_state.dealer_index, self.players))
+            
+            # Show who won this trick
+            winner, winning_card = trick.get_winner(self.game_state.trump_suit)
+            click.echo(f"🏆 Winner: {winner.name} with {winning_card}")
+        
+        # Show final round results
+        click.echo(f"\n📊 FINAL ROUND RESULTS:")
+        for i, player in enumerate(self.players):
+            click.echo(f"  {player.name}: {round_results[i]} tricks")
+        
+        # Show team scores
+        if self.game_state:
+            click.echo(f"  Team 1: {self.game_state.team1_score}")
+            click.echo(f"  Team 2: {self.game_state.team2_score}")
+    
+    click.echo(f"\n{'='*60}")
+    
     def get_round_results(self) -> List[int]:
         """Get the trick counts for each player before scoring.
         
