@@ -64,9 +64,43 @@ def play(player_name: str, ai_names: tuple) -> None:
         if game.is_team_set():
             click.echo("\n🚨 TEAM SET! The trump calling team lost after calling trump!")
             
-        # Simple game loop for demonstration
-        click.echo("\nGame is running... (This is a skeleton implementation)")
-        click.echo("In a full implementation, you would play through the game here.")
+        # Play the full game
+        click.echo("\nStarting the game...")
+        
+        # Play rounds until game ends
+        round_num = 1
+        while not game.is_game_over():
+            click.echo(f"\n=== ROUND {round_num} ===")
+            
+            # Play the round
+            results = game.play_round()
+            
+            # Show round results
+            click.echo(f"Round {round_num} complete!")
+            for i, player in enumerate(game.players):
+                click.echo(f"  {player.name}: {results[i]} tricks")
+            
+            # Show current scores
+            if game.game_state:
+                click.echo(f"Team 1: {game.game_state.team1_score}, Team 2: {game.game_state.team2_score}")
+            
+            round_num += 1
+        
+        # Show final result
+        winner = game.get_winner()
+        click.echo(f"\n🎉 GAME OVER! {winner} wins! 🎉")
+        
+        if game.game_state:
+            click.echo(f"Final Score - Team 1: {game.game_state.team1_score}, Team 2: {game.game_state.team2_score}")
+        
+        # Check if team was set
+        if game.is_team_set():
+            click.echo("\n🚨 TEAM SET! The trump calling team lost after calling trump!")
+        
+        # Show log filename
+        log_filename = game.get_log_filename()
+        if log_filename:
+            click.echo(f"\nGame log saved to: {log_filename}")
         
     except ValueError as e:
         click.echo(f"Error: {e}", err=True)

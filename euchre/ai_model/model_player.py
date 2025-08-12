@@ -115,14 +115,14 @@ class ModelPlayer(Player):
         game_phase = [1] if trump_suit is not None else [0]
         features.extend(game_phase)
         
-        # Encode game context
+        # Encode game context - ensure all values are numeric
         context_features = [
-            self.game_context['team_score'] / 10.0,  # Normalize score
-            self.game_context['opponent_score'] / 10.0,
-            self.game_context['current_round'] / 20.0,  # Normalize round
-            self.game_context['trump_calls_made'] / 5.0,  # Normalize calls
-            self.game_context['aces_ordered'] / 3.0,  # Normalize aces
-            self.game_context['times_set'] / 3.0  # Normalize sets
+            float(self.game_context['team_score']) / 10.0,  # Normalize score
+            float(self.game_context['opponent_score']) / 10.0,
+            float(self.game_context['current_round']) / 20.0,  # Normalize round
+            float(self.game_context['trump_calls_made']) / 5.0,  # Normalize calls
+            float(self.game_context['aces_ordered']) / 3.0,  # Normalize aces
+            float(self.game_context['times_set']) / 3.0  # Normalize sets
         ]
         features.extend(context_features)
         
@@ -157,18 +157,18 @@ class ModelPlayer(Player):
         if score_diff < -3:  # Behind significantly
             # Increase trump calling aggression
             adjusted_risk = RiskParameters(
-                trump_calling_aggression=min(1.0, base_risk.trump_calling_aggression + 0.2),
-                ace_ordering_risk=min(1.0, base_risk.ace_ordering_risk + 0.1),
-                set_risk_tolerance=min(1.0, base_risk.set_risk_tolerance + 0.2),
-                leading_aggression=base_risk.leading_aggression
+                trump_calling_aggression=min(1.0, base_risk.trump_calling_aggression.item() + 0.2),
+                ace_ordering_risk=min(1.0, base_risk.ace_ordering_risk.item() + 0.1),
+                set_risk_tolerance=min(1.0, base_risk.set_risk_tolerance.item() + 0.2),
+                leading_aggression=base_risk.leading_aggression.item()
             )
         elif score_diff > 3:  # Ahead significantly
             # Decrease risk
             adjusted_risk = RiskParameters(
-                trump_calling_aggression=max(0.0, base_risk.trump_calling_aggression - 0.2),
-                ace_ordering_risk=max(0.0, base_risk.ace_ordering_risk - 0.2),
-                set_risk_tolerance=max(0.0, base_risk.set_risk_tolerance - 0.2),
-                leading_aggression=max(0.0, base_risk.leading_aggression - 0.1)
+                trump_calling_aggression=max(0.0, base_risk.trump_calling_aggression.item() - 0.2),
+                ace_ordering_risk=max(0.0, base_risk.ace_ordering_risk.item() - 0.2),
+                set_risk_tolerance=max(0.0, base_risk.set_risk_tolerance.item() - 0.2),
+                leading_aggression=max(0.0, base_risk.leading_aggression.item() - 0.1)
             )
         else:
             # Close game - use base risk
@@ -236,11 +236,11 @@ class ModelPlayer(Player):
             # Leading aggression adjustment
             if not hasattr(self, '_current_lead_suit') or self._current_lead_suit is None:
                 # We're leading
-                if risk_params.leading_aggression > 0.7:
+                if risk_params.leading_aggression.item() > 0.7:
                     # Very aggressive - boost high cards
                     if card.rank.value >= Rank.KING.value:
                         risk_adjustment += 0.3
-                elif risk_params.leading_aggression < 0.3:
+                elif risk_params.leading_aggression.item() < 0.3:
                     # Very conservative - boost low cards
                     if card.rank.value <= Rank.TEN.value:
                         risk_adjustment += 0.3
@@ -249,9 +249,9 @@ class ModelPlayer(Player):
             if hasattr(self, '_current_trump_suit') and self._current_trump_suit:
                 if card.suit == self._current_trump_suit:
                     # Trump card - boost based on set risk tolerance
-                    if risk_params.set_risk_tolerance > 0.7:
+                    if risk_params.set_risk_tolerance.item() > 0.7:
                         risk_adjustment += 0.4  # High risk tolerance
-                    elif risk_params.set_risk_tolerance < 0.3:
+                    elif risk_params.set_risk_tolerance.item() < 0.3:
                         risk_adjustment += 0.1  # Low risk tolerance
                     else:
                         risk_adjustment += 0.2  # Moderate
@@ -304,12 +304,12 @@ class ModelPlayer(Player):
                 
                 # Apply risk-based threshold adjustment
                 base_threshold = 0.5
-                risk_adjustment = (adaptive_risk.trump_calling_aggression - 0.5) * 0.4
+                risk_adjustment = (adaptive_risk.trump_calling_aggression.item() - 0.5) * 0.4
                 adjusted_threshold = base_threshold - risk_adjustment
                 
                 # Special handling for aces
                 if top_card.rank == Rank.ACE:
-                    ace_risk_factor = adaptive_risk.ace_ordering_risk
+                    ace_risk_factor = adaptive_risk.ace_ordering_risk.item()
                     if ace_risk_factor < 0.3:
                         # Very conservative with aces
                         adjusted_threshold += 0.3
@@ -366,12 +366,12 @@ class ModelPlayer(Player):
             position_encoding[3] = 1
         features.extend(position_encoding)
         
-        # Encode game context
+        # Encode game context - ensure all values are numeric
         context_features = [
-            self.game_context['team_score'] / 10.0,
-            self.game_context['opponent_score'] / 10.0,
-            self.game_context['current_round'] / 20.0,
-            self.game_context['trump_calls_made'] / 5.0
+            float(self.game_context['team_score']) / 10.0,
+            float(self.game_context['opponent_score']) / 10.0,
+            float(self.game_context['current_round']) / 20.0,
+            float(self.game_context['trump_calls_made']) / 5.0
         ]
         features.extend(context_features)
         
@@ -391,12 +391,12 @@ class ModelPlayer(Player):
         
         # Adjust threshold based on risk parameters
         base_threshold = 3
-        risk_adjustment = int((self.risk_params.trump_calling_aggression - 0.5) * 2)
+        risk_adjustment = int((self.risk_params.trump_calling_aggression.item() - 0.5) * 2)
         adjusted_threshold = max(1, base_threshold - risk_adjustment)
         
         # Special handling for aces
         if top_card.rank == Rank.ACE:
-            ace_threshold_adjustment = int((0.5 - self.risk_params.ace_ordering_risk) * 2)
+            ace_threshold_adjustment = int((0.5 - self.risk_params.ace_ordering_risk.item()) * 2)
             adjusted_threshold += ace_threshold_adjustment
         
         return total_trump_potential >= adjusted_threshold
@@ -453,10 +453,10 @@ class ModelPlayer(Player):
         
         if not lead_suit:
             # Leading - use leading aggression
-            if adaptive_risk.leading_aggression > 0.7:
+            if adaptive_risk.leading_aggression.item() > 0.7:
                 # Aggressive - play highest card
                 best_card = max(valid_cards, key=lambda c: c.rank.value)
-            elif adaptive_risk.leading_aggression < 0.3:
+            elif adaptive_risk.leading_aggression.item() < 0.3:
                 # Conservative - play lowest card
                 best_card = min(valid_cards, key=lambda c: c.rank.value)
             else:
@@ -465,10 +465,10 @@ class ModelPlayer(Player):
                 best_card = sorted_cards[len(sorted_cards) // 2]
         else:
             # Following suit - use set risk tolerance
-            if adaptive_risk.set_risk_tolerance > 0.7:
+            if adaptive_risk.set_risk_tolerance.item() > 0.7:
                 # High risk tolerance - play highest card
                 best_card = max(valid_cards, key=lambda c: c.rank.value)
-            elif adaptive_risk.set_risk_tolerance < 0.3:
+            elif adaptive_risk.set_risk_tolerance.item() < 0.3:
                 # Low risk tolerance - play lowest card
                 best_card = min(valid_cards, key=lambda c: c.rank.value)
             else:
