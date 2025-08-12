@@ -11,7 +11,7 @@ from typing import List, Dict, Any, Tuple, Optional
 from pathlib import Path
 import logging
 
-from .euchre_nn import EuchreNN as EuchreNeuralNetwork
+from .euchre_nn import EuchreNN, RiskParameters
 from .game_state_encoder import GameStateEncoder
 from ..models import Card, Suit, Rank, Player, GameState
 
@@ -206,13 +206,18 @@ class EuchreGameDataset(Dataset):
         try:
             # Extract dealer hand and called trump
             dealer_hand = self._parse_hand(action.get('dealer_hand', []))
-            called_trump = self._parse_suit(action.get('called_trump', {}))
+            called_trump = self._parse_suit(action.get('called_trump'))
+            
+            # Debug logging
+            if called_trump is None:
+                logging.warning(f"Failed to parse called_trump: {action.get('called_trump')}")
+                return None
             
             # Encode game state
             features = self.encoder.encode_game_state_for_trump_selection(dealer_hand)
             
             # Target: suit index (0-3)
-            target = called_trump.value - 1 if called_trump else 0
+            target = called_trump.value - 1
             
             return {
                 'features': features,
@@ -244,6 +249,45 @@ class EuchreGameDataset(Dataset):
                 cards.append(card)
         return cards
     
+    def _parse_rank(self, rank_data: Any) -> Optional[Rank]:
+        """Parse rank data into Rank enum.
+        
+        Parameters
+        ----------
+        rank_data : Any
+            Rank data (can be int or Rank enum)
+            
+        Returns
+        -------
+        Optional[Rank]
+            Rank enum or None if invalid
+        """
+        if rank_data is None:
+            return None
+        try:
+            if isinstance(rank_data, int):
+                # Convert rank value to Rank enum
+                if rank_data == 9:
+                    return Rank.NINE
+                elif rank_data == 10:
+                    return Rank.TEN
+                elif rank_data == 11:
+                    return Rank.JACK
+                elif rank_data == 12:
+                    return Rank.QUEEN
+                elif rank_data == 13:
+                    return Rank.KING
+                elif rank_data == 14:
+                    return Rank.ACE
+                else:
+                    return None
+            elif isinstance(rank_data, Rank):
+                return rank_data
+            else:
+                return None
+        except Exception:
+            return None
+
     def _parse_card(self, card_data: Dict[str, Any]) -> Optional[Card]:
         """Parse card data into Card object.
         
@@ -258,8 +302,13 @@ class EuchreGameDataset(Dataset):
             Card object or None if invalid
         """
         try:
-            suit = Suit(card_data.get('suit', 'hearts'))
-            rank = Rank(card_data.get('rank', 9))
+            suit = self._parse_suit(card_data.get('suit'))
+            if suit is None:
+                return None
+                
+            rank = self._parse_rank(card_data.get('rank'))
+            if rank is None:
+                return None
             is_trump = card_data.get('is_trump', False)
             
             return Card(rank=rank, suit=suit, is_trump=is_trump)
@@ -272,7 +321,7 @@ class EuchreGameDataset(Dataset):
         Parameters
         ----------
         suit_data : Any
-            Suit data
+            Suit data (can be string, int, or Suit enum)
             
         Returns
         -------
@@ -282,7 +331,19 @@ class EuchreGameDataset(Dataset):
         if not suit_data:
             return None
         try:
-            return Suit(suit_data)
+            if isinstance(suit_data, int):
+                # Convert suit index to Suit enum
+                suit_list = list(Suit)
+                if 0 <= suit_data < len(suit_list):
+                    return suit_list[suit_data]
+                else:
+                    return None
+            elif isinstance(suit_data, str):
+                return Suit(suit_data)
+            elif isinstance(suit_data, Suit):
+                return suit_data
+            else:
+                return None
         except Exception:
             return None
     
@@ -321,7 +382,7 @@ class TrainingPipeline:
     """Pipeline for training the euchre neural network."""
     
     def __init__(self, 
-                 model: EuchreNeuralNetwork,
+                 model: EuchreNN,
                  data_dir: str,
                  batch_size: int = 32,
                  learning_rate: float = 0.001) -> None:
@@ -329,7 +390,7 @@ class TrainingPipeline:
         
         Parameters
         ----------
-        model : EuchreNeuralNetwork
+        model : EuchreNN
             Neural network model to train
         data_dir : str
             Directory containing training data
@@ -453,42 +514,53 @@ class TrainingPipeline:
         total_samples = 0
         
         for batch in train_loader:
-            features = batch['features'].to(self.device)
+            features = batch['features'].to(self.device).squeeze()  # Remove extra dimensions
             targets = batch['target'].squeeze().to(self.device)
             action_types = batch['action_type']
             
             # Forward pass
-            outputs = self.model(features)
+            # Create default risk parameters for training
+            batch_size = features.size(0)
+            default_risk = RiskParameters()  # Use default risk parameters
+            outputs = self.model(features, default_risk)
             
             # Calculate loss for each action type
-            batch_loss = 0.0
+            batch_loss = torch.tensor(0.0, device=self.device, requires_grad=True)  # Initialize as tensor
             batch_correct = 0
+            valid_actions = 0
             
             for i, action_type in enumerate(action_types):
                 if action_type == 'order_up':
-                    loss = self.criterion(outputs['order_up'][i:i+1], targets[i:i+1])
-                    pred = torch.argmax(outputs['order_up'][i:i+1], dim=1)
-                elif action_type == 'card_selection':
+                    loss = self.criterion(outputs['trump_decision'][i:i+1], targets[i:i+1])
+                    pred = torch.argmax(outputs['trump_decision'][i:i+1], dim=1)
+                    batch_loss = batch_loss + loss
+                    valid_actions += 1
+                elif action_type == 'play_card':
                     loss = self.criterion(outputs['card_selection'][i:i+1], targets[i:i+1])
                     pred = torch.argmax(outputs['card_selection'][i:i+1], dim=1)
-                elif action_type == 'trump_selection':
-                    loss = self.criterion(outputs['trump_selection'][i:i+1], targets[i:i+1])
-                    pred = torch.argmax(outputs['trump_selection'][i:i+1], dim=1)
+                    batch_loss = batch_loss + loss
+                    valid_actions += 1
+                elif action_type == 'call_trump':
+                    loss = self.criterion(outputs['trump_decision'][i:i+1], targets[i:i+1])
+                    pred = torch.argmax(outputs['trump_decision'][i:i+1], dim=1)
+                    batch_loss = batch_loss + loss
+                    valid_actions += 1
                 else:
                     continue
                 
-                batch_loss += loss
                 batch_correct += (pred == targets[i:i+1]).sum().item()
             
-            # Backward pass
-            self.optimizer.zero_grad()
-            batch_loss.backward()
-            self.optimizer.step()
-            
-            # Update metrics
-            total_loss += batch_loss.item()
-            total_correct += batch_correct
-            total_samples += len(features)
+            # Only proceed if we have valid actions
+            if valid_actions > 0:
+                # Backward pass
+                self.optimizer.zero_grad()
+                batch_loss.backward()
+                self.optimizer.step()
+                
+                # Update metrics
+                total_loss += batch_loss.item()
+                total_correct += batch_correct
+                total_samples += valid_actions
         
         avg_loss = total_loss / len(train_loader)
         avg_acc = total_correct / total_samples
@@ -515,37 +587,47 @@ class TrainingPipeline:
         
         with torch.no_grad():
             for batch in val_loader:
-                features = batch['features'].to(self.device)
+                features = batch['features'].to(self.device).squeeze()  # Remove extra dimensions
                 targets = batch['target'].squeeze().to(self.device)
                 action_types = batch['action_type']
                 
                 # Forward pass
-                outputs = self.model(features)
+                # Create default risk parameters for validation
+                batch_size = features.size(0)
+                default_risk = RiskParameters()  # Use default risk parameters
+                outputs = self.model(features, default_risk)
                 
                 # Calculate loss for each action type
-                batch_loss = 0.0
+                batch_loss = torch.tensor(0.0, device=self.device)  # Initialize as tensor
                 batch_correct = 0
+                valid_actions = 0
                 
                 for i, action_type in enumerate(action_types):
                     if action_type == 'order_up':
-                        loss = self.criterion(outputs['order_up'][i:i+1], targets[i:i+1])
-                        pred = torch.argmax(outputs['order_up'][i:i+1], dim=1)
-                    elif action_type == 'card_selection':
+                        loss = self.criterion(outputs['trump_decision'][i:i+1], targets[i:i+1])
+                        pred = torch.argmax(outputs['trump_decision'][i:i+1], dim=1)
+                        batch_loss = batch_loss + loss
+                        valid_actions += 1
+                    elif action_type == 'play_card':
                         loss = self.criterion(outputs['card_selection'][i:i+1], targets[i:i+1])
                         pred = torch.argmax(outputs['card_selection'][i:i+1], dim=1)
-                    elif action_type == 'trump_selection':
-                        loss = self.criterion(outputs['trump_selection'][i:i+1], targets[i:i+1])
-                        pred = torch.argmax(outputs['trump_selection'][i:i+1], dim=1)
+                        batch_loss = batch_loss + loss
+                        valid_actions += 1
+                    elif action_type == 'call_trump':
+                        loss = self.criterion(outputs['trump_decision'][i:i+1], targets[i:i+1])
+                        pred = torch.argmax(outputs['trump_decision'][i:i+1], dim=1)
+                        batch_loss = batch_loss + loss
+                        valid_actions += 1
                     else:
                         continue
                     
-                    batch_loss += loss
                     batch_correct += (pred == targets[i:i+1]).sum().item()
                 
-                # Update metrics
-                total_loss += batch_loss.item()
-                total_correct += batch_correct
-                total_samples += len(features)
+                # Only update metrics if we have valid actions
+                if valid_actions > 0:
+                    total_loss += batch_loss.item()
+                    total_correct += batch_correct
+                    total_samples += valid_actions
         
         avg_loss = total_loss / len(val_loader)
         avg_acc = total_correct / total_samples
@@ -602,35 +684,35 @@ class TrainingPipeline:
         # In practice, you'd want more sophisticated game generation
         
         game_data = {
-            'game_id': f"sample_{np.random.randint(1000000)}",
+            'game_id': f"sample_{int(np.random.randint(1000000))}",
             'actions': [],
             'game_state': {}
         }
         
         # Generate some sample actions
         for action_num in range(20):  # 20 actions per game
-            action_type = np.random.choice(['order_up', 'play_card', 'call_trump'])
+            action_type = str(np.random.choice(['order_up', 'play_card', 'call_trump']))
             
             if action_type == 'order_up':
                 action = {
                     'type': 'order_up',
                     'player_hand': self._generate_sample_hand(),
                     'top_card': self._generate_sample_card(),
-                    'ordered_up': np.random.choice([True, False], p=[0.3, 0.7])
+                    'ordered_up': bool(np.random.choice([True, False], p=[0.3, 0.7]))
                 }
             elif action_type == 'play_card':
                 action = {
                     'type': 'play_card',
                     'player_hand': self._generate_sample_hand(),
-                    'lead_suit': np.random.choice(['hearts', 'diamonds', 'clubs', 'spades']),
-                    'trump_suit': np.random.choice(['hearts', 'diamonds', 'clubs', 'spades']),
+                    'lead_suit': int(np.random.choice([0, 1, 2, 3])),  # Use suit indices
+                    'trump_suit': int(np.random.choice([0, 1, 2, 3])),  # Use suit indices
                     'played_card': self._generate_sample_card()
                 }
             else:  # call_trump
                 action = {
                     'type': 'call_trump',
                     'dealer_hand': self._generate_sample_hand(),
-                    'called_trump': np.random.choice(['hearts', 'diamonds', 'clubs', 'spades'])
+                    'called_trump': int(np.random.choice([0, 1, 2, 3]))  # Use suit indices
                 }
             
             game_data['actions'].append(action)
@@ -645,15 +727,15 @@ class TrainingPipeline:
         List[Dict[str, Any]]
             List of card dictionaries
         """
-        suits = ['hearts', 'diamonds', 'clubs', 'spades']
+        suits = [0, 1, 2, 3]  # Use suit indices
         ranks = [9, 10, 11, 12, 13, 14]  # 9, 10, J, Q, K, A
         
         hand = []
         for _ in range(5):
             card = {
-                'suit': np.random.choice(suits),
-                'rank': np.random.choice(ranks),
-                'is_trump': np.random.choice([True, False], p=[0.2, 0.8])
+                'suit': int(np.random.choice(suits)),
+                'rank': int(np.random.choice(ranks)),
+                'is_trump': bool(np.random.choice([True, False], p=[0.2, 0.8]))
             }
             hand.append(card)
         
@@ -667,11 +749,11 @@ class TrainingPipeline:
         Dict[str, Any]
             Card dictionary
         """
-        suits = ['hearts', 'diamonds', 'clubs', 'spades']
+        suits = [0, 1, 2, 3]  # Use suit indices
         ranks = [9, 10, 11, 12, 13, 14]
         
         return {
-            'suit': np.random.choice(suits),
-            'rank': np.random.choice(ranks),
-            'is_trump': np.random.choice([True, False], p=[0.2, 0.8])
+            'suit': int(np.random.choice(suits)),
+            'rank': int(np.random.choice(ranks)),
+            'is_trump': bool(np.random.choice([True, False], p=[0.2, 0.8]))
         } 
