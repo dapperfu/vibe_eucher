@@ -1,4 +1,4 @@
-.PHONY: help venv install test run clean ai-game ncurses logged profiles mass-games analyze cleanup jupyter jupyter-lab
+.PHONY: help venv install test run clean train-ai evaluate-ai ai-game ncurses logged profiles mass-games analyze cleanup jupyter jupyter-lab
 
 help: ## Show this help message
 	@echo "Available commands:"
@@ -47,4 +47,10 @@ jupyter-lab: install ## Start Jupyter Lab
 clean: ## Clean up generated files
 	rm -rf venv/
 	find . -type f -name "*.pyc" -delete
-	find . -type d -name "__pycache__" -delete 
+	find . -type d -name "__pycache__" -delete
+
+train-ai: install ## Train the euchre AI model
+	venv/bin/python train_euchre_ai.py --data-dir data/games --generate-data --evaluate
+
+evaluate-ai: install ## Evaluate a trained AI model
+	venv/bin/python -m euchre.ai_model.model_evaluator --model models/euchre_model.pth --games 100 
