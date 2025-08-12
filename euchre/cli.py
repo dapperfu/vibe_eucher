@@ -129,6 +129,117 @@ def ai_profiles(ai_profiles: tuple, risk_ratios: tuple, enable_logging: bool) ->
 
 
 @main.command()
+@click.option("--num-games", "-n", default=1000, help="Number of games to run")
+@click.option("--config", "-c", default="aggressive_vs_conservative", 
+              help="Team configuration to use")
+@click.option("--max-workers", "-w", default=None, type=int, 
+              help="Maximum number of parallel workers")
+@click.option("--output-dir", "-o", default="games", help="Output directory for game results")
+def run_mass_games(num_games: int, config: str, max_workers: int, output_dir: str) -> None:
+    """Run thousands of euchre games in parallel."""
+    try:
+        from .mass_game_runner import MassGameRunner
+        
+        click.echo(f"Starting mass game runner with {num_games} games...")
+        click.echo(f"Configuration: {config}")
+        click.echo(f"Output directory: {output_dir}")
+        
+        runner = MassGameRunner(output_dir=output_dir, max_workers=max_workers)
+        runner.run_games(num_games, config)
+        
+        click.echo(f"\nMass game run completed!")
+        click.echo(f"Results saved to: {output_dir}")
+        
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+
+
+@main.command()
+@click.option("--games-per-config", "-g", default=1000, help="Games per configuration")
+@click.option("--max-workers", "-w", default=None, type=int, 
+              help="Maximum number of parallel workers")
+@click.option("--output-dir", "-o", default="games", help="Output directory for game results")
+def run_all_configs(games_per_config: int, max_workers: int, output_dir: str) -> None:
+    """Run games for all team configurations."""
+    try:
+        from .mass_game_runner import MassGameRunner
+        
+        click.echo(f"Starting mass game runner for all configurations...")
+        click.echo(f"Games per configuration: {games_per_config}")
+        click.echo(f"Output directory: {output_dir}")
+        
+        runner = MassGameRunner(output_dir=output_dir, max_workers=max_workers)
+        runner.run_all_configurations(games_per_config)
+        
+        click.echo(f"\nAll configuration runs completed!")
+        click.echo(f"Results saved to: {output_dir}")
+        
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+
+
+@main.command()
+@click.option("--games-dir", "-d", default="games", help="Directory containing game results")
+@click.option("--max-games", "-m", default=None, type=int, help="Maximum games to analyze")
+@click.option("--export-excel", "-e", default="euchre_analysis.xlsx", help="Excel export filename")
+@click.option("--generate-plots", "-p", is_flag=True, help="Generate visualization plots")
+@click.option("--plots-dir", default="analysis_plots", help="Directory for generated plots")
+def analyze_games(games_dir: str, max_games: int, export_excel: str, 
+                  generate_plots: bool, plots_dir: str) -> None:
+    """Analyze game results and generate statistics."""
+    try:
+        from .game_analyzer import GameAnalyzer
+        
+        click.echo(f"Loading games from: {games_dir}")
+        
+        analyzer = GameAnalyzer(games_dir=games_dir)
+        df = analyzer.load_games(max_games=max_games)
+        
+        if df is None or len(df) == 0:
+            click.echo("No games found to analyze.")
+            return
+        
+        click.echo(f"Analyzing {len(df)} games...")
+        
+        # Print summary
+        analyzer.print_summary()
+        
+        # Export to Excel
+        click.echo(f"Exporting analysis to: {export_excel}")
+        analyzer.export_analysis(export_excel)
+        
+        # Generate plots if requested
+        if generate_plots:
+            click.echo(f"Generating plots in: {plots_dir}")
+            analyzer.generate_visualizations(plots_dir)
+        
+        click.echo("Analysis completed successfully!")
+        
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+
+
+@main.command()
+@click.option("--games-dir", "-d", default="games", help="Directory containing game results")
+@click.option("--older-than-days", "-o", default=7, type=int, help="Remove files older than N days")
+def cleanup_games(games_dir: str, older_than_days: int) -> None:
+    """Clean up old game result files."""
+    try:
+        from .mass_game_runner import MassGameRunner
+        
+        click.echo(f"Cleaning up games in: {games_dir}")
+        click.echo(f"Removing files older than: {older_than_days} days")
+        
+        runner = MassGameRunner(games_dir)
+        removed_count = runner.cleanup_old_games(older_than_days)
+        
+        click.echo(f"Cleanup completed! Removed {removed_count} old game files.")
+        
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+
+
+@main.command()
 def logged_game() -> None:
     """Run a full AI vs AI euchre game with logging (no ncurses)."""
     try:
