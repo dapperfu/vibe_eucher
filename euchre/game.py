@@ -876,11 +876,15 @@ class EuchreGame:
         
         # Show the top card that was flipped up
         if self.top_card:
-            click.echo(f"📋 Top card flipped up: {self.top_card}")
+            # Only show trump indicator if the card was actually ordered up
+            if self.trump_caller and self.game_state.trump_suit == self.top_card.suit:
+                click.echo(f"📋 Top card flipped up: {self.top_card}")
+            else:
+                # Show without trump indicator since it wasn't ordered up
+                click.echo(f"📋 Top card flipped up: {self.top_card.rank.name.title()} of {self.top_card.suit.name.title()}")
         
         # Show first round of trump selection (ordering up)
         click.echo("\n🔄 FIRST ROUND - Ordering up the top card:")
-        click.echo(f"   Starting with player to dealer's left: {self.players[(dealer_idx + 1) % 4].name}")
         
         # Show what actually happened in the first round
         if self.trump_caller and self.game_state.trump_suit == self.top_card.suit:
@@ -904,7 +908,6 @@ class EuchreGame:
         # If no one ordered up, show second round
         if not self.trump_caller or self.game_state.trump_suit != self.top_card.suit:
             click.echo("\n🔄 SECOND ROUND - Calling trump suit:")
-            click.echo(f"   Starting with player to dealer's left: {self.players[(dealer_idx + 1) % 4].name}")
             if self.trump_caller:
                 # Someone called a different trump suit
                 for i in range(4):

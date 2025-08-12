@@ -62,10 +62,11 @@ class AggressiveAI(Player):
             # Balanced: use standard threshold
             return hand_strength >= base_threshold
         
-    def choose_card_to_play(self, lead_suit: Optional[Suit], trump_suit: Optional[Suit]) -> None:
+    def choose_card_to_play(self, lead_suit: Optional[Suit], trump_suit: Optional[Suit]) -> Card:
         """Choose which card to play.
         
         Aggressive players lead with high cards and play aggressively.
+        Must follow suit if possible.
         """
         if not self.hand:
             raise ValueError("AI player has no cards to play")
@@ -74,7 +75,7 @@ class AggressiveAI(Player):
         if not lead_suit:
             return max(self.hand, key=lambda c: self._card_value(c, trump_suit))
             
-        # Must follow suit if possible
+        # MUST follow suit if possible - this is a strict rule
         if self.has_suit(lead_suit):
             cards_of_suit = self.get_cards_of_suit(lead_suit)
             
@@ -88,7 +89,8 @@ class AggressiveAI(Player):
                 top_cards = sorted_cards[int(len(sorted_cards) * 0.4):]
                 return top_cards[0] if top_cards else sorted_cards[0]
         else:
-            # Can play any card - aggressive players play high cards
+            # Cannot follow suit - can play any card
+            # Aggressive players play high cards
             if self.risk_ratio > 0.7:
                 # Very aggressive: play highest card
                 return max(self.hand, key=lambda c: self._card_value(c, trump_suit))
@@ -497,10 +499,11 @@ class ConservativeAI(Player):
             # Slightly aggressive: order up with good hands
             return hand_strength >= base_threshold * 0.9
         
-    def choose_card_to_play(self, lead_suit: Optional[Suit], trump_suit: Optional[Suit]) -> None:
+    def choose_card_to_play(self, lead_suit: Optional[Suit], trump_suit: Optional[Suit]) -> Card:
         """Choose which card to play.
         
         Conservative players lead with low cards and play defensively.
+        Must follow suit if possible.
         """
         if not self.hand:
             raise ValueError("AI player has no cards to play")
@@ -509,7 +512,7 @@ class ConservativeAI(Player):
         if not lead_suit:
             return min(self.hand, key=lambda c: self._card_value(c, trump_suit))
             
-        # Must follow suit if possible
+        # MUST follow suit if possible - this is a strict rule
         if self.has_suit(lead_suit):
             cards_of_suit = self.get_cards_of_suit(lead_suit)
             
@@ -523,7 +526,8 @@ class ConservativeAI(Player):
                 bottom_cards = sorted_cards[:int(len(sorted_cards) * 0.6)]
                 return bottom_cards[-1] if bottom_cards else sorted_cards[0]
         else:
-            # Can play any card - conservative players play low cards
+            # Cannot follow suit - can play any card
+            # Conservative players play low cards
             if self.risk_ratio < 0.2:
                 # Very conservative: play lowest card
                 return min(self.hand, key=lambda c: self._card_value(c, trump_suit))
@@ -814,10 +818,11 @@ class BalancedAI(Player):
             # Balanced: use standard threshold
             return hand_strength >= base_threshold
         
-    def choose_card_to_play(self, lead_suit: Optional[Suit], trump_suit: Optional[Suit]) -> None:
+    def choose_card_to_play(self, lead_suit: Optional[Suit], trump_suit: Optional[Suit]) -> Card:
         """Choose which card to play.
         
         Balanced players adapt their strategy based on the situation.
+        Must follow suit if possible.
         """
         if not self.hand:
             raise ValueError("AI player has no cards to play")
@@ -835,7 +840,7 @@ class BalancedAI(Player):
                 sorted_cards = sorted(self.hand, key=lambda c: self._card_value(c, trump_suit))
                 return sorted_cards[len(sorted_cards) // 2]
             
-        # Must follow suit if possible
+        # MUST follow suit if possible - this is a strict rule
         if self.has_suit(lead_suit):
             cards_of_suit = self.get_cards_of_suit(lead_suit)
             
@@ -855,7 +860,7 @@ class BalancedAI(Player):
                 sorted_cards = sorted(cards_of_suit, key=lambda c: self._card_value(c, trump_suit))
                 return sorted_cards[len(sorted_cards) // 2]
         else:
-            # Can play any card - balanced approach
+            # Cannot follow suit - can play any card
             sorted_cards = sorted(self.hand, key=lambda c: self._card_value(c, trump_suit))
             
             if self.risk_ratio > 0.6:
@@ -1171,10 +1176,11 @@ class OpportunisticAI(Player):
             
         return hand_strength >= adjusted_threshold
         
-    def choose_card_to_play(self, lead_suit: Optional[Suit], trump_suit: Optional[Suit]) -> None:
+    def choose_card_to_play(self, lead_suit: Optional[Suit], trump_suit: Optional[Suit]) -> Card:
         """Choose which card to play.
         
         Opportunistic players adapt based on game situation.
+        Must follow suit if possible.
         """
         if not self.hand:
             raise ValueError("AI player has no cards to play")
@@ -1192,7 +1198,7 @@ class OpportunisticAI(Player):
                 sorted_cards = sorted(self.hand, key=lambda c: self._card_value(c, trump_suit))
                 return sorted_cards[len(sorted_cards) // 2]
             
-        # Must follow suit if possible
+        # MUST follow suit if possible - this is a strict rule
         if self.has_suit(lead_suit):
             cards_of_suit = self.get_cards_of_suit(lead_suit)
             
@@ -1207,7 +1213,7 @@ class OpportunisticAI(Player):
                 sorted_cards = sorted(cards_of_suit, key=lambda c: self._card_value(c, trump_suit))
                 return sorted_cards[len(sorted_cards) // 2]
         else:
-            # Can play any card - consider game state
+            # Cannot follow suit - can play any card
             if self.tricks_won_this_round >= 2:
                 # Ahead: play low card
                 return min(self.hand, key=lambda c: self._card_value(c, trump_suit))
