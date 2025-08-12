@@ -1,138 +1,124 @@
-"""Main game controller for the euchre card game."""
+"""
+Main game controller for Euchre.
 
-from typing import List, Optional
+This module orchestrates the game flow by coordinating interactions between
+different components like deck management, game state, trick management,
+scoring, and trump selection.
+"""
+
+from typing import List, Optional, Tuple
 from .core.deck import Deck
 from .core.game_state import GameStateManager
 from .core.trick_manager import TrickManager
 from .core.scoring import ScoringManager
 from .game_logic.trump_selection import TrumpSelectionManager
 from .ai.ai_factory import AIFactory
-from .models import Player, PlayerType, Card, Suit
-from .game_logger import GameLogger
+from .models import Player, PlayerType, Card, Suit, Trick
+from .utils.logging_config import GameLogger
 import click
 
 
 class EuchreGame:
-    """Main euchre game controller."""
+    """Main game controller for Euchre."""
     
-    def __init__(self, enable_logging: bool = True, quiet_mode: bool = False) -> None:
-        """Initialize a new euchre game.
+    def __init__(self, players: List[Player], quiet_mode: bool = False, verbose: bool = False, very_verbose: bool = False):
+        """Initialize the Euchre game.
         
         Parameters
         ----------
-        enable_logging : bool
-            Whether to enable game logging to file
+        players : List[Player]
+            List of players in the game
         quiet_mode : bool
-            Whether to suppress console output (useful for training)
+            If True, suppress most game output
+        verbose : bool
+            Enable verbose logging (INFO level)
+        very_verbose : bool
+            Enable very verbose logging (DEBUG level)
         """
-        self.players: List[Player] = []
+        self.players = players
+        self.quiet_mode = quiet_mode
+        self.verbose = verbose
+        self.very_verbose = very_verbose
+        
+        # Initialize logging
+        self.logger = GameLogger(verbose, very_verbose)
+        
+        # Initialize game components
         self.deck = Deck()
         self.game_state_manager = GameStateManager()
         self.trick_manager = TrickManager()
         self.scoring_manager = ScoringManager()
         self.trump_selection_manager = TrumpSelectionManager()
-        self.logger: Optional[GameLogger] = None
+        
+        # Game state
+        self.current_trick: Optional[Trick] = None
         self.top_card: Optional[Card] = None
-        self.quiet_mode = quiet_mode
+        self.trump_suit: Optional[Suit] = None
+        self.tricks_won = {player.name: 0 for player in players}
+        self.round_number = 1
         
-        if enable_logging:
-            self.logger = GameLogger()
-    
-    def add_ai_player(self, name: str, ai_type: str = "balanced", risk_ratio: float = 0.5) -> None:
-        """Add an AI player with a specific profile.
-        
-        Parameters
-        ----------
-        name : str
-            The player's name
-        ai_type : str
-            Type of AI: "aggressive", "conservative", "balanced", "opportunistic"
-        risk_ratio : float
-            Risk tolerance (0.0 = conservative, 1.0 = aggressive)
-        """
-        player = AIFactory.create_ai_player(name, ai_type, risk_ratio)
-        self.players.append(player)
-    
-    def add_player(self, name: str, player_type: PlayerType) -> None:
-        """Add a player to the game.
-        
-        Parameters
-        ----------
-        name : str
-            The player's name
-        player_type : PlayerType
-            Whether the player is human or AI
-        """
-        player = Player(name=name, player_type=player_type)
-        self.players.append(player)
+        # Set initial dealer
+        self.game_state_manager.set_dealer(players[0])
     
     def start_new_game(self) -> None:
         """Start a new game."""
-        if not self.quiet_mode:
-            print("DEBUG: start_new_game - Starting new game")
-            print("DEBUG: start_new_game - Number of players:", len(self.players))
-            print("DEBUG: start_new_game - Player objects:")
-            for i, player in enumerate(self.players):
-                print(f"DEBUG: Player {i}: {player.name} (id: {id(player)}) type: {player.player_type}")
-                print(f"DEBUG: Player {i}: {player.name} hand: {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+        self.logger.info("Starting new game")
+        self.logger.info(f"Number of players: {len(self.players)}")
+        self.logger.debug("Player objects:")
+        for i, player in enumerate(self.players):
+            self.logger.debug(f"Player {i}: {player.name} (id: {id(player)}) type: {player.player_type}")
+            self.logger.debug(f"Player {i}: {player.name} hand: {len(player.hand)} cards: {[str(card) for card in player.hand]}")
         
         # Reset game state
         self.game_state_manager.initialize_game(self.players)
         self.deck.reset()
         self.trick_manager.reset()
         
-        if not self.quiet_mode:
-            print("DEBUG: start_new_game - After resetting components")
-            print("DEBUG: start_new_game - Player hands after reset:")
-            for player in self.players:
-                print(f"DEBUG: {player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+        self.logger.debug("After resetting components")
+        self.logger.debug("Player hands after reset:")
+        for player in self.players:
+            self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
         
         # Deal cards
         self._deal_cards()
         
-        if not self.quiet_mode:
-            print("DEBUG: start_new_game - After dealing cards")
-            print("DEBUG: start_new_game - Player hands after dealing:")
-            for player in self.players:
-                print(f"DEBUG: {player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+        self.logger.debug("After dealing cards")
+        self.logger.debug("Player hands after dealing:")
+        for player in self.players:
+            self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
         
         # Reset round number
         self.round_number = 1
         
-        if not self.quiet_mode:
-            print("DEBUG: start_new_game - Game initialization complete")
+        self.logger.debug("Game initialization complete")
     
     def _deal_cards(self):
         """Deal 5 cards to each player and set the top card."""
         hands = self.deck.deal_cards(len(self.players))
         
         # Debug: Print player objects and their hands
-        if not self.quiet_mode:
-            print(f"DEBUG: _deal_cards - Number of players: {len(self.players)}")
-            print(f"DEBUG: _deal_cards - Number of hands: {len(hands)}")
-            for i, (player, hand) in enumerate(zip(self.players, hands)):
-                print(f"DEBUG: _deal_cards - Player {i}: {player.name} (id: {id(player)}) got {len(hand)} cards: {[str(card) for card in hand]}")
-                player.hand = hand
-                print(f"DEBUG: _deal_cards - After assignment: {player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+        self.logger.debug(f"Number of players: {len(self.players)}")
+        self.logger.debug(f"Number of hands: {len(hands)}")
+        for i, (player, hand) in enumerate(zip(self.players, hands)):
+            self.logger.debug(f"Player {i}: {player.name} (id: {id(player)}) got {len(hand)} cards: {[str(card) for card in hand]}")
+            player.hand = hand
+            self.logger.debug(f"After assignment: {player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
         
         # Set the top card
         self.top_card = self.deck.draw_top_card()
-        if not self.quiet_mode:
-            print(f"DEBUG: Top card: {self.top_card}")
+        self.logger.debug(f"Top card: {self.top_card}")
         
         # Debug: Verify all players have cards after dealing
-        if not self.quiet_mode:
-            print("DEBUG: Final hand verification after dealing:")
-            for player in self.players:
-                print(f"DEBUG: {player.name} (id: {id(player)}) final hand: {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+        self.logger.debug("Final hand verification after dealing:")
+        for player in self.players:
+            self.logger.debug(f"{player.name} (id: {id(player)}) final hand: {len(player.hand)} cards: {[str(card) for card in player.hand]}")
     
     def _start_new_round(self) -> None:
         """Start a new round of the game."""
-        if not self.quiet_mode:
-            print(f"\n=== Starting Round {self.round_number} ===")
-            print("DEBUG: _start_new_round - Player hands at start of round:")
-            for player in self.players:
-                print(f"DEBUG: {player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+        self.logger.info(f"\n=== Starting Round {self.round_number} ===")
+        self.logger.debug("Player hands at start of round:")
+        for player in self.players:
+            self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
         
         # Reset round state
         self.current_trick = None
@@ -141,15 +127,13 @@ class EuchreGame:
         
         # Deal new cards for this round (unless it's the first round which was already dealt)
         if self.round_number > 1:
-            if not self.quiet_mode:
-                print("DEBUG: _start_new_round - Dealing new cards for round", self.round_number)
+            self.logger.debug(f"Dealing new cards for round {self.round_number}")
             # Reset the deck for the new round
             self.deck.reset()
             self._deal_cards()
-            if not self.quiet_mode:
-                print("DEBUG: _start_new_round - Player hands after dealing new cards:")
-                for player in self.players:
-                    print(f"DEBUG: {player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+            self.logger.debug("Player hands after dealing new cards:")
+            for player in self.players:
+                self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
         
         # Select trump suit
         trump_suit, caller = self.trump_selection_manager.select_trump_suit(
@@ -162,33 +146,35 @@ class EuchreGame:
         if trump_suit:
             self.trump_suit = trump_suit
             self.game_state_manager.set_trump_suit(trump_suit, caller or self.game_state_manager.get_dealer())
+            if caller:
+                self.logger.info(f"{caller.name} called {trump_suit.name} as trump!")
+            else:
+                self.logger.info(f"Trump suit is {trump_suit.name}")
         else:
             # If no trump was selected, dealer picks
             dealer = self.game_state_manager.get_dealer()
             trump_suit = self.trump_selection_manager._dealer_suit_selection(dealer, self.top_card)
             self.trump_suit = trump_suit
             self.game_state_manager.set_trump_suit(trump_suit, dealer)
+            self.logger.info(f"Dealer {dealer.name} picked {trump_suit.name} as trump")
         
         # Debug: Check hands after trump selection
-        if not self.quiet_mode:
-            print("DEBUG: _start_new_round - Player hands after trump selection:")
-            for player in self.players:
-                print(f"DEBUG: {player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+        self.logger.debug("Player hands after trump selection:")
+        for player in self.players:
+            self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
         
         # Play 5 tricks
         for trick_number in range(1, 6):
-            if not self.quiet_mode:
-                print(f"\n--- Trick {trick_number} ---")
-                print("DEBUG: Before starting trick - Player hands:")
-                for player in self.players:
-                    print(f"DEBUG: {player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+            self.logger.info(f"\n--- Trick {trick_number} ---")
+            self.logger.debug("Before starting trick - Player hands:")
+            for player in self.players:
+                self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
             
             self._play_trick()
             
-            if not self.quiet_mode:
-                print("DEBUG: After completing trick - Player hands:")
-                for player in self.players:
-                    print(f"DEBUG: {player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+            self.logger.debug("After completing trick - Player hands:")
+            for player in self.players:
+                self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
         
         # Score the round
         # Determine which team called trump
@@ -200,6 +186,24 @@ class EuchreGame:
             self.players[i].score += team1_score
         for i in range(1, 4, 2):  # Team 2
             self.players[i].score += team2_score
+        
+        # Display round results
+        self.logger.info(f"\n=== Round {self.round_number} Complete ===")
+        self.logger.info(f"Team 1 (Alice & Charlie): {team1_score} points")
+        self.logger.info(f"Team 2 (Bob & David): {team2_score} points")
+        
+        # Show current game scores
+        team1_total = sum(self.players[i].score for i in range(0, 4, 2))
+        team2_total = sum(self.players[i].score for i in range(1, 4, 2))
+        self.logger.info(f"Game Score - Team 1: {team1_total}, Team 2: {team2_total}")
+        
+        # Check if game is over
+        if self.scoring_manager.is_game_over(self.players):
+            self.logger.info("\n🎉 GAME OVER! 🎉")
+            if team1_total > team2_total:
+                self.logger.info("Team 1 (Alice & Charlie) wins!")
+            else:
+                self.logger.info("Team 2 (Bob & David) wins!")
     
     def _update_trump_status(self, trump_suit: Suit) -> None:
         """Update the trump status of all cards.
@@ -217,54 +221,48 @@ class EuchreGame:
     
     def run_full_game(self) -> None:
         """Run a complete game of Euchre."""
-        if not self.quiet_mode:
-            print("DEBUG: run_full_game - Starting full game")
-            print("DEBUG: run_full_game - Number of players:", len(self.players))
-            print("DEBUG: run_full_game - Player objects:")
-            for i, player in enumerate(self.players):
-                print(f"DEBUG: Player {i}: {player.name} (id: {id(player)}) type: {player.player_type}")
+        self.logger.info("Starting full game")
+        self.logger.info(f"Number of players: {len(self.players)}")
+        self.logger.debug("Player objects:")
+        for i, player in enumerate(self.players):
+            self.logger.debug(f"Player {i}: {player.name} (id: {id(player)}) type: {player.player_type}")
         
         # Start new game
         self.start_new_game()
         
-        if not self.quiet_mode:
-            print("DEBUG: run_full_game - After start_new_game")
-            print("DEBUG: run_full_game - Player hands:")
-            for player in self.players:
-                print(f"DEBUG: {player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+        self.logger.debug("After start_new_game")
+        self.logger.debug("Player hands:")
+        for player in self.players:
+            self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
         
         # Start the first round
         self._start_new_round()
         
-        if not self.quiet_mode:
-            print("DEBUG: run_full_game - After _start_new_round")
-            print("DEBUG: run_full_game - Player hands:")
-            for player in self.players:
-                print(f"DEBUG: {player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+        self.logger.debug("After _start_new_round")
+        self.logger.debug("Player hands:")
+        for player in self.players:
+            self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
         
         # Continue rounds until game is over
         while not self.scoring_manager.is_game_over(self.players):
             self.round_number += 1
-            if not self.quiet_mode:
-                print(f"DEBUG: run_full_game - Starting round {self.round_number}")
-                print("DEBUG: run_full_game - Player hands before new round:")
-                for player in self.players:
-                    print(f"DEBUG: {player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+            self.logger.info(f"Starting round {self.round_number}")
+            self.logger.debug("Player hands before new round:")
+            for player in self.players:
+                self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
             
             # Start new round
             self._start_new_round()
             
-            if not self.quiet_mode:
-                print(f"DEBUG: run_full_game - Completed round {self.round_number}")
-                print("DEBUG: run_full_game - Player hands after round:")
-                for player in self.players:
-                    print(f"DEBUG: {player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+            self.logger.info(f"Completed round {self.round_number}")
+            self.logger.debug("Player hands after round:")
+            for player in self.players:
+                self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
         
         # Game is over
-        if not self.quiet_mode:
-            print("DEBUG: run_full_game - Game over")
-            final_scores = self.scoring_manager.get_team_scores(self.players)
-            print(f"DEBUG: Final scores: {final_scores}")
+        self.logger.info("Game over")
+        final_scores = self.scoring_manager.get_team_scores(self.players)
+        self.logger.debug(f"Final scores: {final_scores}")
     
     def run_interactive_game(self, show_ai_hands: bool = False) -> None:
         """Run an interactive game with human players.
@@ -294,11 +292,10 @@ class EuchreGame:
     
     def _play_trick(self) -> None:
         """Play a single trick."""
-        if not self.quiet_mode:
-            print("DEBUG: _play_trick - Starting new trick")
-            print("DEBUG: _play_trick - Player hands at start of trick:")
-            for player in self.players:
-                print(f"DEBUG: {player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+        self.logger.debug("Starting new trick")
+        self.logger.debug("Player hands at start of trick:")
+        for player in self.players:
+            self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
         
         # Start new trick
         self.trick_manager.start_new_trick()
@@ -307,19 +304,17 @@ class EuchreGame:
         if not self.current_trick or self.current_trick.is_complete():
             # First trick of the round
             dealer_index = next(i for i, p in enumerate(self.players) if p.name == self.game_state_manager.get_dealer().name)
-            starting_player_index = (dealer_index + 1) % len(self.players)
+            current_player_index = (dealer_index + 1) % 4
         else:
-            # Subsequent tricks
-            starting_player_index = next(i for i, p in enumerate(self.players) if p.name == self.current_trick.winner.name)
+            # Subsequent tricks: winner of previous trick goes first
+            current_player_index = self.players.index(self.current_trick.winner)
         
-        # Play cards in order
-        current_player_index = starting_player_index
-        for _ in range(len(self.players)):
+        # Play cards for this trick
+        for _ in range(4):
             current_player = self.players[current_player_index]
             
-            if not self.quiet_mode:
-                print(f"DEBUG: _play_trick - Current player: {current_player.name} (id: {id(current_player)})")
-                print(f"DEBUG: _play_trick - {current_player.name} hand before playing: {len(current_player.hand)} cards: {[str(card) for card in current_player.hand]}")
+            self.logger.debug(f"Current player: {current_player.name} (id: {id(current_player)})")
+            self.logger.debug(f"{current_player.name} hand before playing: {len(current_player.hand)} cards: {[str(card) for card in current_player.hand]}")
             
             # Get card to play
             if current_player.player_type == PlayerType.AI:
@@ -327,45 +322,48 @@ class EuchreGame:
             else:
                 card = self._human_play_card(current_player, trick_number)
             
-            if not self.quiet_mode:
-                print(f"DEBUG: _play_trick - {current_player.name} played: {card}")
-                print(f"DEBUG: _play_trick - {current_player.name} hand after playing: {len(current_player.hand)} cards: {[str(card) for card in current_player.hand]}")
+            self.logger.debug(f"{current_player.name} played: {card}")
+            self.logger.debug(f"{current_player.name} hand after playing: {len(current_player.hand)} cards: {[str(card) for card in current_player.hand]}")
             
             # Play the card
             self.trick_manager.play_card(current_player, card)
             
+            # Display the play
+            self.logger.info(f"{current_player.name} plays {card}")
+            
             # Move to next player
-            current_player_index = (current_player_index + 1) % len(self.players)
+            current_player_index = (current_player_index + 1) % 4
         
         # Complete the trick
         winner = self.trick_manager.complete_trick()
-        if not self.quiet_mode:
-            print(f"DEBUG: _play_trick - Trick won by: {winner.name}")
-            print("DEBUG: _play_trick - Player hands after completing trick:")
-            for player in self.players:
-                print(f"DEBUG: {player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+        self.logger.debug(f"Trick won by: {winner.name}")
+        self.logger.debug("Player hands after completing trick:")
+        for player in self.players:
+            self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[str(card) for card in player.hand]}")
         
         # Update trick count
         self.tricks_won[winner.name] += 1
+        
+        # Display trick result
+        self.logger.info(f"Trick won by {winner.name}!")
+        self.logger.info(f"Tricks won so far: Alice: {self.tricks_won['Alice']}, Bob: {self.tricks_won['Bob']}, Charlie: {self.tricks_won['Charlie']}, David: {self.tricks_won['David']}")
     
     def _ai_play_card(self, player: Player) -> Card:
         """Get a card from an AI player."""
-        if not self.quiet_mode:
-            print(f"DEBUG: _ai_play_card - Player: {player.name} (id: {id(player)})")
-            print(f"DEBUG: _ai_play_card - Player type: {player.player_type}")
-            print(f"DEBUG: _ai_play_card - Player hand: {len(player.hand)} cards: {[str(card) for card in player.hand]}")
-            print(f"DEBUG: _ai_play_card - Current trick: {self.current_trick}")
-            print(f"DEBUG: _ai_play_card - Trump suit: {self.trump_suit}")
+        self.logger.debug(f"Player: {player.name} (id: {id(player)})")
+        self.logger.debug(f"Player type: {player.player_type}")
+        self.logger.debug(f"Player hand: {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+        self.logger.debug(f"Current trick: {self.current_trick}")
+        self.logger.debug(f"Trump suit: {self.trump_suit}")
         
         # Check if player has cards
         if not player.hand:
-            if not self.quiet_mode:
-                print(f"DEBUG: _ai_play_card - ERROR: Player {player.name} has no cards!")
-                print(f"DEBUG: _ai_play_card - Player object: {player}")
-                print(f"DEBUG: _ai_play_card - Player hand attribute: {player.hand}")
-                print(f"DEBUG: _ai_play_card - All players and their hands:")
-                for p in self.players:
-                    print(f"DEBUG: {p.name} (id: {id(p)}) has {len(p.hand)} cards: {[str(card) for card in p.hand]}")
+            self.logger.error(f"ERROR: Player {player.name} has no cards!")
+            self.logger.debug(f"Player object: {player}")
+            self.logger.debug(f"Player hand attribute: {player.hand}")
+            self.logger.debug("All players and their hands:")
+            for p in self.players:
+                self.logger.debug(f"{p.name} (id: {id(p)}) has {len(p.hand)} cards: {[str(card) for card in p.hand]}")
             raise ValueError(f"AI player {player.name} has no cards to play")
         
         # Get the current trick state
@@ -378,14 +376,12 @@ class EuchreGame:
             # Fallback for basic AI
             card = player.hand[0]
         
-        if not self.quiet_mode:
-            print(f"DEBUG: _ai_play_card - Chosen card: {card}")
+        self.logger.debug(f"Chosen card: {card}")
         
         # Remove card from hand
         player.hand.remove(card)
         
-        if not self.quiet_mode:
-            print(f"DEBUG: _ai_play_card - After removing card: {len(player.hand)} cards: {[str(card) for card in player.hand]}")
+        self.logger.debug(f"After removing card: {len(player.hand)} cards: {[str(card) for card in player.hand]}")
         
         return card
     
@@ -435,14 +431,15 @@ class EuchreGame:
         """
         # This would prompt the human player
         # For now, use basic AI logic
-        return self._basic_ai_card_choice(player, 
-                                         self.trick_manager.current_trick.lead_suit if self.trick_manager.current_trick else None,
-                                         self.game_state_manager.get_state().trump_suit if self.game_state_manager.get_state() else None)
+        current_trick = self.trick_manager.get_current_trick()
+        lead_suit = current_trick.lead_suit if current_trick else None
+        trump_suit = self.trump_suit
+        
+        return self._basic_ai_card_choice(player, lead_suit, trump_suit)
     
     def _score_round(self) -> None:
         """Score the current round."""
-        game_state = self.game_state_manager.get_state()
-        if not game_state or not self.game_state_manager.trump_caller_team:
+        if not self.game_state_manager.trump_caller_team:
             return
         
         # Get round results
@@ -454,8 +451,10 @@ class EuchreGame:
         )
         
         # Update scores
-        new_team1_score = game_state.team1_score + team1_score
-        new_team2_score = game_state.team2_score + team2_score
+        current_team1_score = self.game_state_manager.game_scores["Team 1"]
+        current_team2_score = self.game_state_manager.game_scores["Team 2"]
+        new_team1_score = current_team1_score + team1_score
+        new_team2_score = current_team2_score + team2_score
         self.game_state_manager.update_scores(new_team1_score, new_team2_score)
         
         # Show round results
@@ -474,8 +473,8 @@ class EuchreGame:
         team2_score : int
             Team 2's score
         """
-        click.echo(f"\nRound complete! Trick counts: {round_results}")
-        click.echo(f"Team 1: {team1_score}, Team 2: {team2_score}")
+        self.logger.info(f"Round complete! Trick counts: {round_results}")
+        self.logger.info(f"Team 1: {team1_score}, Team 2: {team2_score}")
     
     def _show_final_results(self) -> None:
         """Show the final game results."""
@@ -483,16 +482,16 @@ class EuchreGame:
             return
         
         winner = self.game_state_manager.get_winner()
-        click.echo(f"\n🎉 GAME OVER! {winner} wins! 🎉")
+        self.logger.info(f"\n🎉 GAME OVER! {winner} wins! 🎉")
         
-        game_state = self.game_state_manager.get_state()
-        if game_state:
-            click.echo(f"Final Score - Team 1: {game_state.team1_score}, Team 2: {game_state.team2_score}")
+        team1_score = self.game_state_manager.game_scores["Team 1"]
+        team2_score = self.game_state_manager.game_scores["Team 2"]
+        self.logger.info(f"Final Score - Team 1: {team1_score}, Team 2: {team2_score}")
         
         # Check if team gets set
         if self.game_state_manager.trump_caller_team is not None:
             if self.scoring_manager.is_team_set(self.players, self.game_state_manager.trump_caller_team):
-                click.echo("\n🚨 TEAM SET! The trump calling team lost after calling trump!")
+                self.logger.info("\n🚨 TEAM SET! The trump calling team lost after calling trump!")
     
     def get_player_hand(self, player_name: str) -> List[Card]:
         """Get a player's hand.
@@ -544,18 +543,6 @@ class EuchreGame:
             return False
         return self.scoring_manager.is_team_set(self.players, self.game_state_manager.trump_caller_team)
     
-    def get_log_filename(self) -> Optional[str]:
-        """Get the log filename if logging is enabled.
-        
-        Returns
-        -------
-        Optional[str]
-            The log filename or None
-        """
-        if self.logger:
-            return self.logger.get_log_filename()
-        return None
-    
     def run_tournament(self, num_games: int) -> None:
         """Run a tournament with multiple games.
         
@@ -565,8 +552,7 @@ class EuchreGame:
             Number of games to play
         """
         for game_num in range(num_games):
-            if not self.quiet_mode:
-                click.echo(f"\n=== TOURNAMENT GAME {game_num + 1}/{num_games} ===")
+            self.logger.info(f"\n=== TOURNAMENT GAME {game_num + 1}/{num_games} ===")
             
             self.start_new_game()
             self.run_full_game()
@@ -575,17 +561,13 @@ class EuchreGame:
             self.game_state_manager.reset()
             self.trick_manager.reset()
     
-    @property
-    def game_state(self):
-        """Get the current game state."""
-        return self.game_state_manager.get_state()
-    
-    @property
-    def trump_caller(self):
-        """Get the player who called trump."""
-        return self.game_state_manager.trump_caller
-    
-    @property
-    def trump_caller_team(self):
-        """Get the team that called trump."""
-        return self.game_state_manager.trump_caller_team
+    def get_log_filename(self) -> Optional[str]:
+        """Get the log filename if logging is enabled.
+        
+        Returns
+        -------
+        Optional[str]
+            The log filename or None
+        """
+        # Logging is now handled by the GameLogger class
+        return None
