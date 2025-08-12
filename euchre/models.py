@@ -106,37 +106,116 @@ class Card:
         return self.suit == trump_suit
     
     def beats(self, other: "Card", trump_suit: Optional[Suit], lead_suit: Optional[Suit]) -> bool:
-        """Determine if this card beats another card in a trick."""
+        """Determine if this card beats another card in a trick.
+        
+        Parameters
+        ----------
+        other : Card
+            The card to compare against
+        trump_suit : Optional[Suit]
+            The current trump suit
+        lead_suit : Optional[Suit]
+            The suit that was led in the trick
+            
+        Returns
+        -------
+        bool
+            True if this card beats the other card
+        """
         if not isinstance(other, Card):
             return False
             
-        # Check if cards are trump
-        is_trump1 = self.is_trump_card(trump_suit)
-        is_trump2 = other.is_trump_card(trump_suit)
+        # Get trump values for both cards
+        this_trump_value = self.get_trump_value(trump_suit)
+        other_trump_value = other.get_trump_value(trump_suit)
         
-        # Trump cards beat non-trump cards
-        if is_trump1 and not is_trump2:
+        # If both cards are trump, compare their trump values
+        if this_trump_value > 0 and other_trump_value > 0:
+            return this_trump_value > other_trump_value
+        
+        # If only this card is trump, it wins
+        if this_trump_value > 0 and other_trump_value == 0:
             return True
-        if not is_trump1 and is_trump2:
+        
+        # If only other card is trump, it wins
+        if this_trump_value == 0 and other_trump_value > 0:
             return False
-            
-        # If both are trump or both are non-trump, compare ranks
-        if is_trump1 == is_trump2:
-            return self.rank.value > other.rank.value
-            
-        # If one follows lead suit and other doesn't, lead suit wins
+        
+        # If neither card is trump, check if they follow lead suit
         if lead_suit:
-            if self.suit == lead_suit and other.suit != lead_suit:
+            this_follows_lead = self.suit == lead_suit
+            other_follows_lead = other.suit == lead_suit
+            
+            # If one follows lead and other doesn't, lead suit wins
+            if this_follows_lead and not other_follows_lead:
                 return True
-            if other.suit == lead_suit and self.suit != lead_suit:
+            if other_follows_lead and not this_follows_lead:
                 return False
-                
-        # Same suit, compare ranks
+            
+            # If both follow lead or neither follows, compare ranks
+            if this_follows_lead == other_follows_lead:
+                return self.rank.value > other.rank.value
+        
+        # If no lead suit or same suit, compare ranks
         if self.suit == other.suit:
             return self.rank.value > other.rank.value
-            
+        
         # Different suits, neither trump, neither follows lead - first card wins
         return False
+    
+    def get_trump_value(self, trump_suit: Optional[Suit]) -> int:
+        """Get the trump value of this card for comparison.
+        
+        Trump hierarchy:
+        1. Right Bower (Jack of trump suit) = 7
+        2. Left Bower (Jack of same color) = 6  
+        3. Ace of trump = 5
+        4. King of trump = 4
+        5. Queen of trump = 3
+        6. 10 of trump = 2
+        7. 9 of trump = 1
+        8. Non-trump cards = 0
+        
+        Parameters
+        ----------
+        trump_suit : Optional[Suit]
+            The current trump suit
+            
+        Returns
+        -------
+        int
+            Trump value (higher is better)
+        """
+        if not trump_suit:
+            return 0
+            
+        # Right Bower (Jack of trump suit)
+        if self.rank == Rank.JACK and self.suit == trump_suit:
+            return 7
+            
+        # Left Bower (Jack of same color as trump)
+        if self.rank == Rank.JACK:
+            if (trump_suit == Suit.HEARTS and self.suit == Suit.DIAMONDS) or \
+               (trump_suit == Suit.DIAMONDS and self.suit == Suit.HEARTS) or \
+               (trump_suit == Suit.CLUBS and self.suit == Suit.SPADES) or \
+               (trump_suit == Suit.SPADES and self.suit == Suit.CLUBS):
+                return 6
+        
+        # Regular trump suit cards
+        if self.suit == trump_suit:
+            if self.rank == Rank.ACE:
+                return 5
+            elif self.rank == Rank.KING:
+                return 4
+            elif self.rank == Rank.QUEEN:
+                return 3
+            elif self.rank == Rank.TEN:
+                return 2
+            elif self.rank == Rank.NINE:
+                return 1
+        
+        # Not a trump card
+        return 0
     
     def __lt__(self, other: "Card") -> bool:
         """Compare cards for ordering."""
@@ -453,34 +532,9 @@ class Trick:
         return suit_symbols.get(suit, suit.value.title())
     
     def _card_beats(self, card1: Card, card2: Card, trump_suit: Optional[Suit]) -> bool:
-        """Determine if card1 beats card2."""
-        # Check if cards are trump (including left bower)
-        is_trump1 = card1.is_trump_card(trump_suit)
-        is_trump2 = card2.is_trump_card(trump_suit)
-        
-        # Trump cards beat non-trump cards
-        if is_trump1 and not is_trump2:
-            return True
-        if not is_trump1 and is_trump2:
-            return False
-            
-        # If both are trump or both are non-trump, compare ranks
-        if is_trump1 == is_trump2:
-            return card1.rank.value > card2.rank.value
-            
-        # If one follows lead suit and other doesn't, lead suit wins
-        if self.lead_suit:
-            if card1.suit == self.lead_suit and card2.suit != self.lead_suit:
-                return True
-            if card2.suit == self.lead_suit and card1.suit != self.lead_suit:
-                return False
-                
-        # Same suit, compare ranks
-        if card1.suit == card2.suit:
-            return card1.rank.value > card2.rank.value
-            
-        # Different suits, neither trump, neither follows lead - first card wins
-        return False
+        """Determine if card1 beats card2 using proper trump hierarchy."""
+        # Use the Card class's beats method for consistent logic
+        return card1.beats(card2, trump_suit, self.lead_suit)
     
     def _is_trump_card(self, card: Card, trump_suit: Optional[Suit]) -> bool:
         """Check if a card is a trump card (including left bower)."""
