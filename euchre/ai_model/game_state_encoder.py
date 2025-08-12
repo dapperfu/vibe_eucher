@@ -180,14 +180,22 @@ class GameStateEncoder:
         """
         features = []
         
+        # Convert suit to index (hearts=0, diamonds=1, clubs=2, spades=3)
+        suit_to_index = {'hearts': 0, 'diamonds': 1, 'clubs': 2, 'spades': 3}
+        suit_index = suit_to_index.get(card.suit.value, 0)
+        
         # One-hot encoding for suit
         suit_encoding = [0] * self.num_suits
-        suit_encoding[card.suit.value - 1] = 1  # Suit values are 1-4
+        suit_encoding[suit_index] = 1
         features.extend(suit_encoding)
+        
+        # Convert rank to index (9=0, 10=1, J=2, Q=3, K=4, A=5)
+        rank_to_index = {9: 0, 10: 1, 11: 2, 12: 3, 13: 4, 14: 5}
+        rank_index = rank_to_index.get(card.rank.value, 0)
         
         # One-hot encoding for rank
         rank_encoding = [0] * self.num_ranks
-        rank_encoding[card.rank.value - 9] = 1  # Rank values are 9-14
+        rank_encoding[rank_index] = 1
         features.extend(rank_encoding)
         
         # Trump indicator
@@ -211,8 +219,12 @@ class GameStateEncoder:
         List[float]
             One-hot encoded suit
         """
+        # Convert suit to index (hearts=0, diamonds=1, clubs=2, spades=3)
+        suit_to_index = {'hearts': 0, 'diamonds': 1, 'clubs': 2, 'spades': 3}
+        suit_index = suit_to_index.get(suit.value, 0)
+        
         encoding = [0] * self.num_suits
-        encoding[suit.value - 1] = 1
+        encoding[suit_index] = 1
         return encoding
     
     def _encode_ordering_context(self, player: Player) -> List[float]:

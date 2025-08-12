@@ -638,12 +638,96 @@ def benchmark(device, save_results):
         raise
 
 
+@click.command()
+@click.option('--num-games', '-n', default=10000, help='Number of games to run')
+@click.option('--model1', '-m1', required=True, help='First model name (plays North/South)')
+@click.option('--model2', '-m2', required=True, help='Second model name (plays East/West)')
+@click.option('--max-workers', '-w', default=None, type=int, help='Maximum number of parallel workers')
+@click.option('--output-dir', '-o', default='neural_games', help='Output directory for game results')
+def run_neural_games(num_games, model1, model2, max_workers, output_dir):
+    """Run thousands of euchre games with neural network AI players."""
+    try:
+        from .neural_mass_game_runner import NeuralMassGameRunner
+        
+        click.echo(f"🧠 Starting neural network mass game runner with {num_games} games...")
+        click.echo(f"Team 1 (North/South): {model1}")
+        click.echo(f"Team 2 (East/West): {model2}")
+        click.echo(f"Output directory: {output_dir}")
+        
+        runner = NeuralMassGameRunner(output_dir=output_dir, max_workers=max_workers)
+        runner.run_model_vs_model(model1, model2, num_games)
+        
+        click.echo(f"\n🧠 Neural network mass game run completed!")
+        click.echo(f"Results saved to: {output_dir}")
+        
+    except Exception as e:
+        click.echo(f"❌ Error: {e}", err=True)
+
+
+@click.command()
+@click.option('--num-games', '-n', default=1000, help='Number of games per combination')
+@click.option('--max-workers', '-w', default=None, type=int, help='Maximum number of parallel workers')
+@click.option('--output-dir', '-o', default='neural_games', help='Output directory for game results')
+def run_all_neural_combinations(num_games, max_workers, output_dir):
+    """Run games for all possible neural network model combinations."""
+    try:
+        from .neural_mass_game_runner import NeuralMassGameRunner
+        
+        click.echo(f"🧠 Starting neural network mass game runner for all model combinations...")
+        click.echo(f"Games per combination: {num_games}")
+        click.echo(f"Output directory: {output_dir}")
+        
+        runner = NeuralMassGameRunner(output_dir=output_dir, max_workers=max_workers)
+        runner.run_all_model_combinations(num_games)
+        
+        click.echo(f"\n🧠 All neural network combination runs completed!")
+        click.echo(f"Results saved to: {output_dir}")
+        
+    except Exception as e:
+        click.echo(f"❌ Error: {e}", err=True)
+
+
+@click.command()
+@click.option('--models-dir', '-d', default='demo_models', help='Directory containing trained models')
+def list_neural_models(models_dir):
+    """List available neural network models."""
+    try:
+        from .ai_model.player_manager import PlayerManager
+        
+        click.echo(f"🔍 Looking for models in: {models_dir}")
+        
+        manager = PlayerManager(models_dir)
+        available_models = manager.get_available_players()
+        
+        if not available_models:
+            click.echo("❌ No models found")
+            return
+        
+        click.echo(f"📋 Found {len(available_models)} models:")
+        for model_name in available_models:
+            info = manager.get_player_info(model_name)
+            if info:
+                click.echo(f"  🧠 {model_name}")
+                click.echo(f"    📁 File: {info['model_file']}")
+                click.echo(f"    📊 Training games: {info.get('training_games', 'Unknown')}")
+                click.echo(f"    🕒 Last modified: {info.get('last_modified', 'Unknown')}")
+            else:
+                click.echo(f"  🧠 {model_name} (info unavailable)")
+            click.echo()
+        
+    except Exception as e:
+        click.echo(f"❌ Error: {e}", err=True)
+
+
 # Add commands to the main group
 main.add_command(train_self_play)
 main.add_command(list_players)
 main.add_command(play_trained_players)
 main.add_command(tournament)
 main.add_command(benchmark)
+main.add_command(run_neural_games)
+main.add_command(run_all_neural_combinations)
+main.add_command(list_neural_models)
 
 
 if __name__ == "__main__":
