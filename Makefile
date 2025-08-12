@@ -93,4 +93,44 @@ neural-analysis: install ## Analyze neural network tournament results
 	venv/bin/python analyze_neural_results.py
 
 list-neural-models: install ## List available neural network models
-	venv/bin/python -m euchre.cli_main list-neural-models 
+	venv/bin/python -m euchre.cli_main list-neural-models
+
+human-vs-ai: install ## Play as human vs AI with configurable AI types
+	@echo "🎮 Human vs AI Euchre Game"
+	@echo "Usage examples:"
+	@echo "  make human-vs-ai-default          # Play with default settings"
+	@echo "  make human-vs-ai-aggressive      # Play with aggressive partner"
+	@echo "  make human-vs-ai-conservative    # Play with conservative partner"
+	@echo "  make human-vs-ai-balanced        # Play with balanced partner"
+	@echo "  make human-vs-ai-opportunistic   # Play with opportunistic partner"
+	@echo "  make human-vs-ai-custom          # Play with custom AI configuration"
+
+human-vs-ai-default: install ## Play as human with balanced AI partner vs balanced opponents
+	venv/bin/python -m euchre.cli_main human-vs-ai --player-name "Player" --your-position 0 --partner-ai-type balanced --opponent1-ai-type balanced --opponent2-ai-type balanced
+
+human-vs-ai-aggressive: install ## Play as human with aggressive AI partner
+	venv/bin/python -m euchre.cli_main human-vs-ai --player-name "Player" --your-position 0 --partner-ai-type aggressive --opponent1-ai-type balanced --opponent2-ai-type balanced
+
+human-vs-ai-conservative: install ## Play as human with conservative AI partner
+	venv/bin/python -m euchre.cli_main human-vs-ai --player-name "Player" --your-position 0 --partner-ai-type conservative --opponent1-ai-type balanced --opponent2-ai-type balanced
+
+human-vs-ai-balanced: install ## Play as human with balanced AI partner
+	venv/bin/python -m euchre.cli_main human-vs-ai --player-name "Player" --your-position 0 --partner-ai-type balanced --opponent1-ai-type balanced --opponent2-ai-type balanced
+
+human-vs-ai-opportunistic: install ## Play as human with opportunistic AI partner
+	venv/bin/python -m euchre.cli_main human-vs-ai --player-name "Player" --your-position 0 --partner-ai-type opportunistic --opponent1-ai-type balanced --opponent2-ai-type balanced
+
+human-vs-ai-custom: install ## Play as human with custom AI configuration
+	@echo "🎮 Custom Human vs AI Configuration"
+	@echo "Available AI types: aggressive, conservative, balanced, opportunistic"
+	@echo "Risk ratios: 0.0 (very conservative) to 1.0 (very aggressive)"
+	@echo ""
+	@read -p "Enter your name: " name; \
+	read -p "Enter your position (0=Alice, 1=Bob, 2=Charlie, 3=David): " pos; \
+	read -p "Enter partner AI type: " partner; \
+	read -p "Enter opponent1 AI type: " opp1; \
+	read -p "Enter opponent2 AI type: " opp2; \
+	read -p "Enter partner risk ratio (0.0-1.0): " prisk; \
+	read -p "Enter opponent1 risk ratio (0.0-1.0): " orisk1; \
+	read -p "Enter opponent2 risk ratio (0.0-1.0): " orisk2; \
+	venv/bin/python -m euchre.cli_main human-vs-ai --player-name "$$name" --your-position $$pos --partner-ai-type $$partner --opponent1-ai-type $$opp1 --opponent2-ai-type $$opp2 --partner-risk $$prisk --opponent1-risk $$orisk1 --opponent2-risk $$orisk2 
