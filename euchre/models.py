@@ -65,6 +65,141 @@ class Card:
         else:
             return f"{rank_str}{suit_str}"
     
+    def unicode_str(self) -> str:
+        """Enhanced Unicode string representation with emoji modifiers."""
+        rank_map = {
+            Rank.NINE: "9",
+            Rank.TEN: "10", 
+            Rank.JACK: "J",
+            Rank.QUEEN: "Q",
+            Rank.KING: "K",
+            Rank.ACE: "A"
+        }
+        suit_map = {
+            Suit.HEARTS: "♥️",
+            Suit.DIAMONDS: "♦️",
+            Suit.CLUBS: "♣️",
+            Suit.SPADES: "♠️"
+        }
+        
+        rank_str = rank_map.get(self.rank, str(self.rank.value))
+        suit_str = suit_map.get(self.suit, self.suit.name[0].upper())
+        
+        if self.is_trump:
+            return f"{rank_str}{suit_str}*"
+        else:
+            return f"{rank_str}{suit_str}"
+    
+    def compact_str(self) -> str:
+        """Compact string representation for tight displays."""
+        rank_map = {
+            Rank.NINE: "9",
+            Rank.TEN: "10", 
+            Rank.JACK: "J",
+            Rank.QUEEN: "Q",
+            Rank.KING: "K",
+            Rank.ACE: "A"
+        }
+        suit_map = {
+            Suit.HEARTS: "♥️",
+            Suit.DIAMONDS: "♦️",
+            Suit.CLUBS: "♣️",
+            Suit.SPADES: "♠️"
+        }
+        
+        rank_str = rank_map.get(self.rank, str(self.rank.value))
+        suit_str = suit_map.get(self.suit, self.suit.name[0].upper())
+        
+        return f"{rank_str}{suit_str}"
+    
+    @classmethod
+    def get_suit_symbol(cls, suit: Suit, use_emoji: bool = True) -> str:
+        """Get the Unicode symbol for a suit.
+        
+        Parameters
+        ----------
+        suit : Suit
+            The suit to get the symbol for
+        use_emoji : bool
+            Whether to use emoji modifiers (♥️ vs ♥)
+            
+        Returns
+        -------
+        str
+            The Unicode symbol for the suit
+        """
+        if use_emoji:
+            suit_map = {
+                Suit.HEARTS: "♥️",
+                Suit.DIAMONDS: "♦️",
+                Suit.CLUBS: "♣️",
+                Suit.SPADES: "♠️"
+            }
+        else:
+            suit_map = {
+                Suit.HEARTS: "♥",
+                Suit.DIAMONDS: "♦",
+                Suit.CLUBS: "♣",
+                Suit.SPADES: "♠"
+            }
+        
+        return suit_map.get(suit, suit.name[0].upper())
+    
+    @classmethod
+    def get_rank_symbol(cls, rank: Rank) -> str:
+        """Get the display symbol for a rank.
+        
+        Parameters
+        ----------
+        rank : Rank
+            The rank to get the symbol for
+            
+        Returns
+        -------
+        str
+            The display symbol for the rank
+        """
+        rank_map = {
+            Rank.NINE: "9",
+            Rank.TEN: "10", 
+            Rank.JACK: "J",
+            Rank.QUEEN: "Q",
+            Rank.KING: "K",
+            Rank.ACE: "A"
+        }
+        
+        return rank_map.get(rank, str(rank.value))
+    
+    @classmethod
+    def format_hand(cls, cards: List["Card"], use_emoji: bool = True, show_trump: bool = False) -> str:
+        """Format a hand of cards for display.
+        
+        Parameters
+        ----------
+        cards : List[Card]
+            List of cards to format
+        use_emoji : bool
+            Whether to use emoji modifiers
+        show_trump : bool
+            Whether to show trump indicators
+            
+        Returns
+        -------
+        str
+            Formatted hand string
+        """
+        if not cards:
+            return "Empty hand"
+        
+        formatted_cards = []
+        for card in cards:
+            if show_trump and card.is_trump:
+                formatted_cards.append(f"{cls.get_rank_symbol(card.rank)}{cls.get_suit_symbol(card.suit, use_emoji)}*")
+            else:
+                formatted_cards.append(f"{cls.get_rank_symbol(card.rank)}{cls.get_suit_symbol(card.suit, use_emoji)}")
+        
+        return " ".join(formatted_cards)
+    
     @property
     def value(self) -> int:
         """Get the numeric value of the card."""
