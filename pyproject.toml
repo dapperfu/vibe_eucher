@@ -11,6 +11,16 @@ readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
     "click>=8.1.0",
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+    "numpy>=1.21.0",
+    "matplotlib>=3.5.0",
+    "seaborn>=0.11.0",
+    "tqdm>=4.64.0",
+    "pandas>=2.0.0",
+    "openpyxl>=3.1.0",
+    "jupyter>=1.0.0",
+    "jupyterlab>=4.0.0",
 ]
 
 [project.optional-dependencies]
@@ -23,6 +33,21 @@ dev = [
 
 [project.scripts]
 euchre = "euchre.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["euchre*"]
+exclude = [
+    "data*",
+    "games*",
+    "models*",
+    "notebooks*",
+    "test_*",
+    "demo_*",
+    "neural_*",
+    "trained_*",
+    "venv*",
+    "*.py",
+]
 
 [tool.black]
 line-length = 88
