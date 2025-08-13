@@ -242,9 +242,9 @@ def jupyter_lab():
 @main.command()
 @click.argument("player_name", default="You")
 @click.option("--your-position", default=0, help="Your position (0-3)")
-@click.option("--partner-ai-type", default="balanced", help="Partner AI type")
-@click.option("--opponent1-ai-type", default="balanced", help="First opponent AI type")
-@click.option("--opponent2-ai-type", default="balanced", help="Second opponent AI type")
+@click.option("--partner-ai-type", default="level1_balanced", help="Partner AI type")
+@click.option("--opponent1-ai-type", default="level1_aggressive", help="First opponent AI type")
+@click.option("--opponent2-ai-type", default="level1_conservative", help="Second opponent AI type")
 @click.option("--partner-risk", default=0.5, help="Partner risk ratio (0.0-1.0)")
 @click.option("--opponent1-risk", default=0.5, help="First opponent risk ratio (0.0-1.0)")
 @click.option("--opponent2-risk", default=0.5, help="Second opponent risk ratio (0.0-1.0)")
@@ -256,7 +256,7 @@ def human_vs_ai(player_name: str, your_position: int, partner_ai_type: str,
                 partner_risk: float, opponent1_risk: float, opponent2_risk: float,
                 partner_model_path: Optional[str] = None, opponent1_model_path: Optional[str] = None, 
                 opponent2_model_path: Optional[str] = None):
-    """Play as human vs AI with configurable AI types (including Level 2 models)."""
+    """Play as human vs AI with configurable AI types (including Level 1 and Level 2 models)."""
     click.echo(f"🎮 Human vs AI Game - {player_name} at position {your_position}")
     
     # Show available AI types
@@ -292,8 +292,11 @@ def human_vs_ai(player_name: str, your_position: int, partner_ai_type: str,
             risk = ai_risks[current_ai]
             model_path = model_paths[current_ai]
             
+            # Check if this is a Level 1 AI type
+            if AIFactory.is_level1_type(ai_type):
+                click.echo(f"🤖 Adding Level 1 {ai_type} AI player: {player_names[i]}")
             # Check if this is a Level 2 model
-            if AIFactory.is_level2_type(ai_type):
+            elif AIFactory.is_level2_type(ai_type):
                 click.echo(f"🤖 Adding Level 2 {ai_type} AI player: {player_names[i]}")
                 if not model_path:
                     click.echo("⚠️  No model path provided - using untrained Level 2 model")
@@ -309,6 +312,48 @@ def human_vs_ai(player_name: str, your_position: int, partner_ai_type: str,
         click.echo("✅ Human vs AI game completed successfully!")
     except Exception as e:
         click.echo(f"❌ Human vs AI game failed: {e}", err=True)
+
+
+@main.command()
+@click.argument("player_name", default="You")
+@click.option("--your-position", default=0, help="Your position (0-3)")
+@click.option("--level1-model", default="level1_balanced",
+              help="Level 1 AI model to play against")
+@click.option("--ai-risk", default=0.5, help="AI risk ratio (0.0-1.0)")
+def human_vs_level1(player_name: str, your_position: int, level1_model: str,
+                    ai_risk: float = 0.5):
+    """Play as human vs Level 1 AI models specifically."""
+    click.echo(f"🧠 Human vs Level 1 AI Game")
+    click.echo(f"👤 Player: {player_name} at position {your_position}")
+    click.echo(f"🤖 Level 1 Model: {level1_model}")
+    click.echo(f"🎯 AI Risk Level: {ai_risk}")
+    click.echo(f"Positions: 0=North, 1=East, 2=South (default), 3=West")
+    
+    # Create game
+    game = EuchreGame(verbose=True)
+    
+    # Add players
+    player_names = ["Alice", "Bob", "Charlie", "David"]
+    
+    for i in range(4):
+        if i == your_position:
+            # This is the human player
+            game.add_player(player_name, PlayerType.HUMAN)
+            click.echo(f"👤 Added human player: {player_name} at position {i}")
+        else:
+            # This is a Level 1 AI player
+            if AIFactory.is_level1_type(ai_type):
+                ai_name = player_names[i]
+                game.add_ai_player(ai_name, level1_model, ai_risk)
+                click.echo(f"🤖 Added Level 1 {level1_model} AI: {ai_name} at position {i}")
+    
+    # Start game
+    try:
+        click.echo("\n🎮 Starting game...")
+        game.start_new_game()
+        click.echo("✅ Human vs Level 1 AI game completed successfully!")
+    except Exception as e:
+        click.echo(f"❌ Game failed: {e}", err=True)
 
 
 @main.command()
@@ -370,6 +415,13 @@ def list_ai_types():
     for ai_type in traditional_types:
         click.echo(f"  • {ai_type}")
     
+    # Level 1 AI types
+    click.echo("\n🤖 Level 1 Rule-Based AI Models:")
+    level1_types = ["level1_aggressive", "level1_conservative", "level1_balanced", "level1_opportunistic"]
+    for ai_type in level1_types:
+        click.echo(f"  • {ai_type}")
+    click.echo("💡 Level 1 models use traditional rule-based logic with configurable risk profiles")
+    
     # Level 2 AI types
     if AIFactory.LEVEL2_AVAILABLE:
         click.echo("\n🧠 Level 2 Neural AI Models:")
@@ -382,9 +434,9 @@ def list_ai_types():
         click.echo("   Install PyTorch and Level 2 dependencies to enable")
     
     click.echo("\n🎮 Usage Examples:")
+    click.echo("  • Play vs Level 1: euchre human-vs-level1 --level1-model level1_aggressive")
     click.echo("  • Play vs Level 2: euchre human-vs-level2 --level2-model level2_strategic")
-    click.echo("  • Play vs trained model: euchre human-vs-level2 --level2-model level2_strategic --model-path models/level2_strategic_trained.pth")
-    click.echo("  • Mix AI types: euchre human-vs-ai --partner-ai-type magnus --opponent1-ai-type aggressive")
+    click.echo("  • Mix AI types: euchre human-vs-ai --partner-ai-type level1_balanced --opponent1-ai-type level2_aggressive")
 
 
 @main.command()

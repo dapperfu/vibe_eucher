@@ -89,6 +89,15 @@ class NcursesGame:
         while not self.game.is_game_over():
             self._display_game()
             
+            # Debug: show current game state
+            try:
+                if self.game.game_state_manager:
+                    current_player = self.game.game_state_manager.get_current_player()
+                    self.screen.addstr(self.max_y - 1, 2, f"Debug: Current player: {current_player.name if current_player else 'None'}")
+                    self.screen.refresh()
+            except Exception as e:
+                pass
+            
             if self.game_mode == "human_vs_ai" and self._is_human_turn():
                 self._handle_human_turn()
             else:
@@ -101,9 +110,11 @@ class NcursesGame:
         
     def _is_human_turn(self) -> bool:
         """Check if it's the human player's turn."""
-        if not self.game.game_state or not self.human_player:
+        if not self.game.game_state_manager or not self.human_player:
             return False
-        return self.game.game_state.current_player == self.human_player
+        # Use the correct method to get current player
+        current_player = self.game.game_state_manager.get_current_player()
+        return current_player == self.human_player
         
     def _handle_human_turn(self) -> None:
         """Handle human player's turn."""
@@ -114,8 +125,10 @@ class NcursesGame:
         choice = self._get_human_card_choice()
         
         if choice is not None:
-            # Play the chosen card
-            self.game.play_card(self.human_player, choice)
+            # Play the chosen card using the trick manager
+            self.game.trick_manager.play_card(self.human_player, choice)
+            # Remove the card from the player's hand
+            self.human_player.hand.remove(choice)
             
     def _display_human_hand(self) -> None:
         """Display the human player's hand prominently."""
@@ -177,7 +190,7 @@ class NcursesGame:
                 
     def _play_ai_turn(self) -> None:
         """Play an AI player's turn."""
-        if not self.game.game_state:
+        if not self.game.game_state_manager:
             return
             
         # Play the round
@@ -260,8 +273,8 @@ class NcursesGame:
         # Get player info
         if player_index < len(self.game.players):
             player = self.game.players[player_index]
-            is_current = (self.game.game_state and 
-                         self.game.game_state.current_player_index == player_index)
+            is_current = (self.game.game_state_manager and 
+                         self.game.game_state_manager.current_player_index == player_index)
             is_dealer = hasattr(player, 'is_dealer') and player.is_dealer
         else:
             player = None
@@ -316,7 +329,7 @@ class NcursesGame:
         
     def _draw_hands(self) -> None:
         """Draw the hands of all players."""
-        if not self.game.game_state:
+        if not self.game.game_state_manager:
             return
             
         # Calculate available space for hands
@@ -330,6 +343,9 @@ class NcursesGame:
         
     def _draw_hand(self, name: str, y: int, x: int, player_index: int, max_width: int) -> None:
         """Draw a player's hand."""
+        if player_index >= len(self.game.players):
+            return
+            
         player = self.game.players[player_index]
         
         # Check bounds
@@ -342,6 +358,14 @@ class NcursesGame:
         except curses.error:
             return
             
+        # Check if player has a hand
+        if not hasattr(player, 'hand') or not player.hand:
+            try:
+                self.screen.addstr(y + 1, x, "No cards")
+            except curses.error:
+                pass
+            return
+            
         # Draw cards (with bounds checking)
         for i, card in enumerate(player.hand):
             card_y = y + 1
@@ -352,7 +376,7 @@ class NcursesGame:
                 continue
                 
             # Choose color based on suit and trump status
-            if card.is_trump:
+            if hasattr(card, 'is_trump') and card.is_trump:
                 color = curses.color_pair(3)
             elif card.suit in [Suit.HEARTS, Suit.DIAMONDS]:
                 color = curses.color_pair(1)
@@ -417,21 +441,21 @@ class NcursesGame:
             
     def _draw_round_info(self) -> None:
         """Draw round information."""
-        if not self.game.game_state:
+        if not self.game.game_state_manager:
             return
             
         # Check if we have enough space at the bottom
         if self.max_y < 3:
             return
             
-        round_info = f"Round: {self.game.game_state.round_number}"
+        round_info = f"Round: {self.game.game_state_manager.round_number}"
         try:
             self.screen.addstr(self.max_y - 3, 2, round_info)
         except curses.error:
             pass
             
         # Draw dealer info
-        dealer = self.game.game_state.get_dealer()
+        dealer = self.game.game_state_manager.get_dealer()
         dealer_info = f"Dealer: {dealer.name}"
         try:
             self.screen.addstr(self.max_y - 2, 2, dealer_info)
@@ -439,7 +463,7 @@ class NcursesGame:
             pass
             
         # Draw current player info
-        current_player = self.game.game_state.get_current_player()
+        current_player = self.game.game_state_manager.get_current_player()
         current_info = f"Current: {current_player.name}"
         try:
             self.screen.addstr(self.max_y - 1, 2, current_info)
@@ -458,7 +482,7 @@ class NcursesGame:
                 break
                 
             if trick.cards_played:
-                winner, winning_card = trick.get_winner(self.game.game_state.trump_suit)
+                winner, winning_card = trick.get_winner(self.game.game_state_manager.trump_suit)
                 
                 # Highlight winner
                 result_text = f"Trick {i+1}: {winner.name} wins with {winning_card}"
@@ -517,8 +541,8 @@ class NcursesGame:
             pass
             
         # Show final scores
-        if self.game.game_state:
-            final_score = f"Final Score - Team 1: {self.game.game_state.team1_score}, Team 2: {self.game.game_state.team2_score}"
+        if self.game.game_state_manager:
+            final_score = f"Final Score - Team 1: {self.game.game_state_manager.team1_score}, Team 2: {self.game.game_state_manager.team2_score}"
             try:
                 self.screen.addstr(self.max_y // 2, (self.max_x - len(final_score)) // 2, final_score)
             except curses.error:
@@ -543,14 +567,14 @@ class NcursesGame:
 
     def _draw_scores(self) -> None:
         """Draw the current scores."""
-        if not self.game.game_state:
+        if not self.game.game_state_manager:
             return
             
         # Check if we have enough space
         if self.max_y < 3 or self.max_x < 50:
             return
             
-        score_line = f"Team 1 (North/South): {self.game.game_state.team1_score} | Team 2 (East/West): {self.game.game_state.team2_score}"
+        score_line = f"Team 1 (North/South): {self.game.game_state_manager.team1_score} | Team 2 (East/West): {self.game.game_state_manager.team2_score}"
         
         # Truncate if too long for screen
         if len(score_line) > self.max_x - 4:
@@ -563,14 +587,14 @@ class NcursesGame:
         
     def _draw_trump_suit(self) -> None:
         """Draw the current trump suit."""
-        if not self.game.game_state or not self.game.game_state.trump_suit:
+        if not self.game.game_state_manager or not self.game.game_state_manager.trump_suit:
             return
             
         # Check if we have enough space
         if self.max_y < 4 or self.max_x < 20:
             return
             
-        trump_text = f"Trump: {self.game.game_state.trump_suit.name.title()}"
+        trump_text = f"Trump: {self.game.game_state_manager.trump_suit.name.title()}"
         
         # Truncate if too long for screen
         if len(trump_text) > self.max_x - 4:

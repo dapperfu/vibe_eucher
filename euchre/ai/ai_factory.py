@@ -18,7 +18,7 @@ class AIFactory:
     """Factory for creating AI players with different profiles."""
     
     @staticmethod
-    def create_ai_player(name: str, ai_type: str = "balanced", risk_ratio: float = 0.5, 
+    def create_ai_player(name: str, ai_type: str = "level1_balanced", risk_ratio: float = 0.5, 
                         model_path: Optional[str] = None) -> Union[BaseAIInterface, Player]:
         """
         Create an AI player with a specific profile.
@@ -28,7 +28,7 @@ class AIFactory:
         name : str
             The player's name
         ai_type : str
-            Type of AI: "aggressive", "conservative", "balanced", "opportunistic",
+            Type of AI: "level1_aggressive", "level1_conservative", "level1_balanced", "level1_opportunistic",
                        "level2_strategic", "level2_aggressive", "level2_balanced", "level2_intuitive"
         risk_ratio : float
             Risk tolerance (0.0 = conservative, 1.0 = aggressive)
@@ -49,7 +49,13 @@ class AIFactory:
             
             return Level2AI(name, ai_type, risk_ratio, model_path)
         
-        # Check if this is a traditional AI type using the new interface
+        # Check if this is a Level 1 AI type using the new interface
+        if ai_type in ["level1_aggressive", "level1_conservative", "level1_balanced", "level1_opportunistic"]:
+            # Extract the base type from level1_ prefix
+            base_type = ai_type.replace("level1_", "")
+            return TraditionalAI(name, risk_ratio, base_type)
+        
+        # Legacy support for old naming (backward compatibility)
         if ai_type in ["aggressive", "conservative", "balanced", "opportunistic"]:
             return TraditionalAI(name, risk_ratio, ai_type)
         
@@ -85,7 +91,7 @@ class AIFactory:
             List of created AI players
         """
         if ai_types is None:
-            ai_types = ["balanced"] * len(names)
+            ai_types = ["level1_balanced"] * len(names)
         
         if risk_ratios is None:
             risk_ratios = [0.5] * len(names)
@@ -95,7 +101,7 @@ class AIFactory:
         
         # Ensure lists are the same length
         while len(ai_types) < len(names):
-            ai_types.append("balanced")
+            ai_types.append("level1_balanced")
         
         while len(risk_ratios) < len(names):
             risk_ratios.append(0.5)
@@ -113,7 +119,7 @@ class AIFactory:
             except Exception as e:
                 print(f"Warning: Could not create AI player {name} with type {ai_types[i]}: {e}")
                 # Fallback to balanced AI
-                fallback_player = AIFactory.create_ai_player(name, "balanced", 0.5)
+                fallback_player = AIFactory.create_ai_player(name, "level1_balanced", 0.5)
                 players.append(fallback_player)
         
         return players
@@ -122,7 +128,7 @@ class AIFactory:
     def create_default_ai_players() -> List[BaseAIInterface]:
         """Create default AI players with balanced profiles."""
         names = ["Alice", "Bob", "Charlie", "David"]
-        ai_types = ["balanced", "balanced", "balanced", "balanced"]
+        ai_types = ["level1_balanced", "level1_balanced", "level1_balanced", "level1_balanced"]
         risk_ratios = [0.5, 0.5, 0.5, 0.5]
         
         return AIFactory.create_ai_players(names, ai_types, risk_ratios)
@@ -131,7 +137,7 @@ class AIFactory:
     def create_mixed_ai_players() -> List[BaseAIInterface]:
         """Create AI players with mixed strategies for variety."""
         names = ["Alice", "Bob", "Charlie", "David"]
-        ai_types = ["aggressive", "conservative", "balanced", "opportunistic"]
+        ai_types = ["level1_aggressive", "level1_conservative", "level1_balanced", "level1_opportunistic"]
         risk_ratios = [0.8, 0.2, 0.5, 0.7]
         
         return AIFactory.create_ai_players(names, ai_types, risk_ratios)
@@ -171,13 +177,29 @@ class AIFactory:
         List[str]
             List of available AI type names
         """
-        traditional_types = ["aggressive", "conservative", "balanced", "opportunistic"]
+        level1_types = ["level1_aggressive", "level1_conservative", "level1_balanced", "level1_opportunistic"]
         
         if LEVEL2_AVAILABLE:
             level2_types = ["level2_strategic", "level2_aggressive", "level2_balanced", "level2_intuitive"]
-            return traditional_types + level2_types
+            return level1_types + level2_types
         
-        return traditional_types
+        return level1_types
+    
+    @staticmethod
+    def is_level1_type(ai_type: str) -> bool:
+        """Check if an AI type is a Level 1 model.
+        
+        Parameters
+        ----------
+        ai_type : str
+            The AI type to check
+            
+        Returns
+        -------
+        bool
+            True if it's a Level 1 type, False otherwise
+        """
+        return ai_type.lower() in ["level1_aggressive", "level1_conservative", "level1_balanced", "level1_opportunistic"]
     
     @staticmethod
     def is_level2_type(ai_type: str) -> bool:
@@ -209,7 +231,7 @@ class AIFactory:
         bool
             True if it uses the new interface, False if it's legacy
         """
-        new_interface_types = ["aggressive", "conservative", "balanced", "opportunistic", 
+        new_interface_types = ["level1_aggressive", "level1_conservative", "level1_balanced", "level1_opportunistic",
                               "level2_strategic", "level2_aggressive", "level2_balanced", "level2_intuitive"]
         return ai_type.lower() in new_interface_types
     

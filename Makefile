@@ -2,7 +2,7 @@
 
 help: ## Show this help message
 	@echo "Available commands:"
-	@grep -E '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z0-9_-]+:.*##' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 # =============================================================================
 # ENVIRONMENT SETUP
@@ -11,7 +11,7 @@ help: ## Show this help message
 venv: ## Create virtual environment
 	python3 -m venv venv
 
-install: venv/bin/euchre ## Install dependencies (traditional method)
+install: venv/lib/python3.12/site-packages/pytest ## Install dependencies (traditional method)
 	venv/bin/pip install --upgrade pip
 	venv/bin/pip install -r requirements.txt
 
@@ -73,17 +73,24 @@ mass-games: install ## Run thousands of games in parallel
 
 human-vs-ai: install ## Play human vs AI game with configurable AI types
 	@echo "🎮 Starting Human vs AI Game..."
-	@echo "Usage: make human-vs-ai PLAYER_NAME=YourName POSITION=0 PARTNER_AI=balanced OPP1_AI=aggressive OPP2_AI=conservative"
-	@echo "Available AI types: aggressive, conservative, balanced, opportunistic, magnus, maverick, mentor, mystic"
-	@echo "Example: make human-vs-ai PLAYER_NAME=Alice POSITION=0 PARTNER_AI=magnus OPP1_AI=aggressive OPP2_AI=balanced"
+	@echo "Usage: make human-vs-ai PLAYER_NAME=YourName POSITION=0 PARTNER_AI=level1_balanced OPP1_AI=level1_aggressive OPP2_AI=level2_strategic"
+	@echo "Available AI types: level1_aggressive, level1_conservative, level1_balanced, level1_opportunistic, level2_strategic, level2_aggressive, level2_balanced, level2_intuitive"
+	@echo "Example: make human-vs-ai PLAYER_NAME=Alice POSITION=0 PARTNER_AI=level1_balanced OPP1_AI=level1_aggressive OPP2_AI=level2_strategic"
 	venv/bin/python -m euchre.cli_main human-vs-ai $(PLAYER_NAME) --your-position $(POSITION) --partner-ai-type $(PARTNER_AI) --opponent1-ai-type $(OPP1_AI) --opponent2-ai-type $(OPP2_AI)
+
+human-vs-level1: install ## Play human vs Level1 AI specifically
+	@echo "🧠 Starting Human vs Level1 AI Game..."
+	@echo "Usage: make human-vs-level1 PLAYER_NAME=YourName POSITION=0 MODEL=level1_aggressive"
+	@echo "Available Level 1 models: level1_aggressive, level1_conservative, level1_balanced, level1_opportunistic"
+	@echo "Example: make human-vs-level1 PLAYER_NAME=Alice POSITION=0 MODEL=level1_aggressive"
+	venv/bin/python -m euchre.cli_main human-vs-level1 $(PLAYER_NAME) --your-position $(POSITION) --level1-model $(MODEL)
 
 human-vs-level2: install ## Play human vs Level2 AI specifically
 	@echo "🧠 Starting Human vs Level2 AI Game..."
-	@echo "Usage: make human-vs-level2 PLAYER_NAME=YourName POSITION=0 MODEL=magnus MODEL_PATH=path/to/model.pth"
-	@echo "Available Level2 models: magnus, maverick, mentor, mystic"
-	@echo "Example: make human-vs-level2 PLAYER_NAME=Alice POSITION=0 MODEL=magnus MODEL_PATH=models/magnus_trained.pth"
-	venv/bin/python -m euchre.cli_main human-vs-level2 $(PLAYER_NAME) --your-position $(POSITION) --m-series-model $(MODEL) --model-path $(MODEL_PATH)
+	@echo "Usage: make human-vs-level2 PLAYER_NAME=YourName POSITION=0 MODEL=level2_strategic MODEL_PATH=path/to/model.pth"
+	@echo "Available Level 2 models: level2_strategic, level2_aggressive, level2_balanced, level2_intuitive"
+	@echo "Example: make human-vs-level2 PLAYER_NAME=Alice POSITION=0 MODEL=level2_strategic MODEL_PATH=models/level2_strategic_trained.pth"
+	venv/bin/python -m euchre.cli_main human-vs-level2 $(PLAYER_NAME) --your-position $(POSITION) --level2-model $(MODEL) --model-path $(MODEL_PATH)
 
 # =============================================================================
 # ANALYSIS AND UTILITIES
