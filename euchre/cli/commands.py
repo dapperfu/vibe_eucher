@@ -55,9 +55,8 @@ class GameCommands:
             game.start_new_game()
             click.echo("Game started! Dealing cards...")
             
-            # Show human player's hand if this is a human game
+            # Start the game (human or AI)
             if player_name is not None:
-                GameCommands._show_human_game_info(game, player_name)
                 game.run_interactive_game()
             else:
                 # AI-only game - just run it
@@ -109,9 +108,9 @@ class GameCommands:
             Human player name
         """
         human_hand = game.get_player_hand(player_name)
-        click.echo(f"\nYour hand:")
+        click.echo(f"\n🃏 Your hand ({player_name}):")
         for i, card in enumerate(human_hand, 1):
-            click.echo(f"  {i}. {card}")
+            click.echo(f"  {i}. {card.unicode_str()}")
         
         # Show trump information
         if game.trump_suit:
@@ -391,17 +390,12 @@ class GameCommands:
         """
         click.echo(f"\n🎴 Round {game.round_number}")
         click.echo(f"Dealer: {game.game_state_manager.get_dealer().name}")
-        click.echo(f"Top Card: {game.top_card.unicode_str()}")
         
-        # Show human player's hand
-        your_hand = game.get_player_hand(player_position)
-        if your_hand:
-            click.echo(f"\n🃏 Your hand ({player_position}):")
-            for i, card in enumerate(your_hand):
-                click.echo(f"  {i+1}. {card.unicode_str()}")
-        
-        # Trump selection phase
+        # Trump selection phase (hand and top card shown during this phase)
         GameCommands._handle_trump_selection(game, player_position, your_position)
+        
+        # Now show the final hand after trump selection
+        GameCommands._show_human_game_info(game, player_position)
         
         # Play 5 tricks
         for trick_number in range(1, 6):
@@ -706,24 +700,31 @@ class GameCommands:
             for i, (player, card) in enumerate(current_trick.cards_played):
                 click.echo(f"  {player.name}: {card.unicode_str()}")
         
-        # Show human player's hand
-        your_hand = game.get_player_hand(player_position)
-        click.echo(f"Your hand:")
-        for i, card in enumerate(your_hand):
+        # Get valid cards to play (enforcing follow suit rules)
+        valid_cards = GameCommands._get_valid_cards_for_player(game, player_position, current_trick)
+        
+        if not valid_cards:
+            click.echo("❌ No valid cards to play!")
+            return
+        
+        # Show valid cards only
+        click.echo(f"Your valid plays:")
+        for i, card in enumerate(valid_cards):
             click.echo(f"  {i+1}. {card.unicode_str()}")
         
         # Get card choice
         while True:
             try:
                 card_choice = click.prompt(
-                    f"Which card do you want to play? (1-{len(your_hand)})",
+                    f"Which card do you want to play? (1-{len(valid_cards)})",
                     type=int,
                     default=1
                 )
-                if 1 <= card_choice <= len(your_hand):
-                    chosen_card = your_hand[card_choice - 1]
+                if 1 <= card_choice <= len(valid_cards):
+                    chosen_card = valid_cards[card_choice - 1]
                     
                     # Remove card from hand
+                    your_hand = game.get_player_hand(player_position)
                     your_hand.remove(chosen_card)
                     
                     # Update the player's hand in the game
@@ -738,7 +739,7 @@ class GameCommands:
                     click.echo(f"🎴 {player_position} plays {chosen_card.unicode_str()}")
                     break
                 else:
-                    click.echo(f"Please enter a number between 1 and {len(your_hand)}")
+                    click.echo(f"Please enter a number between 1 and {len(valid_cards)}")
             except Exception as e:
                 click.echo(f"Invalid input: {e}")
     
@@ -766,6 +767,40 @@ class GameCommands:
         game.trick_manager.play_card(ai_player, card)
         
         click.echo(f"🤖 {ai_player.name} plays {card.unicode_str()}")
+    
+    @staticmethod
+    def _get_valid_cards_for_player(game: EuchreGame, player_position: str, current_trick) -> List['Card']:
+        """Get valid cards a player can play following suit rules.
+        
+        Parameters
+        ----------
+        game : EuchreGame
+            The game instance
+        player_position : str
+            The player's position name
+        current_trick
+            The current trick
+            
+        Returns
+        -------
+        List[Card]
+            List of valid cards to play
+        """
+        if not current_trick or not current_trick.lead_suit:
+            # Leading - can play any card
+            return game.get_player_hand(player_position)
+        
+        # Must follow suit if possible
+        lead_suit = current_trick.lead_suit
+        your_hand = game.get_player_hand(player_position)
+        cards_of_lead_suit = [card for card in your_hand if card.suit == lead_suit]
+        
+        if cards_of_lead_suit:
+            # Can follow suit - must play one of these
+            return cards_of_lead_suit
+        else:
+            # Can't follow suit - can play any card
+            return your_hand
     
     @staticmethod
     def _simple_ai_card_choice(player, current_trick, trump_suit) -> 'Card':
