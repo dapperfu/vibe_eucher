@@ -57,6 +57,7 @@ class EuchreGame:
         self.trump_suit: Optional[Suit] = None
         self.tricks_won = {}
         self.round_number = 1
+        self._top_card_picked_up = False  # Track if top card was picked up
         
         # Initialize dealer selection (will be done in start_new_game)
         self.dealer_selection = None
@@ -166,6 +167,7 @@ class EuchreGame:
         self.current_trick = None
         self.tricks_won = {player.name: 0 for player in self.players}
         self.trump_suit = None
+        self._top_card_picked_up = False  # Reset top card picked up flag
         
         # Deal new cards for this round (unless it's the first round which was already dealt)
         if self.round_number > 1:
@@ -179,7 +181,10 @@ class EuchreGame:
         
         # Select trump suit
         self.logger.info(f"Dealer: {self.game_state_manager.get_dealer().name}")
-        self.logger.info(f"Top Card: {self.top_card.unicode_str()}")
+        if self.top_card and not self._top_card_picked_up:
+            self.logger.info(f"Top Card: {self.top_card.unicode_str()}")
+        else:
+            self.logger.info("Top Card: Picked up by player")
         
         trump_suit, caller = self.trump_selection_manager.select_trump_suit(
             self.players, 

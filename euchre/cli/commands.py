@@ -333,6 +333,12 @@ class GameCommands:
             for i, card in enumerate(your_hand):
                 click.echo(f"  {i+1}. {card.unicode_str()}")
         
+        # Show top card status
+        if game.top_card and not getattr(game, '_top_card_picked_up', False):
+            click.echo(f"  Top Card: {game.top_card.unicode_str()}")
+        else:
+            click.echo(f"  Top Card: Picked up by player")
+        
         click.echo(f"\n🎮 You are playing as {positions[your_position]}")
         click.echo(f"🤝 Your partner is {positions[(your_position + 2) % 4]}")
         click.echo(f"👥 Your opponents are {positions[(your_position + 1) % 4]} and {positions[(your_position + 3) % 4]}")
@@ -354,8 +360,8 @@ class GameCommands:
         click.echo("\n🎯 Starting Interactive Human vs AI Game!")
         click.echo("=" * 60)
         
-        # Start the game
-        game.start_new_game()
+        # Game is already started in human_vs_ai_game, don't start it again
+        # game.start_new_game()  # REMOVED: This was causing duplicate card dealing
         
         # Play the first round
         GameCommands._play_interactive_round(game, player_position, your_position)
@@ -391,8 +397,18 @@ class GameCommands:
         click.echo(f"\n🎴 Round {game.round_number}")
         click.echo(f"Dealer: {game.game_state_manager.get_dealer().name}")
         
+        # Debug: Show all player hands at the beginning of the round
+        click.echo(f"\n🔍 Debug: Player hands at start of round:")
+        for player in game.players:
+            click.echo(f"  {player.name}: {len(player.hand)} cards - {[card.unicode_str() for card in player.hand]}")
+        
         # Trump selection phase (hand and top card shown during this phase)
         GameCommands._handle_trump_selection(game, player_position, your_position)
+        
+        # Debug: Show all player hands after trump selection
+        click.echo(f"\n🔍 Debug: Player hands after trump selection:")
+        for player in game.players:
+            click.echo(f"  {player.name}: {len(player.hand)} cards - {[card.unicode_str() for card in player.hand]}")
         
         # Now show the final hand after trump selection
         GameCommands._show_human_game_info(game, player_position)
@@ -439,7 +455,10 @@ class GameCommands:
             if current_player.name == player_position:
                 # Human player's turn
                 click.echo(f"\n🤔 {player_position}'s turn to decide on trump")
-                click.echo(f"Top card: {game.top_card.unicode_str()}")
+                if game.top_card and not getattr(game, '_top_card_picked_up', False):
+                    click.echo(f"Top card: {game.top_card.unicode_str()}")
+                else:
+                    click.echo("Top card: Already picked up")
                 
                 # Show current hand
                 your_hand = game.get_player_hand(player_position)
@@ -577,7 +596,10 @@ class GameCommands:
         for i, card in enumerate(your_hand):
             click.echo(f"  {i+1}. {card.unicode_str()}")
         
-        click.echo(f"Top card to pick up: {game.top_card.unicode_str()}")
+        if game.top_card and not getattr(game, '_top_card_picked_up', False):
+            click.echo(f"Top card to pick up: {game.top_card.unicode_str()}")
+        else:
+            click.echo("Top card: Already picked up")
         
         # Get discard choice
         while True:
@@ -593,13 +615,31 @@ class GameCommands:
                     your_hand.append(game.top_card)
                     
                     click.echo(f"🗑️  Discarded: {discarded_card.unicode_str()}")
-                    click.echo(f"🆕 Picked up: {game.top_card.unicode_str()}")
+                    if game.top_card:
+                        click.echo(f"🆕 Picked up: {game.top_card.unicode_str()}")
+                    else:
+                        click.echo("🆕 Picked up: Top card")
                     
                     # Update the player's hand in the game
                     for player in game.players:
                         if player.name == player_position:
                             player.hand = your_hand
                             break
+                    
+                    # Mark the top card as picked up (don't set to None to avoid errors)
+                    # The top card is now in the player's hand, so we'll track this state
+                    game._top_card_picked_up = True
+                    
+                    # Debug: Check all player hands after the update
+                    click.echo(f"\n🔍 Debug: Player hands after pickup:")
+                    for player in game.players:
+                        click.echo(f"  {player.name}: {len(player.hand)} cards - {[card.unicode_str() for card in player.hand]}")
+                    
+                    # Ensure all AI players still have 5 cards
+                    # This is a safety check - in normal Euchre, AI players should already have 5 cards
+                    for player in game.players:
+                        if player.player_type.name == "AI" and len(player.hand) != 5:
+                            click.echo(f"⚠️  Warning: {player.name} has {len(player.hand)} cards instead of 5")
                     
                     break
                 else:
