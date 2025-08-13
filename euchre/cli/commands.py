@@ -1037,14 +1037,8 @@ class GameCommands:
             dealer = game.game_state_manager.get_dealer()
             trump_caller_team = 0 if game.players.index(dealer) % 2 == 0 else 1
         
-        # Score the round
+        # Get the round scores (don't add them again - they're already added by the main game logic)
         team1_score, team2_score = game.scoring_manager.score_round(game.players, trump_caller_team)
-        
-        # Update player scores
-        for i in range(0, 4, 2):  # Team 1
-            game.players[i].score += team1_score
-        for i in range(1, 4, 2):  # Team 2
-            game.players[i].score += team2_score
         
         # Display round results
         click.echo(f"\n📊 Round {game.round_number} Complete!")
@@ -1052,7 +1046,7 @@ class GameCommands:
         click.echo(f"Team 1 (Alice & Charlie): {team1_score} points")
         click.echo(f"Team 2 (Bob & David): {team2_score} points")
         
-        # Show current game scores
+        # Show current game scores (these are already calculated by the main game logic)
         team1_total = sum(game.players[i].score for i in range(0, 4, 2))
         team2_total = sum(game.players[i].score for i in range(1, 4, 2))
         click.echo(f"Game Score - Team 1: {team1_total}, Team 2: {team2_total}")
@@ -1084,4 +1078,63 @@ class GameCommands:
         if trump_caller:
             trump_caller_team = 0 if game.players.index(trump_caller) % 2 == 0 else 1
             if game.scoring_manager.is_team_set(game.players, trump_caller_team):
-                click.echo("\n🚨 TEAM SET! The trump calling team lost after calling trump!") 
+                click.echo("\n🚨 TEAM SET! The trump calling team lost after calling trump!")
+    
+    @staticmethod
+    def _handle_dealer_trump_selection(game: EuchreGame, player_position: str, your_position: str) -> None:
+        """Handle the dealer being forced to pick a trump suit (Screw the Dealer!).
+        
+        Parameters
+        ----------
+        game : EuchreGame
+            The game instance
+        player_position : str
+            Human player position name
+        your_position : str
+            Human player position name (for consistency)
+        """
+        dealer = game.game_state_manager.get_dealer()
+        
+        # Get available suits (excluding the top card suit)
+        top_suit = game.top_card.suit if game.top_card else None
+        available_suits = [suit for suit in Suit if suit != top_suit]
+        
+        if dealer.player_type.name == "HUMAN":
+            # Human dealer - prompt for suit choice
+            click.echo(f"\n👑 {dealer.name}, you must pick a trump suit (Screw the Dealer!)")
+            click.echo("Available suits:")
+            for i, suit in enumerate(available_suits, 1):
+                click.echo(f"  {i}. {suit.name}")
+            
+            while True:
+                try:
+                    suit_choice = click.prompt(
+                        f"Which suit do you want to call as trump? (1-{len(available_suits)})",
+                        type=int
+                    )
+                    if 1 <= suit_choice <= len(available_suits):
+                        chosen_suit = available_suits[suit_choice - 1]
+                        game.trump_suit = chosen_suit
+                        game.game_state_manager.set_trump_suit(chosen_suit, dealer)
+                        click.echo(f"🎯 {dealer.name} calls {chosen_suit.name} as trump!")
+                        return
+                    else:
+                        click.echo(f"Please enter a number between 1 and {len(available_suits)}")
+                except Exception as e:
+                    click.echo(f"Invalid input: {e}")
+        else:
+            # AI dealer - use AI logic to pick trump
+            click.echo(f"\n🤖 {dealer.name} (AI dealer) must pick a trump suit")
+            
+            # Simple AI logic: pick the suit with the most cards in hand
+            suit_counts = {}
+            for suit in available_suits:
+                suit_counts[suit] = sum(1 for card in dealer.hand if card.suit == suit)
+            
+            # Pick the suit with the most cards, or random if tied
+            best_suit = max(suit_counts, key=suit_counts.get)
+            
+            game.trump_suit = best_suit
+            game.game_state_manager.set_trump_suit(best_suit, dealer)
+            click.echo(f"🎯 {dealer.name} calls {best_suit.name} as trump!")
+            return 
