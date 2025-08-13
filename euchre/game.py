@@ -430,6 +430,15 @@ class EuchreGame:
         # Complete the trick
         winner = self.trick_manager.complete_trick(self.trump_suit)
         self.logger.debug(f"Trick won by: {winner.name}")
+        
+        # Show what each player played in this trick
+        if self.current_trick and hasattr(self.current_trick, 'cards_played'):
+            self.logger.info("Trick summary:")
+            for player, card in self.current_trick.cards_played:
+                winner_indicator = " ← WINNER" if player.name == winner.name else ""
+                self.logger.info(f"  {player.name}: {card.unicode_str()}{winner_indicator}")
+        
+        # Show remaining cards in hands
         self.logger.debug("Player hands after completing trick:")
         for player in self.players:
             self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
@@ -476,10 +485,8 @@ class EuchreGame:
         
         self.logger.debug(f"Chosen card: {card}")
         
-        # Remove card from hand
-        player.hand.remove(card)
-        
-        self.logger.debug(f"After removing card: {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
+        # Don't remove card from hand yet - let trick manager handle it
+        self.logger.debug(f"Selected card: {card}")
         
         return card
     
