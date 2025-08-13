@@ -1,5 +1,5 @@
 """
-M-Series PyTorch AI Models for Euchre
+Level 2 PyTorch AI Models for Euchre
 
 This module contains brand new, from-scratch PyTorch neural network models
 designed specifically for Euchre gameplay. These models take into account:
@@ -30,8 +30,8 @@ from ..models import Card, Suit, Rank, Player, PlayerType
 
 
 @dataclass
-class MSeriesRiskProfile:
-    """Risk profile for M-Series AI models with Euchre-specific parameters."""
+class Level2RiskProfile:
+    """Risk profile for Level 2 AI models with Euchre-specific parameters."""
     
     # Trump calling parameters
     trump_calling_aggression: float = 0.5  # How aggressively to call trump
@@ -47,9 +47,9 @@ class MSeriesRiskProfile:
     score_adaptation: float = 0.6          # How much to adapt based on score
     set_avoidance: float = 0.8             # How much to avoid being set
     
-    def to(self, device: torch.device) -> 'MSeriesRiskProfile':
+    def to(self, device: torch.device) -> 'Level2RiskProfile':
         """Move risk profile to device."""
-        return MSeriesRiskProfile(
+        return Level2RiskProfile(
             trump_calling_aggression=self.trump_calling_aggression,
             partner_dealer_bonus=self.partner_dealer_bonus,
             ace_ordering_threshold=self.ace_ordering_threshold,
@@ -74,8 +74,8 @@ class MSeriesRiskProfile:
         ], dtype=torch.float32)
 
 
-class MSeriesGameStateEncoder:
-    """Advanced game state encoder for M-Series models with comprehensive Euchre understanding."""
+class Level2GameStateEncoder:
+    """Advanced game state encoder for Level 2 models with comprehensive Euchre understanding."""
     
     def __init__(self, input_size: int = 256):
         """Initialize the encoder.
@@ -669,8 +669,8 @@ class MSeriesGameStateEncoder:
             return card.rank.value
 
 
-class MSeriesBaseModel(nn.Module):
-    """Base class for M-Series Euchre AI models."""
+class Level2BaseModel(nn.Module):
+    """Base class for Level 2 Euchre AI models."""
     
     def __init__(self, input_size: int = 256, hidden_size: int = 512, 
                  risk_embedding_size: int = 64):
@@ -771,14 +771,14 @@ class MSeriesBaseModel(nn.Module):
         self.layer_norm = nn.LayerNorm(hidden_size)
         self.batch_norm = nn.BatchNorm1d(hidden_size)
         
-    def forward(self, x: torch.Tensor, risk_params: MSeriesRiskProfile) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor, risk_params: Level2RiskProfile) -> Dict[str, torch.Tensor]:
         """Forward pass with risk parameters.
         
         Parameters
         ----------
         x : torch.Tensor
             Input features [batch_size, input_size]
-        risk_params : MSeriesRiskProfile
+        risk_params : Level2RiskProfile
             Risk parameters for this forward pass
             
         Returns
@@ -840,26 +840,26 @@ class MSeriesBaseModel(nn.Module):
             'hidden_features': h
         }
     
-    def get_trump_decision_probs(self, x: torch.Tensor, risk_params: MSeriesRiskProfile) -> torch.Tensor:
+    def get_trump_decision_probs(self, x: torch.Tensor, risk_params: Level2RiskProfile) -> torch.Tensor:
         """Get trump decision probabilities."""
         outputs = self.forward(x, risk_params)
         return F.softmax(outputs['trump_decision'], dim=1)
     
-    def get_card_selection_probs(self, x: torch.Tensor, risk_params: MSeriesRiskProfile) -> torch.Tensor:
+    def get_card_selection_probs(self, x: torch.Tensor, risk_params: Level2RiskProfile) -> torch.Tensor:
         """Get card selection probabilities."""
         outputs = self.forward(x, risk_params)
         return F.softmax(outputs['card_selection'], dim=1)
     
-    def get_suit_selection_probs(self, x: torch.Tensor, risk_params: MSeriesRiskProfile) -> torch.Tensor:
+    def get_suit_selection_probs(self, x: torch.Tensor, risk_params: Level2RiskProfile) -> torch.Tensor:
         """Get suit selection probabilities for trump calling."""
         outputs = self.forward(x, risk_params)
         return F.softmax(outputs['suit_selection'], dim=1)
 
 
-class MagnusModel(MSeriesBaseModel):
-    """Magnus - The Strategic Mastermind
+class StrategicModel(Level2BaseModel):
+    """Strategic - The Strategic Mastermind
     
-    Magnus is designed to be the most strategic and analytical player,
+    Strategic is designed to be the most strategic and analytical player,
     with deep understanding of partner coordination and long-term planning.
     """
     
@@ -876,7 +876,7 @@ class MagnusModel(MSeriesBaseModel):
         self.strategic_trump_head = nn.Linear(32, 2)
         self.strategic_card_head = nn.Linear(32, 5)
         
-    def forward(self, x: torch.Tensor, risk_params: MSeriesRiskProfile) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor, risk_params: Level2RiskProfile) -> Dict[str, torch.Tensor]:
         """Forward pass with strategic enhancements."""
         base_outputs = super().forward(x, risk_params)
         
@@ -898,10 +898,10 @@ class MagnusModel(MSeriesBaseModel):
         return base_outputs
 
 
-class MaverickModel(MSeriesBaseModel):
-    """Maverick - The Aggressive Risk-Taker
+class AggressiveModel(Level2BaseModel):
+    """Aggressive - The Aggressive Risk-Taker
     
-    Maverick is designed to be bold and unpredictable, taking calculated risks
+    Aggressive is designed to be bold and unpredictable, taking calculated risks
     and using aggressive strategies to dominate the game.
     """
     
@@ -918,7 +918,7 @@ class MaverickModel(MSeriesBaseModel):
         self.aggressive_trump_head = nn.Linear(32, 2)
         self.aggressive_card_head = nn.Linear(32, 5)
         
-    def forward(self, x: torch.Tensor, risk_params: MSeriesRiskProfile) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor, risk_params: Level2RiskProfile) -> Dict[str, torch.Tensor]:
         """Forward pass with aggressive enhancements."""
         base_outputs = super().forward(x, risk_params)
         
@@ -940,10 +940,10 @@ class MaverickModel(MSeriesBaseModel):
         return base_outputs
 
 
-class MentorModel(MSeriesBaseModel):
-    """Mentor - The Balanced Teacher
+class BalancedModel(Level2BaseModel):
+    """Balanced - The Balanced Teacher
     
-    Mentor is designed to be the most balanced and adaptable player,
+    Balanced is designed to be the most balanced and adaptable player,
     learning from every game and teaching optimal strategies.
     """
     
@@ -960,7 +960,7 @@ class MentorModel(MSeriesBaseModel):
         self.learning_trump_head = nn.Linear(32, 2)
         self.learning_card_head = nn.Linear(32, 5)
         
-    def forward(self, x: torch.Tensor, risk_params: MSeriesRiskProfile) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor, risk_params: Level2RiskProfile) -> Dict[str, torch.Tensor]:
         """Forward pass with learning enhancements."""
         base_outputs = super().forward(x, risk_params)
         
@@ -982,10 +982,10 @@ class MentorModel(MSeriesBaseModel):
         return base_outputs
 
 
-class MysticModel(MSeriesBaseModel):
-    """Mystic - The Intuitive Player
+class IntuitiveModel(Level2BaseModel):
+    """Intuitive - The Intuitive Player
     
-    Mystic is designed to have deep intuition about game patterns,
+    Intuitive is designed to have deep intuition about game patterns,
     using subtle cues and game flow to make optimal decisions.
     """
     
@@ -1002,7 +1002,7 @@ class MysticModel(MSeriesBaseModel):
         self.intuitive_trump_head = nn.Linear(32, 2)
         self.intuitive_card_head = nn.Linear(32, 5)
         
-    def forward(self, x: torch.Tensor, risk_params: MSeriesRiskProfile) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor, risk_params: Level2RiskProfile) -> Dict[str, torch.Tensor]:
         """Forward pass with intuitive enhancements."""
         base_outputs = super().forward(x, risk_params)
         
@@ -1024,9 +1024,9 @@ class MysticModel(MSeriesBaseModel):
         return base_outputs
 
 
-def create_mseries_model(model_name: str, input_size: int = 256, hidden_size: int = 512, 
-                        risk_embedding_size: int = 64) -> MSeriesBaseModel:
-    """Create an M-Series model by name.
+def create_level2_model(model_name: str, input_size: int = 256, hidden_size: int = 512, 
+                        risk_embedding_size: int = 64) -> Level2BaseModel:
+    """Create a Level 2 model by name.
     
     Parameters
     ----------
@@ -1041,25 +1041,25 @@ def create_mseries_model(model_name: str, input_size: int = 256, hidden_size: in
         
     Returns
     -------
-    MSeriesBaseModel
+    Level2BaseModel
         The created model instance
     """
     model_name = model_name.lower()
     
-    if model_name == "magnus":
-        return MagnusModel(input_size, hidden_size, risk_embedding_size)
-    elif model_name == "maverick":
-        return MaverickModel(input_size, hidden_size, risk_embedding_size)
-    elif model_name == "mentor":
-        return MentorModel(input_size, hidden_size, risk_embedding_size)
-    elif model_name == "mystic":
-        return MysticModel(input_size, hidden_size, risk_embedding_size)
+    if model_name == "level2_strategic":
+        return StrategicModel(input_size, hidden_size, risk_embedding_size)
+    elif model_name == "level2_aggressive":
+        return AggressiveModel(input_size, hidden_size, risk_embedding_size)
+    elif model_name == "level2_balanced":
+        return BalancedModel(input_size, hidden_size, risk_embedding_size)
+    elif model_name == "level2_intuitive":
+        return IntuitiveModel(input_size, hidden_size, risk_embedding_size)
     else:
-        raise ValueError(f"Unknown M-Series model: {model_name}")
+        raise ValueError(f"Unknown Level 2 model: {model_name}")
 
 
-def create_mseries_risk_profile(profile_name: str) -> MSeriesRiskProfile:
-    """Create predefined risk profiles for M-Series models.
+def create_level2_risk_profile(profile_name: str) -> Level2RiskProfile:
+    """Create predefined risk profiles for Level 2 models.
     
     Parameters
     ----------
@@ -1068,11 +1068,11 @@ def create_mseries_risk_profile(profile_name: str) -> MSeriesRiskProfile:
         
     Returns
     -------
-    MSeriesRiskProfile
+    Level2RiskProfile
         Configured risk profile
     """
     profiles = {
-        'magnus': MSeriesRiskProfile(
+        'level2_strategic': Level2RiskProfile(
             trump_calling_aggression=0.6,
             partner_dealer_bonus=0.3,
             ace_ordering_threshold=0.7,
@@ -1082,7 +1082,7 @@ def create_mseries_risk_profile(profile_name: str) -> MSeriesRiskProfile:
             score_adaptation=0.8,
             set_avoidance=0.7
         ),
-        'maverick': MSeriesRiskProfile(
+        'level2_aggressive': Level2RiskProfile(
             trump_calling_aggression=0.8,
             partner_dealer_bonus=0.1,
             ace_ordering_threshold=0.4,
@@ -1092,7 +1092,7 @@ def create_mseries_risk_profile(profile_name: str) -> MSeriesRiskProfile:
             score_adaptation=0.3,
             set_avoidance=0.4
         ),
-        'mentor': MSeriesRiskProfile(
+        'level2_balanced': Level2RiskProfile(
             trump_calling_aggression=0.5,
             partner_dealer_bonus=0.2,
             ace_ordering_threshold=0.6,
@@ -1102,7 +1102,7 @@ def create_mseries_risk_profile(profile_name: str) -> MSeriesRiskProfile:
             score_adaptation=0.6,
             set_avoidance=0.8
         ),
-        'mystic': MSeriesRiskProfile(
+        'level2_intuitive': Level2RiskProfile(
             trump_calling_aggression=0.7,
             partner_dealer_bonus=0.2,
             ace_ordering_threshold=0.5,
@@ -1115,7 +1115,7 @@ def create_mseries_risk_profile(profile_name: str) -> MSeriesRiskProfile:
     }
     
     if profile_name not in profiles:
-        print(f"Warning: Unknown profile '{profile_name}', using 'mentor'")
-        return profiles['mentor']
+        print(f"Warning: Unknown profile '{profile_name}', using 'level2_balanced'")
+        return profiles['level2_balanced']
     
     return profiles[profile_name] 
