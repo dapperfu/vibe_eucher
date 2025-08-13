@@ -482,6 +482,12 @@ class GameCommands:
         click.echo(f"\n🎯 Trump Selection Phase")
         click.echo("=" * 40)
         
+        # Always show the top card first, regardless of pickup status
+        if game.top_card:
+            click.echo(f"🃏 Top card: {game.top_card.unicode_str()}")
+        else:
+            click.echo("🃏 Top card: None")
+        
         # First round of trump selection
         click.echo("First round - players can order up the top card")
         
@@ -500,9 +506,9 @@ class GameCommands:
                 # Human player's turn
                 click.echo(f"\n🤔 {player_position}'s turn to decide on trump")
                 if game.top_card and not getattr(game, '_top_card_picked_up', False):
-                    click.echo(f"Top card: {game.top_card.unicode_str()}")
+                    click.echo(f"🃏 Top card available: {game.top_card.unicode_str()} (you can order this up)")
                 else:
-                    click.echo("Top card: Already picked up")
+                    click.echo("🃏 Top card: Already picked up (not available for ordering up)")
                 
                 # Show current hand
                 your_hand = game.get_player_hand(player_position)
@@ -566,9 +572,15 @@ class GameCommands:
         # If no one ordered up, go to second round
         click.echo(f"\n🔄 Second round - players can call any suit as trump")
         
+        # Show top card status for second round
+        if game.top_card:
+            click.echo(f"🃏 Top card was: {game.top_card.unicode_str()} (this suit cannot be called)")
+        else:
+            click.echo("🃏 Top card: None")
+        
         # Second round: players can call any suit (except the top card suit)
-        top_suit = game.top_card.suit
-        available_suits = [suit for suit in Suit if suit != top_suit]
+        top_suit = game.top_card.suit if game.top_card else None
+        available_suits = [suit for suit in Suit if suit != top_suit] if top_suit else list(Suit)
         
         # Start with player after dealer
         current_index = (dealer_index + 1) % 4
@@ -580,7 +592,7 @@ class GameCommands:
             if current_player.name == player_position:
                 # Human player's turn
                 click.echo(f"\n🤔 {player_position}'s turn to call trump")
-                click.echo(f"Available suits (excluding {top_suit.name}):")
+                click.echo(f"Available suits (excluding {top_suit.name if top_suit else 'None'}):")
                 for j, suit in enumerate(available_suits):
                     click.echo(f"  {j+1}. {suit.name}")
                 
