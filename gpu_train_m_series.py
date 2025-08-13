@@ -436,15 +436,16 @@ class GPUTrainer:
                 self.logger.info(f"Generated {game_num}/{total_games} games")
             
             # Create game
-            game = EuchreGame(enable_logging=False)
+            game = EuchreGame(quiet_mode=True, verbose=False, very_verbose=False)
             
             # Add AI players
             ai_players = []
             for i in range(4):
                 player_name = f"AI_{i}"
-                ai_player = AIFactory.create_ai_player(player_name, "balanced", 0.5)
+                game.add_ai_player(player_name, "balanced", 0.5)
+                # Get the player object that was added
+                ai_player = next(p for p in game.players if p.name == player_name)
                 ai_players.append(ai_player)
-                game.add_player(player_name, ai_player)
             
             # Play game
             try:
