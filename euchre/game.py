@@ -407,9 +407,17 @@ class EuchreGame:
         self.logger.info(f"Tricks won so far: {', '.join(tricks_summary)}")
         
         # Log trick completion to file
-        winning_card = self.current_trick.cards_played[-1][1] if self.current_trick and self.current_trick.cards_played else None
-        if winning_card:
-            self.logger.log_trick(trick_number, self.current_trick, winner, winning_card)
+        # Fix: Use the actual winning card, not the last card played
+        if self.current_trick and self.current_trick.cards_played:
+            # Find the winning card by looking at the trick manager's winner
+            winning_card = None
+            for player, card in self.current_trick.cards_played:
+                if player.name == winner.name:
+                    winning_card = card
+                    break
+            
+            if winning_card:
+                self.logger.log_trick(trick_number, self.current_trick, winner, winning_card)
     
     def _ai_play_card(self, player: Player) -> Card:
         """Get a card from an AI player."""
@@ -503,22 +511,31 @@ class EuchreGame:
     
     def _score_round(self) -> None:
         """Score the current round."""
+        self.logger.info(f"DEBUG: _score_round called, trump_caller_team: {self.game_state_manager.trump_caller_team}")
+        
         if not self.game_state_manager.trump_caller_team:
+            self.logger.info("DEBUG: No trump caller team set, returning early")
             return
         
         # Get round results
         round_results = self.trick_manager.get_round_results()
+        self.logger.info(f"DEBUG: Round results: {round_results}")
         
         # Score the round
         team1_score, team2_score = self.scoring_manager.score_round(
             self.players, self.game_state_manager.trump_caller_team
         )
+        self.logger.info(f"DEBUG: Scoring manager returned: Team 1: {team1_score}, Team 2: {team2_score}")
         
         # Update scores
         current_team1_score = self.game_state_manager.game_scores["Team 1"]
         current_team2_score = self.game_state_manager.game_scores["Team 2"]
         new_team1_score = current_team1_score + team1_score
         new_team2_score = current_team2_score + team2_score
+        
+        self.logger.info(f"DEBUG: Updating scores - Current: Team 1: {current_team1_score}, Team 2: {current_team2_score}")
+        self.logger.info(f"DEBUG: New scores: Team 1: {new_team1_score}, Team 2: {new_team2_score}")
+        
         self.game_state_manager.update_scores(new_team1_score, new_team2_score)
         
         # Show round results

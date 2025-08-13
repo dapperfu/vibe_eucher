@@ -113,10 +113,10 @@ class TrumpSelectionManager:
             player = players[player_index]
             
             if player.player_type.name == "AI":
-                # AI players can call any suit as trump
-                if hasattr(player, 'should_call_trump'):
-                    trump_suit = player.should_call_trump(top_card)
-                    if trump_suit:
+                # AI players can call any suit as trump (excluding the turned down suit)
+                if hasattr(player, 'choose_trump_suit'):
+                    trump_suit = player.choose_trump_suit(top_card)
+                    if trump_suit and trump_suit != top_card.suit:
                         if self.logger:
                             self.logger.info(f"{player.name} orders {trump_suit.name}.")
                         return trump_suit
@@ -204,29 +204,33 @@ class TrumpSelectionManager:
             The suit selected by the dealer
         """
         if dealer.player_type.name == "AI":
-            return self._ai_dealer_suit_selection(dealer)
+            return self._ai_dealer_suit_selection(dealer, top_card)
         else:
             # Human dealer - would prompt here
-            # For now, return a default suit
-            return Suit.HEARTS
+            # For now, return a default suit (excluding the turned down suit)
+            available_suits = [suit for suit in Suit if suit != top_card.suit]
+            return available_suits[0] if available_suits else Suit.HEARTS
     
-    def _ai_dealer_suit_selection(self, dealer: Player) -> Suit:
+    def _ai_dealer_suit_selection(self, dealer: Player, top_card: Card) -> Suit:
         """AI dealer's suit selection logic.
         
         Parameters
         ----------
         dealer : Player
             The AI dealer
+        top_card : Card
+            The top card that was turned down (cannot be selected as trump)
             
         Returns
         -------
         Suit
             The suit selected by the dealer
         """
-        # Count cards by suit
+        # Count cards by suit (excluding the turned down suit)
         suit_counts = {}
         for suit in Suit:
-            suit_counts[suit] = len([card for card in dealer.hand if card.suit == suit])
+            if suit != top_card.suit:  # Cannot select the turned down suit
+                suit_counts[suit] = len([card for card in dealer.hand if card.suit == suit])
         
         # Choose suit with most cards, or highest cards if tied
         best_suit = max(suit_counts.keys(), key=lambda s: (
