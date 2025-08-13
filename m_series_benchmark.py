@@ -147,7 +147,7 @@ class MSeriesBenchmarker:
             
             # Show improvement over previous stages
             if i > 0:
-                self._show_improvement(progression_results[f"stage_{i-1}"], stage_results)
+                self._show_improvement(progression_results[f"stage_{i}"], stage_results)
         
         return progression_results
     
