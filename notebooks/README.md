@@ -8,20 +8,20 @@ This folder contains Jupyter notebooks for exploring and demonstrating the Euchr
 
 A comprehensive demonstration of the M-Series AI's decision-making process, including:
 
-- **M-Series AI Architecture**: Understanding the neural network models and risk profiles
-- **Deck and Card System**: Exploring the OOP design of the game components
+- **M-Series AI Architecture**: Understanding the neural network models (Magnus, Maverick, Mentor, Mystic) and risk profiles
+- **Trained Model Loading**: Loading pre-trained weights from the trained_models/ directory
+- **Deck and Card System**: Exploring the OOP design of the game components with Unicode card display
 - **Trump Calling Decisions**: Testing scenarios where the AI should make good decisions
-- **Card Playing Logic**: Analyzing how the AI chooses which card to play
 - **Risk Profile System**: Understanding how different AI personalities make decisions
-- **Game State Encoding**: How the neural network processes game information
+- **Game State Encoding**: How the neural network processes game information into 256-feature tensors
 
 ## Key Features Demonstrated
 
-1. **Excellent Hand Scenarios**: Hands that should always order up (e.g., Left Bower + 3 trump cards)
-2. **Marginal Hand Scenarios**: Hands where the decision depends on AI risk profile
-3. **Weak Hand Scenarios**: Hands that should always pass
-4. **Partner Coordination**: How dealer position affects decisions
-5. **Game State Awareness**: How scores and round numbers influence AI behavior
+1. **Excellent Hand Scenarios**: Hands that should always order up (e.g., J♦ + Q♥ K♥ A♥ with J♥ top card = 4 trump cards)
+2. **Trained Model Integration**: Loading and using pre-trained M-Series neural network models
+3. **Risk Profile Analysis**: Comparing Magnus (strategic) vs Maverick (aggressive) decision-making
+4. **OOP Deck System**: Demonstrating the object-oriented design of cards, suits, and deck management
+5. **Neural Network Input**: Understanding how game state gets encoded into 256-feature tensors
 
 ## Running the Notebooks
 
@@ -40,15 +40,17 @@ A comprehensive demonstration of the M-Series AI's decision-making process, incl
 ## Expected Outputs
 
 The notebook will demonstrate:
-- Deck creation and card dealing
-- Hand analysis and strength evaluation
-- AI decision-making processes
-- Risk profile effects on decisions
-- Neural network input encoding
+- Deck creation and card dealing with Unicode card display
+- Hand analysis and strength evaluation (e.g., 4 trump cards = excellent hand)
+- M-Series AI model creation and trained weight loading
+- Risk profile effects on decisions (Magnus vs Maverick strategies)
+- Neural network input encoding (256-feature game state representation)
+- Successful execution of all cells with proper error handling
 
 ## Notes
 
-- Some M-Series model functionality may not be fully implemented yet
-- The notebook includes fallback explanations when models aren't available
-- All scenarios are designed to show clear, logical decision-making
-- The OOP design makes it easy to create and test different scenarios 
+- **Fully Functional**: All M-Series model functionality is implemented and working
+- **Trained Models**: Pre-trained weights are loaded from trained_models/ directory
+- **Comprehensive Testing**: All scenarios are tested and execute successfully
+- **OOP Design**: The object-oriented design makes it easy to create and test different scenarios
+- **Error Handling**: Robust error handling ensures the notebook runs smoothly 
