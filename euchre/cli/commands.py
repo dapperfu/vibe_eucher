@@ -377,7 +377,14 @@ class GameCommands:
         GameCommands._play_interactive_round(game, player_position, your_position)
         
         # Continue rounds until game is over
-        while not game.scoring_manager.is_game_over(game.players):
+        while True:
+            # Check if game is over by checking accumulated team scores
+            team1_score = game.game_state_manager.game_scores.get("Team 1", 0)
+            team2_score = game.game_state_manager.game_scores.get("Team 2", 0)
+            
+            if team1_score >= 10 or team2_score >= 10:
+                break
+                
             game.round_number += 1
             click.echo(f"\n🔄 Starting Round {game.round_number}")
             click.echo("=" * 60)
@@ -1103,19 +1110,24 @@ class GameCommands:
             dealer = game.game_state_manager.get_dealer()
             trump_caller_team = 0 if game.players.index(dealer) % 2 == 0 else 1
         
-        # Get the round scores (don't add them again - they're already added by the main game logic)
+        # Get the round scores
         team1_score, team2_score = game.scoring_manager.score_round(game.players, trump_caller_team)
+        
+        # Update the game state manager with the new scores
+        current_team1_score = game.game_state_manager.game_scores.get("Team 1", 0)
+        current_team2_score = game.game_state_manager.game_scores.get("Team 2", 0)
+        new_team1_score = current_team1_score + team1_score
+        new_team2_score = current_team2_score + team2_score
+        game.game_state_manager.update_scores(new_team1_score, new_team2_score)
         
         # Display round results
         click.echo(f"\n📊 Round {game.round_number} Complete!")
         click.echo(f"Final trick counts: Alice: {game.tricks_won['Alice']}, Bob: {game.tricks_won['Bob']}, Charlie: {game.tricks_won['Charlie']}, David: {game.tricks_won['David']}")
-        click.echo(f"Team 1 (Alice & Charlie): {team1_score} points")
-        click.echo(f"Team 2 (Bob & David): {team2_score} points")
+        click.echo(f"Team 1 (Alice & Charlie): {team1_score} points this round")
+        click.echo(f"Team 2 (Bob & David): {team2_score} points this round")
         
-        # Show current game scores (these are already calculated by the main game logic)
-        team1_total = sum(game.players[i].score for i in range(0, 4, 2))
-        team2_total = sum(game.players[i].score for i in range(1, 4, 2))
-        click.echo(f"Game Score - Team 1: {team1_total}, Team 2: {team2_total}")
+        # Show updated game scores
+        click.echo(f"Game Score - Team 1: {new_team1_score}, Team 2: {new_team2_score}")
     
     @staticmethod
     def _show_final_game_results(game: EuchreGame) -> None:
