@@ -623,10 +623,25 @@ class GameCommands:
         """
         click.echo(f"\n🔄 {player_position}, you need to discard one card and pick up the top card")
         
+        # Find the human player object directly
+        human_player = None
+        for player in game.players:
+            if player.name == player_position:
+                human_player = player
+                break
+        
+        if not human_player:
+            click.echo(f"❌ Error: Could not find player {player_position}")
+            return
+        
+        # Debug: Show all player hands before the discard/pickup process
+        click.echo(f"\n🔍 Debug: Player hands BEFORE discard/pickup:")
+        for player in game.players:
+            click.echo(f"  {player.name}: {len(player.hand)} cards - {[card.unicode_str() for card in player.hand]}")
+        
         # Show current hand
-        your_hand = game.get_player_hand(player_position)
         click.echo(f"Your current hand:")
-        for i, card in enumerate(your_hand):
+        for i, card in enumerate(human_player.hand):
             click.echo(f"  {i+1}. {card.unicode_str()}")
         
         if game.top_card and not getattr(game, '_top_card_picked_up', False):
@@ -642,10 +657,10 @@ class GameCommands:
                     type=int,
                     default=1
                 )
-                if 1 <= discard_choice <= len(your_hand):
-                    discarded_card = your_hand[discard_choice - 1]
-                    your_hand.remove(discarded_card)
-                    your_hand.append(game.top_card)
+                if 1 <= discard_choice <= len(human_player.hand):
+                    discarded_card = human_player.hand[discard_choice - 1]
+                    human_player.hand.remove(discarded_card)
+                    human_player.hand.append(game.top_card)
                     
                     click.echo(f"🗑️  Discarded: {discarded_card.unicode_str()}")
                     if game.top_card:
@@ -653,14 +668,7 @@ class GameCommands:
                     else:
                         click.echo("🆕 Picked up: Top card")
                     
-                    # Update the player's hand in the game
-                    for player in game.players:
-                        if player.name == player_position:
-                            player.hand = your_hand
-                            break
-                    
-                    # Mark the top card as picked up (don't set to None to avoid errors)
-                    # The top card is now in the player's hand, so we'll track this state
+                    # Mark the top card as picked up
                     game._top_card_picked_up = True
                     
                     # Debug: Check all player hands after the update
@@ -669,14 +677,13 @@ class GameCommands:
                         click.echo(f"  {player.name}: {len(player.hand)} cards - {[card.unicode_str() for card in player.hand]}")
                     
                     # Ensure all AI players still have 5 cards
-                    # This is a safety check - in normal Euchre, AI players should already have 5 cards
                     for player in game.players:
                         if player.player_type.name == "AI" and len(player.hand) != 5:
                             click.echo(f"⚠️  Warning: {player.name} has {len(player.hand)} cards instead of 5")
                     
                     break
                 else:
-                    click.echo(f"Please enter a number between 1 and {len(your_hand)}")
+                    click.echo(f"Please enter a number between 1 and {len(human_player.hand)}")
             except Exception as e:
                 click.echo(f"Invalid input: {e}")
     
@@ -908,18 +915,22 @@ class GameCommands:
                 if 1 <= card_choice <= len(valid_cards):
                     chosen_card = valid_cards[card_choice - 1]
                     
-                    # Remove card from hand
-                    your_hand = game.get_player_hand(player_position)
-                    your_hand.remove(chosen_card)
-                    
-                    # Update the player's hand in the game
+                    # Find the human player object directly
+                    human_player = None
                     for player in game.players:
                         if player.name == player_position:
-                            player.hand = your_hand
+                            human_player = player
                             break
                     
+                    if not human_player:
+                        click.echo(f"❌ Error: Could not find player {player_position}")
+                        return
+                    
+                    # Remove card from hand directly
+                    human_player.hand.remove(chosen_card)
+                    
                     # Play the card
-                    game.trick_manager.play_card(game.players[your_position], chosen_card)
+                    game.trick_manager.play_card(human_player, chosen_card)
                     
                     click.echo(f"🎴 {player_position} plays {chosen_card.unicode_str()}")
                     break
@@ -971,21 +982,30 @@ class GameCommands:
         List[Card]
             List of valid cards to play
         """
+        # Find the player object directly
+        player_obj = None
+        for player in game.players:
+            if player.name == player_position:
+                player_obj = player
+                break
+        
+        if not player_obj:
+            return []
+        
         if not current_trick or not current_trick.lead_suit:
             # Leading - can play any card
-            return game.get_player_hand(player_position)
+            return player_obj.hand.copy()  # Return a copy to avoid reference issues
         
         # Must follow suit if possible
         lead_suit = current_trick.lead_suit
-        your_hand = game.get_player_hand(player_position)
-        cards_of_lead_suit = [card for card in your_hand if card.suit == lead_suit]
+        cards_of_lead_suit = [card for card in player_obj.hand if card.suit == lead_suit]
         
         if cards_of_lead_suit:
             # Can follow suit - must play one of these
             return cards_of_lead_suit
         else:
             # Can't follow suit - can play any card
-            return your_hand
+            return player_obj.hand.copy()  # Return a copy to avoid reference issues
     
     @staticmethod
     def _simple_ai_card_choice(player, current_trick, trump_suit) -> 'Card':
