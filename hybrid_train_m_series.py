@@ -420,6 +420,9 @@ class HybridTrainer:
         """
         self.config = config
         
+        # Setup logging first (needed by _initialize_models)
+        self._setup_logging()
+        
         # Initialize device manager
         self.device_manager = DeviceManager(config)
         self.device = self.device_manager.device
@@ -459,9 +462,6 @@ class HybridTrainer:
                 'num_gpus': self.num_gpus
             }
         }
-        
-        # Setup logging
-        self._setup_logging()
         
         # Create directories
         self._create_directories()
