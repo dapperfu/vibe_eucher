@@ -237,7 +237,7 @@ class ModelEvaluator:
     def _play_single_game(self, strategy: str, strategy_config: Dict[str, Any]) -> Dict[str, Any]:
         """Play a single game between the model and a strategy."""
         # Create game
-        game = EuchreGame(enable_logging=False)
+        game = EuchreGame(quiet_mode=True)
         
         # Add AI players
         game.add_ai_player("North", strategy, strategy_config['risk_ratio'])

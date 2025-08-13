@@ -10,17 +10,17 @@ from .models import PlayerType, Suit, Card, Trick, Player
 class NcursesGame:
     """Enhanced Ncurses interface for the euchre game with human player support."""
     
-    def __init__(self, human_player_position: int = 2, enable_logging: bool = True) -> None:
+    def __init__(self, human_player_position: int = 2, verbose: bool = True) -> None:
         """Initialize the ncurses game interface.
         
         Parameters
         ----------
         human_player_position : int
             Position of human player (0=North, 1=East, 2=South, 3=West)
-        enable_logging : bool
+        verbose : bool
             Whether to enable game logging
         """
-        self.game = EuchreGame(verbose=enable_logging)
+        self.game = EuchreGame(verbose=verbose)
         self.screen = None
         self.max_y = 0
         self.max_x = 0

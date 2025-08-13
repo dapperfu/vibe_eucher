@@ -111,7 +111,7 @@ class TestAIAIProfiles:
         """Test that AI profiles can be used in the game system."""
         from euchre.game import EuchreGame
         
-        game = EuchreGame(enable_logging=False)
+        game = EuchreGame(quiet_mode=True)
         
         # Add different AI profiles
         game.add_ai_player("North", "aggressive", 0.8)
