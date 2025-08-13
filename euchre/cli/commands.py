@@ -272,6 +272,20 @@ class GameCommands:
                     # Start new round
                     game._start_new_round()
                     
+                    # Print AI player hands at the start of each round
+                    click.echo(f"\n🎴 AI Player Hands for Round {game.round_number}:")
+                    for player in game.players:
+                        if player.player_type.name == "AI":
+                            hand_str = " ".join([card.unicode_str() for card in player.hand])
+                            click.echo(f"  {player.name}: {hand_str}")
+                    
+                    # Ensure trump caller team is set for scoring to work
+                    if not game.game_state_manager.trump_caller_team:
+                        # If no trump caller team was set, the dealer becomes the caller
+                        dealer = game.game_state_manager.get_dealer()
+                        game.game_state_manager.set_trump_suit(game.trump_suit, dealer)
+                        click.echo(f"🎯 {dealer.name} (dealer) selected {game.trump_suit.name} as trump")
+                    
                     # Play the round
                     game._play_round()
                     
