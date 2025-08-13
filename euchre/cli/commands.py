@@ -961,13 +961,17 @@ class GameCommands:
         else:
             card = GameCommands._simple_ai_card_choice(ai_player, game.current_trick, game.trump_suit)
         
-        # Remove card from hand
-        ai_player.hand.remove(card)
-        
-        # Play the card
+        # Play the card (don't remove from hand yet - let trick manager handle it)
         game.trick_manager.play_card(ai_player, card)
         
         click.echo(f"🤖 {ai_player.name} plays {card.unicode_str()}")
+        
+        # Show current trick state
+        current_trick = game.trick_manager.get_current_trick()
+        if current_trick and current_trick.cards_played:
+            click.echo("  Cards played so far:")
+            for player, card in current_trick.cards_played:
+                click.echo(f"    {player.name}: {card.unicode_str()}")
     
     @staticmethod
     def _get_valid_cards_for_player(game: EuchreGame, player_position: str, current_trick) -> List['Card']:
