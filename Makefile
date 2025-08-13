@@ -1,4 +1,4 @@
-.PHONY: help venv install-pip test run clean train-ai evaluate-ai ai-game ai-game-ncurses ncurses logged profiles mass-games analyze cleanup jupyter jupyter-lab train-self-play train-integer-vs-float generate-profiles generate-profiles-cpu generate-profiles-gpu list-players play-trained tournament benchmark neural-tournament neural-analysis list-neural-models install-gpu train-level2 train-level2-fast train-level2-intensive evaluate-level2 train-level2-vs-traditional level2-tournament level2-analysis list-level2-models benchmark-level2 benchmark-training-progression benchmark-comprehensive quick-benchmark benchmark-analysis human-vs-ai human-vs-level2 list-ai-types logged-game
+.PHONY: help venv install-pip test run clean train-ai evaluate-ai ai-game ai-game-ncurses ncurses logged profiles mass-games analyze cleanup jupyter jupyter-lab train-self-play train-integer-vs-float generate-profiles generate-profiles-cpu generate-profiles-gpu list-players play-trained tournament benchmark neural-tournament neural-analysis list-neural-models install-gpu train-level2 train-level2-fast train-level2-intensive evaluate-level2 train-level2-vs-traditional level2-tournament level2-analysis list-level2-models benchmark-level2 benchmark-training-progression benchmark-comprehensive quick-benchmark benchmark-analysis human-vs-ai human-vs-level2 list-ai-types logged-game train-level3 train-level3-fast train-level3-medium train-level3-deep evaluate-level3 list-level3-models
 
 help: ## Show this help message
 	@echo "Available commands:"
@@ -309,4 +309,107 @@ list-level2-models: install-gpu ## List available Level2 models
 		ls -la trained_models/unified_trained/*.json 2>/dev/null | sed 's/.*\//  - /' || echo "  No trained models found"; \
 	else \
 		echo "  No trained models directory found"; \
-	fi 
+	fi
+
+# =============================================================================
+# LEVEL3 AI TRAINING TARGETS
+# =============================================================================
+
+train-level3: install-gpu ## Train Level3 AI models (default configuration)
+	@echo "🧠 Level3 AI Training (Default)"
+	@echo "Training Level3 AI with default configuration..."
+	@echo "This will use 2048 input features, 1024 hidden units, 8 layers"
+	@echo "Expected training time: 2-4 weeks on 24GB GPU"
+	venv/bin/python train_level3_models.py \
+		--input-size 2048 \
+		--hidden-size 1024 \
+		--num-layers 8 \
+		--epochs 100 \
+		--batch-size 32 \
+		--learning-rate 0.0001 \
+		--data-dir training_data/level3 \
+		--output-dir trained_models/level3
+
+train-level3-fast: install-gpu ## Fast Level3 training (smoke test - 1k games, 50 epochs)
+	@echo "⚡ Level3 AI Fast Training (Smoke Test)"
+	@echo "Training Level3 AI with minimal configuration for testing..."
+	@echo "This will use 2048 input features, 512 hidden units, 4 layers"
+	@echo "Expected training time: 2-4 hours on 24GB GPU"
+	venv/bin/python train_level3_models.py \
+		--input-size 2048 \
+		--hidden-size 512 \
+		--num-layers 4 \
+		--epochs 50 \
+		--batch-size 64 \
+		--learning-rate 0.001 \
+		--data-dir training_data/level3 \
+		--output-dir trained_models/level3_fast \
+		--max-samples 1000
+
+train-level3-medium: install-gpu ## Medium Level3 training (10k games, 200 epochs)
+	@echo "🔄 Level3 AI Medium Training (Development)"
+	@echo "Training Level3 AI with medium configuration for development..."
+	@echo "This will use 2048 input features, 768 hidden units, 6 layers"
+	@echo "Expected training time: 1-2 days on 24GB GPU"
+	venv/bin/python train_level3_models.py \
+		--input-size 2048 \
+		--hidden-size 768 \
+		--num-layers 6 \
+		--epochs 200 \
+		--batch-size 48 \
+		--learning-rate 0.0005 \
+		--data-dir training_data/level3 \
+		--output-dir trained_models/level3_medium \
+		--max-samples 10000
+
+train-level3-deep: install-gpu ## Deep Level3 training (100k+ games, 500+ epochs)
+	@echo "🔥 Level3 AI Deep Training (Production)"
+	@echo "Training Level3 AI with full configuration for production..."
+	@echo "This will use 2048 input features, 1024 hidden units, 8 layers"
+	@echo "Expected training time: 1-2 weeks on 24GB GPU"
+	venv/bin/python train_level3_models.py \
+		--input-size 2048 \
+		--hidden-size 1024 \
+		--num-layers 8 \
+		--epochs 500 \
+		--batch-size 32 \
+		--learning-rate 0.0001 \
+		--data-dir training_data/level3 \
+		--output-dir trained_models/level3_deep \
+		--max-samples 100000
+
+evaluate-level3: install-gpu ## Evaluate trained Level3 models
+	@echo "🧠 Evaluating Level3 AI models..."
+	@echo "Available Level3 model directories:"
+	@if [ -d "trained_models/level3" ]; then \
+		echo "  - level3 (default training)"; \
+		ls -la trained_models/level3/*.pth 2>/dev/null | sed 's/.*\//    /' || echo "    No trained models found"; \
+	fi
+	@if [ -d "trained_models/level3_fast" ]; then \
+		echo "  - level3_fast (fast training)"; \
+		ls -la trained_models/level3_fast/*.pth 2>/dev/null | sed 's/.*\//    /' || echo "    No trained models found"; \
+	fi
+	@if [ -d "trained_models/level3_medium" ]; then \
+		echo "  - level3_medium (medium training)"; \
+		ls -la trained_models/level3_medium/*.pth 2>/dev/null | sed 's/.*\//    /' || echo "    No trained models found"; \
+	fi
+	@if [ -d "trained_models/level3_deep" ]; then \
+		echo "  - level3_deep (deep training)"; \
+		ls -la trained_models/level3_deep/*.pth 2>/dev/null | sed 's/.*\//    /' || echo "    No trained models found"; \
+	fi
+	@echo ""
+	@echo "To evaluate a specific model, run:"
+	@echo "  venv/bin/python -m euchre.ai_model.model_evaluator --model path/to/model.pth --games 100"
+
+list-level3-models: install-gpu ## List available Level3 models
+	@echo "🧠 Available Level3 AI models:"
+	@echo "Checking all Level3 model directories..."
+	@for dir in level3 level3_fast level3_medium level3_deep; do \
+		if [ -d "trained_models/$$dir" ]; then \
+			echo "  $$dir:"; \
+			ls -la trained_models/$$dir/*.pth 2>/dev/null | sed 's/.*\//    - /' || echo "    No trained models found"; \
+		fi; \
+	done
+	@echo ""
+	@echo "To see detailed model information, run:"
+	@echo "  venv/bin/python -c \"import torch; model = torch.load('path/to/model.pth'); print(f'Model config: {model.get(\"model_config\", \"N/A\")}')\"" 
