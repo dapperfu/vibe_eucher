@@ -678,7 +678,7 @@ class GameCommands:
             current_player_index = (current_player_index + 1) % 4
         
         # Complete the trick
-        winner = game.trick_manager.complete_trick()
+        winner = game.trick_manager.complete_trick(game.trump_suit)
         game.tricks_won[winner.name] += 1
         
         click.echo(f"🏆 Trick {trick_number} won by {winner.name}!")
