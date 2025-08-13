@@ -333,7 +333,12 @@ class GPUTrainer:
     def _setup_device(self) -> torch.device:
         """Setup GPU device(s)."""
         if not torch.cuda.is_available():
-            raise RuntimeError("CUDA not available. Please install PyTorch with CUDA support.")
+            print("CUDA not available. This script is designed for NVIDIA GPU training.")
+            print("For AMD GPU or CPU training, please use the hybrid training system:")
+            print("  make train-hybrid-m-series")
+            print("  or")
+            print("  python hybrid_train_m_series.py")
+            raise RuntimeError("CUDA not available. Please use hybrid_train_m_series.py for non-CUDA systems.")
         
         if torch.cuda.device_count() < self.config.num_gpus:
             raise RuntimeError(f"Requested {self.config.num_gpus} GPUs but only {torch.cuda.device_count()} available")
@@ -766,7 +771,16 @@ def main():
     
     # Check CUDA availability
     if not torch.cuda.is_available():
-        print("CUDA not available. Please install PyTorch with CUDA support.")
+        print("CUDA not available. This script is designed for NVIDIA GPU training.")
+        print("For AMD GPU or CPU training, please use the hybrid training system:")
+        print("  make train-hybrid-m-series")
+        print("  or")
+        print("  python hybrid_train_m_series.py")
+        print("")
+        print("The hybrid system automatically detects and uses:")
+        print("  - AMD ROCm GPUs (when available)")
+        print("  - NVIDIA CUDA GPUs (when available)")
+        print("  - CPU fallback (when no GPUs available)")
         sys.exit(1)
     
     # Configuration
