@@ -549,6 +549,15 @@ class GPUTrainer:
         """Create datasets for each model."""
         datasets = {}
         
+        # Debug: Log training data info
+        self.logger.info(f"Creating datasets from {len(training_data)} games")
+        if training_data:
+            self.logger.info(f"First game keys: {list(training_data[0].keys())}")
+            if 'trump_decisions' in training_data[0]:
+                self.logger.info(f"First game has {len(training_data[0]['trump_decisions'])} trump decisions")
+            if 'card_plays' in training_data[0]:
+                self.logger.info(f"First game has {len(training_data[0]['card_plays'])} card plays")
+        
         model_names = ["magnus", "maverick", "mentor", "mystic"]
         for name in model_names:
             # Create separate datasets for different decision types
@@ -557,31 +566,38 @@ class GPUTrainer:
             
             for game in training_data:
                 # Extract trump decision samples
-                for trump_data in game['trump_decisions']:
-                    sample = {
-                        'features': trump_data['hand_features'],
-                        'target': trump_data['target'],
-                        'player_name': trump_data['player_name']
-                    }
-                    trump_samples.append(sample)
+                if 'trump_decisions' in game:
+                    for trump_data in game['trump_decisions']:
+                        sample = {
+                            'features': trump_data['hand_features'],
+                            'target': trump_data['target'],
+                            'player_name': trump_data['player_name']
+                        }
+                        trump_samples.append(sample)
                 
                 # Extract card play samples
-                for card_data in game['card_plays']:
-                    sample = {
-                        'features': card_data['hand_features'],
-                        'target': card_data['target'],
-                        'player_name': card_data['player_name']
-                    }
-                    card_samples.append(sample)
+                if 'card_plays' in game:
+                    for card_data in game['card_plays']:
+                        sample = {
+                            'features': card_data['hand_features'],
+                            'target': card_data['target'],
+                            'player_name': card_data['player_name']
+                        }
+                        card_samples.append(sample)
+            
+            # Debug: Log sample counts
+            self.logger.info(f"Model {name}: {len(trump_samples)} trump samples, {len(card_samples)} card samples")
             
             # Create datasets only if we have samples
-            if trump_samples:
+            if trump_samples and card_samples:
                 datasets[name] = {
                     'trump_decision': MSeriesGameDataset(trump_samples, name),
                     'card_play': MSeriesGameDataset(card_samples, name)
                 }
+                self.logger.info(f"Created datasets for {name}: trump={len(trump_samples)}, card={len(card_samples)}")
             else:
                 # Create dummy datasets with at least one sample to avoid errors
+                self.logger.warning(f"No samples for {name}, creating dummy datasets")
                 dummy_features = torch.zeros(self.config.input_size)
                 dummy_target = torch.tensor([0], dtype=torch.float32)
                 dummy_sample = {'features': dummy_features, 'target': dummy_target, 'player_name': 'dummy'}
