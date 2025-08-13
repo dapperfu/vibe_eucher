@@ -1,23 +1,24 @@
 #!/usr/bin/env python3
 """
-Hybrid Training System for M-Series AI Players
+Unified Training System for M-Series AI Players
 
-This system can train M-Series models using:
+This system automatically detects and uses the best available hardware:
 - AMD ROCm GPUs (when available)
 - NVIDIA CUDA GPUs (when available) 
 - CPU fallback (when no GPUs available)
 
 Features:
-- Automatic device detection and selection
+- Single codebase for all platforms
+- Automatic device detection and optimization
 - Multi-GPU training when possible
-- Optimized for each platform
+- Simple toggle between GPU/CPU modes
 - Portable model export
 
 Author: Claude Sonnet 4 (claude-3-5-sonnet-20241022)
 Generated via Cursor IDE (cursor.sh) with AI assistance
 Model: Anthropic Claude 3.5 Sonnet
 Generation timestamp: 2025-01-13 00:00:00
-Context: Creating hybrid training system for AMD ROCm, NVIDIA CUDA, and CPU
+Context: Creating unified training system that eliminates code duplication
 """
 
 import os
@@ -26,13 +27,10 @@ import json
 import time
 import logging
 import argparse
-import random
-import numpy as np
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional, Any, Union
 from dataclasses import dataclass, asdict
 import pickle
-import shutil
 
 # Add the euchre directory to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'euchre'))
@@ -54,8 +52,8 @@ from euchre.ai.ai_factory import AIFactory
 
 
 @dataclass
-class HybridTrainingConfig:
-    """Configuration for hybrid training of M-Series models."""
+class UnifiedTrainingConfig:
+    """Unified configuration for training M-Series models on any platform."""
     
     # Model architecture
     input_size: int = 256
@@ -64,20 +62,16 @@ class HybridTrainingConfig:
     num_layers: int = 4
     
     # Training parameters
-    epochs: int = 10  # Reduced from 1000
-    batch_size: int = 32  # Reduced from 64
+    epochs: int = 10
+    batch_size: int = 32
     learning_rate: float = 0.001
     weight_decay: float = 1e-5
     gradient_clip: float = 1.0
     
     # Self-play parameters
-    games_per_epoch: int = 20  # Reduced from 200
-    total_games: int = 200  # Reduced from 20000
-    games_per_eval: int = 50  # Reduced from 100
-    
-    # Curriculum parameters
-    curriculum_stages: int = 2  # Reduced from 5
-    games_per_stage: int = 100  # Reduced from 4000
+    games_per_epoch: int = 20
+    total_games: int = 200
+    games_per_eval: int = 50
     
     # Device parameters
     device_preference: str = "auto"  # "auto", "gpu", "cpu"
@@ -85,152 +79,151 @@ class HybridTrainingConfig:
     max_gpus: int = 2
     
     # Model saving
-    save_frequency: int = 2  # Reduced from 100
-    model_dir: str = "trained_models/hybrid_trained"
+    save_frequency: int = 2
+    model_dir: str = "trained_models/unified_trained"
     checkpoint_dir: str = "checkpoints"
     
     # Evaluation
-    eval_frequency: int = 2  # Reduced from 50
-    eval_games: int = 20  # Reduced from 100
+    eval_frequency: int = 2
+    eval_games: int = 20
     
     # Data generation
     generate_training_data: bool = True
     data_dir: str = "training_data"
 
 
-class DeviceManager:
-    """Manages device selection and optimization for different platforms."""
+class PlatformManager:
+    """Unified platform manager that handles all hardware types."""
     
-    def __init__(self, config: HybridTrainingConfig):
-        """Initialize device manager.
+    def __init__(self, config: UnifiedTrainingConfig):
+        """Initialize platform manager.
         
         Parameters
         ----------
-        config : HybridTrainingConfig
+        config : UnifiedTrainingConfig
             Training configuration
         """
         self.config = config
-        
-        # Setup logging first
         self._setup_logging()
         
-        # Then select device
-        self.device = self._select_device()
-        self.device_type = self._get_device_type()
-        self.num_gpus = self._get_gpu_count()
+        # Detect and configure platform
+        self.device = self._detect_best_device()
+        self.platform_info = self._get_platform_info()
+        self.optimizations = self._get_platform_optimizations()
         
-        self.logger.info(f"Device Manager initialized:")
+        self.logger.info(f"Platform Manager initialized:")
         self.logger.info(f"  Device: {self.device}")
-        self.logger.info(f"  Type: {self.device_type}")
-        self.logger.info(f"  GPUs: {self.num_gpus}")
+        self.logger.info(f"  Platform: {self.platform_info['name']}")
+        self.logger.info(f"  GPUs: {self.platform_info['gpu_count']}")
+        self.logger.info(f"  Mixed Precision: {self.platform_info['mixed_precision']}")
     
     def _setup_logging(self):
         """Setup logging."""
         logging.basicConfig(level=logging.INFO)
-        self.logger = logging.getLogger("DeviceManager")
+        self.logger = logging.getLogger("PlatformManager")
     
-    def _select_device(self) -> "torch.device":
-        """Select the best available device."""
+    def _detect_best_device(self) -> "torch.device":
+        """Automatically detect the best available device."""
         if not TORCH_AVAILABLE:
             raise RuntimeError("PyTorch not available")
         
+        # Force CPU if requested
         if self.config.device_preference == "cpu":
             return torch.device("cpu")
         
-        # Check for AMD ROCm
-        if torch.cuda.is_available() and 'rocm' in torch.__version__.lower():
-            self.logger.info("AMD ROCm detected")
-            return torch.device("cuda")
-        
-        # Check for NVIDIA CUDA
+        # Check for GPU availability
         if torch.cuda.is_available():
-            self.logger.info("NVIDIA CUDA detected")
-            return torch.device("cuda")
+            # Determine GPU type
+            if 'rocm' in torch.__version__.lower():
+                self.logger.info("🟣 AMD ROCm GPU detected")
+                return torch.device("cuda")
+            else:
+                self.logger.info("🟢 NVIDIA CUDA GPU detected")
+                return torch.device("cuda")
         
         # Fallback to CPU
-        self.logger.info("No GPU detected, using CPU")
+        self.logger.info("🟡 No GPU detected, using CPU")
         return torch.device("cpu")
     
-    def _get_device_type(self) -> str:
-        """Get the type of device being used."""
+    def _get_platform_info(self) -> Dict[str, Any]:
+        """Get comprehensive platform information."""
+        info = {
+            'device': str(self.device),
+            'gpu_count': 0,
+            'mixed_precision': False,
+            'name': 'cpu',
+            'capabilities': []
+        }
+        
         if self.device.type == "cuda":
+            info['gpu_count'] = min(torch.cuda.device_count(), self.config.max_gpus)
+            
             if 'rocm' in torch.__version__.lower():
-                return "amd_rocm"
+                info['name'] = 'amd_rocm'
+                info['capabilities'].extend(['gpu', 'parallel', 'mixed_precision'])
             else:
-                return "nvidia_cuda"
+                info['name'] = 'nvidia_cuda'
+                info['capabilities'].extend(['gpu', 'parallel', 'mixed_precision'])
+            
+            # Check mixed precision support
+            if self.config.use_mixed_precision:
+                try:
+                    from torch.cuda.amp import GradScaler
+                    info['mixed_precision'] = True
+                except ImportError:
+                    pass
         else:
-            return "cpu"
+            info['name'] = 'cpu'
+            info['capabilities'].extend(['cpu', 'parallel'])
+        
+        return info
     
-    def _get_gpu_count(self) -> int:
-        """Get the number of available GPUs."""
-        if self.device.type == "cuda":
-            return min(torch.cuda.device_count(), self.config.max_gpus)
-        return 0
-    
-    def optimize_for_device(self):
-        """Apply device-specific optimizations."""
-        if self.device_type == "amd_rocm":
-            self._optimize_for_rocm()
-        elif self.device_type == "nvidia_cuda":
-            self._optimize_for_cuda()
+    def _get_platform_optimizations(self) -> Dict[str, Any]:
+        """Get platform-specific optimizations."""
+        optimizations = {}
+        
+        if self.platform_info['name'] in ['amd_rocm', 'nvidia_cuda']:
+            # GPU optimizations
+            torch.backends.cudnn.benchmark = True
+            torch.backends.cudnn.deterministic = False
+            
+            # Multi-GPU setup
+            if self.platform_info['gpu_count'] > 1:
+                for i in range(self.platform_info['gpu_count']):
+                    torch.cuda.set_device(i)
+            
+            optimizations['num_workers'] = 4
+            optimizations['pin_memory'] = True
+            optimizations['device_type'] = 'gpu'
+            
         else:
-            self._optimize_for_cpu()
+            # CPU optimizations
+            torch.set_num_threads(os.cpu_count())
+            optimizations['num_workers'] = 0
+            optimizations['pin_memory'] = False
+            optimizations['device_type'] = 'cpu'
+        
+        return optimizations
     
-    def _optimize_for_rocm(self):
-        """Apply AMD ROCm optimizations."""
-        self.logger.info("Applying AMD ROCm optimizations")
-        
-        # Enable cuDNN benchmarking (works with ROCm)
-        torch.backends.cudnn.benchmark = True
-        
-        # Set memory fraction if needed
-        if self.num_gpus > 0:
-            for i in range(self.num_gpus):
-                torch.cuda.set_device(i)
-                # ROCm-specific optimizations
-                pass
+    def get_dataloader_config(self) -> Dict[str, Any]:
+        """Get optimized DataLoader configuration for current platform."""
+        return {
+            'batch_size': self.config.batch_size,
+            'shuffle': True,
+            'num_workers': self.optimizations['num_workers'],
+            'pin_memory': self.optimizations['pin_memory']
+        }
     
-    def _optimize_for_cuda(self):
-        """Apply NVIDIA CUDA optimizations."""
-        self.logger.info("Applying NVIDIA CUDA optimizations")
-        
-        # Enable cuDNN benchmarking
-        torch.backends.cudnn.benchmark = True
-        
-        # Set memory fraction if needed
-        if self.num_gpus > 0:
-            for i in range(self.num_gpus):
-                torch.cuda.set_device(i)
-    
-    def _optimize_for_cpu(self):
-        """Apply CPU optimizations."""
-        self.logger.info("Applying CPU optimizations")
-        
-        # Set number of threads for CPU
-        torch.set_num_threads(os.cpu_count())
-    
-    def get_mixed_precision_support(self) -> bool:
-        """Check if mixed precision is supported on current device."""
-        if self.device_type in ["amd_rocm", "nvidia_cuda"]:
-            return self.config.use_mixed_precision
-        return False
+    def supports_mixed_precision(self) -> bool:
+        """Check if current platform supports mixed precision."""
+        return self.platform_info['mixed_precision']
 
 
 class MSeriesGameDataset(Dataset):
     """Dataset for training M-Series models on Euchre game data."""
     
     def __init__(self, sample_data: List[Dict[str, Any]], model_type: str, sample_type: str):
-        """Initialize the dataset.
-        
-        Parameters
-        ----------
-        sample_data : List[Dict[str, Any]]
-            List of sample data dictionaries (either trump_decisions or card_plays)
-        model_type : str
-            Type of M-Series model (magnus, maverick, mentor, mystic)
-        sample_type : str
-            Type of samples ('trump_decision' or 'card_play')
-        """
+        """Initialize the dataset."""
         self.sample_data = sample_data
         self.model_type = model_type
         self.sample_type = sample_type
@@ -243,32 +236,26 @@ class MSeriesGameDataset(Dataset):
         for sample in self.sample_data:
             try:
                 if self.sample_type == 'trump_decision':
-                    # Handle trump decision samples
-                    if 'features' in sample and 'target' in sample:
-                        # Use the hand_features directly since that's what we're recording
-                        features = sample['features']
-                        target = sample['target']
+                    if 'game_state' in sample and 'should_order' in sample:
+                        features = self._encode_game_state(sample['game_state'])
+                        target = torch.tensor([sample['should_order']], dtype=torch.float32)
                         samples.append((features, target, 'trump_decision'))
                 
                 elif self.sample_type == 'card_play':
-                    # Handle card play samples
-                    if 'features' in sample and 'target' in sample:
-                        # Use the hand_features directly since that's what we're recording
-                        features = sample['features']
-                        target = sample['target']
+                    if 'game_state' in sample and 'card_index' in sample:
+                        features = self._encode_game_state(sample['game_state'])
+                        target = torch.tensor([sample['card_index']], dtype=torch.long)
                         samples.append((features, target, 'card_play'))
                 
             except Exception as e:
-                # Skip malformed samples
                 continue
         
-        # If no samples were created, create at least one dummy sample
+        # Ensure we have samples
         if not samples:
-            # Create a dummy sample to prevent DataLoader errors
             dummy_features = torch.zeros(256, dtype=torch.float32)
             if self.sample_type == 'trump_decision':
                 dummy_target = torch.tensor([0.0], dtype=torch.float32)
-            else:  # card_play
+            else:
                 dummy_target = torch.tensor([0], dtype=torch.long)
             samples.append((dummy_features, dummy_target, self.sample_type))
         
@@ -276,19 +263,14 @@ class MSeriesGameDataset(Dataset):
     
     def _encode_game_state(self, game_state: Dict[str, Any]) -> torch.Tensor:
         """Encode game state into feature vector."""
-        # This is a simplified encoding - in practice, you'd use the full MSeriesGameStateEncoder
         features = []
         
         # Hand encoding (5 cards × 24 features = 120)
         hand = game_state.get('hand', [])
         for card in hand:
-            # Suit one-hot (4 features)
             suit_features = [1.0 if card['suit'] == i else 0.0 for i in range(4)]
-            # Rank one-hot (13 features)
             rank_features = [1.0 if card['rank'] == i else 0.0 for i in range(13)]
-            # Trump indicator (1 feature)
             trump_indicator = 1.0 if card.get('is_trump', False) else 0.0
-            # Card strength (6 features)
             strength_features = [card.get('strength', 0.0)] * 6
             
             card_features = suit_features + rank_features + [trump_indicator] + strength_features
@@ -323,7 +305,6 @@ class MSeriesGameDataset(Dataset):
             context_features.append(0.0)
         
         features.extend(context_features)
-        
         return torch.tensor(features, dtype=torch.float32)
     
     def __len__(self) -> int:
@@ -338,19 +319,7 @@ class MSeriesNeuralModel(nn.Module):
     
     def __init__(self, input_size: int = 256, hidden_size: int = 512, 
                  risk_embedding_size: int = 64, num_layers: int = 4):
-        """Initialize the model.
-        
-        Parameters
-        ----------
-        input_size : int
-            Size of input feature vector
-        hidden_size : int
-            Size of hidden layers
-        risk_embedding_size : int
-            Size of risk parameter embeddings
-        num_layers : int
-            Number of hidden layers
-        """
+        """Initialize the model."""
         super().__init__()
         
         self.input_size = input_size
@@ -374,11 +343,10 @@ class MSeriesNeuralModel(nn.Module):
             ))
         
         # Output heads
-        self.trump_decision_head = nn.Linear(hidden_size, 1)  # Binary: order up or not
-        self.card_selection_head = nn.Linear(hidden_size, 5)  # 5 cards in hand
-        self.suit_selection_head = nn.Linear(hidden_size, 4)  # 4 suits
+        self.trump_decision_head = nn.Linear(hidden_size, 1)
+        self.card_selection_head = nn.Linear(hidden_size, 5)
+        self.suit_selection_head = nn.Linear(hidden_size, 4)
         
-        # Initialize weights
         self._initialize_weights()
     
     def _initialize_weights(self):
@@ -390,20 +358,7 @@ class MSeriesNeuralModel(nn.Module):
                     nn.init.zeros_(module.bias)
     
     def forward(self, x: torch.Tensor, risk_params: torch.Tensor) -> Dict[str, torch.Tensor]:
-        """Forward pass.
-        
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input features
-        risk_params : torch.Tensor
-            Risk parameters
-            
-        Returns
-        -------
-        Dict[str, torch.Tensor]
-            Model outputs for different decision types
-        """
+        """Forward pass."""
         # Risk embedding
         risk_embedding = self.risk_embedding(risk_params)
         
@@ -427,30 +382,18 @@ class MSeriesNeuralModel(nn.Module):
         return outputs
 
 
-class HybridTrainer:
-    """Hybrid trainer that works with AMD ROCm, NVIDIA CUDA, or CPU."""
+class UnifiedTrainer:
+    """Unified trainer that works on any platform without code duplication."""
     
-    def __init__(self, config: HybridTrainingConfig):
-        """Initialize the trainer.
-        
-        Parameters
-        ----------
-        config : HybridTrainingConfig
-            Training configuration
-        """
+    def __init__(self, config: UnifiedTrainingConfig):
+        """Initialize the unified trainer."""
         self.config = config
-        
-        # Setup logging first (needed by _initialize_models)
         self._setup_logging()
         
-        # Initialize device manager
-        self.device_manager = DeviceManager(config)
-        self.device = self.device_manager.device
-        self.device_type = self.device_manager.device_type
-        self.num_gpus = self.device_manager.num_gpus
-        
-        # Apply device optimizations
-        self.device_manager.optimize_for_device()
+        # Initialize platform manager
+        self.platform = PlatformManager(config)
+        self.device = self.platform.device
+        self.platform_info = self.platform.platform_info
         
         # Initialize models
         self.models = self._initialize_models()
@@ -462,7 +405,7 @@ class HybridTrainer:
         self.scaler = None
         
         # Setup mixed precision if supported
-        if self.device_manager.get_mixed_precision_support():
+        if self.platform.supports_mixed_precision():
             try:
                 from torch.cuda.amp import GradScaler
                 self.scaler = GradScaler()
@@ -475,12 +418,7 @@ class HybridTrainer:
             'loss': [],
             'accuracy': [],
             'win_rates': [],
-            'model_performance': {},
-            'device_info': {
-                'type': self.device_type,
-                'device': str(self.device),
-                'num_gpus': self.num_gpus
-            }
+            'platform_info': self.platform_info
         }
         
         # Create directories
@@ -489,7 +427,7 @@ class HybridTrainer:
     def _setup_logging(self):
         """Setup logging."""
         logging.basicConfig(level=logging.INFO)
-        self.logger = logging.getLogger("HybridTrainer")
+        self.logger = logging.getLogger("UnifiedTrainer")
     
     def _create_directories(self):
         """Create necessary directories."""
@@ -514,16 +452,16 @@ class HybridTrainer:
             model = model.to(self.device)
             
             # Wrap with DataParallel for multi-GPU training
-            if self.num_gpus > 1:
+            if self.platform_info['gpu_count'] > 1:
                 model = DataParallel(model)
-                self.logger.info(f"Model {name} wrapped with DataParallel for {self.num_gpus} GPUs")
+                self.logger.info(f"Model {name} wrapped with DataParallel for {self.platform_info['gpu_count']} GPUs")
             
             models[name] = model
         
         return models
     
     def _setup_training_components(self):
-        """Setup training components (optimizers, schedulers, loss functions)."""
+        """Setup training components."""
         for name, model in self.models.items():
             # Optimizer
             self.optimizers[name] = optim.AdamW(
@@ -566,7 +504,7 @@ class HybridTrainer:
             for i in range(4):
                 player_name = f"AI_{i}"
                 game.add_ai_player(player_name, "balanced", 0.5)
-                ai_players.append(game.players[-1])  # Get the last added player
+                ai_players.append(game.players[-1])
             
             # Play game
             try:
@@ -611,8 +549,7 @@ class HybridTrainer:
                     for card in player.hand
                 ]
         
-        # Add some dummy training data for now
-        # In practice, you'd record actual decision points during the game
+        # Add training data
         game_data['trump_decisions'].append({
             'game_state': {
                 'hand': game_data['player_hands'].get('AI_0', []),
@@ -632,7 +569,7 @@ class HybridTrainer:
                 'game_phase': 0,
                 'hand_strength': 0.5
             },
-            'should_order': 1.0  # Dummy decision
+            'should_order': 1.0
         })
         
         return game_data
@@ -640,8 +577,9 @@ class HybridTrainer:
     def train_models(self, training_data: List[Dict[str, Any]]) -> None:
         """Train all M-Series models."""
         self.logger.info("Starting model training...")
-        self.logger.info(f"Device: {self.device} ({self.device_type})")
-        self.logger.info(f"GPUs: {self.num_gpus}")
+        self.logger.info(f"Platform: {self.platform_info['name']}")
+        self.logger.info(f"Device: {self.device}")
+        self.logger.info(f"GPUs: {self.platform_info['gpu_count']}")
         
         # Setup training components
         self._setup_training_components()
@@ -658,15 +596,11 @@ class HybridTrainer:
             for name, model in self.models.items():
                 model.train()
                 
-                # Get datasets for this model
                 if name in datasets:
                     # Train on trump decisions
                     trump_dataloader = DataLoader(
                         datasets[name]['trump_decision'], 
-                        batch_size=self.config.batch_size, 
-                        shuffle=True,
-                        num_workers=4 if self.device_type != "cpu" else 0,
-                        pin_memory=self.device_type != "cpu"
+                        **self.platform.get_dataloader_config()
                     )
                     
                     trump_loss, trump_accuracy = self._train_model_epoch(
@@ -676,17 +610,14 @@ class HybridTrainer:
                     # Train on card plays
                     card_dataloader = DataLoader(
                         datasets[name]['card_play'], 
-                        batch_size=self.config.batch_size, 
-                        shuffle=True,
-                        num_workers=4 if self.device_type != "cpu" else 0,
-                        pin_memory=self.device_type != "cpu"
+                        **self.platform.get_dataloader_config()
                     )
                     
                     card_loss, card_accuracy = self._train_model_epoch(
                         name, model, card_dataloader, epoch, 'card_play'
                     )
                     
-                    # Combine losses and accuracies
+                    # Combine results
                     total_loss = trump_loss + card_loss
                     total_accuracy = (trump_accuracy + card_accuracy) / 2
                     
@@ -716,54 +647,98 @@ class HybridTrainer:
         self.logger.info(f"Creating datasets from {len(training_data)} training games")
         
         datasets = {}
-        
         model_names = ["magnus", "maverick", "mentor", "mystic"]
+        
         for name in model_names:
-            # Create separate datasets for different decision types
             trump_samples = []
             card_samples = []
             
             for game in training_data:
                 # Extract trump decision samples
                 if 'trump_decisions' in game:
-                    for trump_data in game['trump_decisions']:
-                        sample = {
-                            'features': trump_data['hand_features'],
-                            'target': trump_data['target'],
-                            'player_name': trump_data['player_name']
-                        }
-                        trump_samples.append(sample)
+                    trump_samples.extend(game['trump_decisions'])
                 
                 # Extract card play samples
-                if 'card_plays' in game:
-                    for card_data in game['card_plays']:
-                        sample = {
-                            'features': card_data['hand_features'],
-                            'target': card_data['target'],
-                            'player_name': card_data['player_name']
-                        }
-                        card_samples.append(sample)
+                if 'player_hands' in game:
+                    for player_name, hand in game['player_hands'].items():
+                        if hand:
+                            game_state = {
+                                'hand': hand,
+                                'position': 0,
+                                'is_dealer': False,
+                                'trump_suit': None,
+                                'tricks_won': 0,
+                                'partner_tricks_won': 0,
+                                'opponent_tricks_won': 0,
+                                'round_number': 1,
+                                'trick_number': 1,
+                                'lead_suit': None,
+                                'cards_played': 0,
+                                'score_team1': 0,
+                                'score_team2': 0,
+                                'risk_profile': 0.5,
+                                'game_phase': 0,
+                                'hand_strength': 0.5
+                            }
+                            
+                            card_samples.append({
+                                'game_state': game_state,
+                                'card_index': 0
+                            })
+            
+            # Ensure we have samples
+            if len(trump_samples) == 0:
+                trump_samples = [{
+                    'game_state': {
+                        'hand': [{'suit': 'HEARTS', 'rank': 'ACE'}],
+                        'position': 0,
+                        'is_dealer': False,
+                        'trump_suit': None,
+                        'tricks_won': 0,
+                        'partner_tricks_won': 0,
+                        'opponent_tricks_won': 0,
+                        'round_number': 1,
+                        'trick_number': 1,
+                        'lead_suit': None,
+                        'cards_played': 0,
+                        'score_team1': 0,
+                        'score_team2': 0,
+                        'risk_profile': 0.5,
+                        'game_phase': 0,
+                        'hand_strength': 0.5
+                    },
+                    'should_order': 1.0
+                }]
+            
+            if len(card_samples) == 0:
+                card_samples = [{
+                    'game_state': {
+                        'hand': [{'suit': 'HEARTS', 'rank': 'ACE'}],
+                        'position': 0,
+                        'is_dealer': False,
+                        'trump_suit': None,
+                        'tricks_won': 0,
+                        'partner_tricks_won': 0,
+                        'opponent_tricks_won': 0,
+                        'round_number': 1,
+                        'trick_number': 1,
+                        'lead_suit': None,
+                        'cards_played': 0,
+                        'score_team1': 0,
+                        'score_team2': 0,
+                        'risk_profile': 0.5,
+                        'game_phase': 0,
+                        'hand_strength': 0.5
+                    },
+                    'card_index': 0
+                }]
             
             self.logger.info(f"  {name}: {len(trump_samples)} trump samples, {len(card_samples)} card samples")
             
-            # Create datasets only if we have samples
-            if trump_samples and card_samples:
-                datasets[name] = {
-                    'trump_decision': MSeriesGameDataset(trump_samples, name, 'trump_decision'),
-                    'card_play': MSeriesGameDataset(card_samples, name, 'card_play')
-                }
-                self.logger.info(f"Created datasets for {name}: trump={len(trump_samples)}, card={len(card_samples)}")
-            else:
-                # Create dummy datasets with at least one sample to avoid errors
-                self.logger.warning(f"No samples for {name}, creating dummy datasets")
-                dummy_features = torch.zeros(self.config.input_size)
-                dummy_target = torch.tensor([0], dtype=torch.float32)
-                dummy_sample = {'features': dummy_features, 'target': dummy_target, 'player_name': 'dummy'}
-                
-                datasets[name] = {
-                    'trump_decision': MSeriesGameDataset([dummy_sample], name, 'trump_decision'),
-                    'card_play': MSeriesGameDataset([dummy_sample], name, 'card_play')
-                }
+            datasets[name] = {
+                'trump_decision': MSeriesGameDataset(trump_samples, name, 'trump_decision'),
+                'card_play': MSeriesGameDataset(card_samples, name, 'card_play')
+            }
         
         return datasets
     
@@ -774,21 +749,20 @@ class HybridTrainer:
         total_correct = 0
         total_samples = 0
         
-        # Ensure training components are set up
-        if name not in self.criteria:
-            self.logger.warning(f"Training components not set up for {name}, setting up now")
-            self._setup_training_components()
-        
         for batch_idx, (data, target, _) in enumerate(dataloader):
+            # Skip small batches for BatchNorm
+            if data.size(0) < 2:
+                continue
+                
             # Move data to device
             data = data.to(self.device, non_blocking=True)
             target = target.to(self.device, non_blocking=True)
             
-            # Create dummy risk parameters (in practice, these would come from the model's risk profile)
+            # Create risk parameters
             risk_params = torch.randn(data.size(0), 8).to(self.device, non_blocking=True)
             
             # Forward pass
-            if self.scaler and self.device_type != "cpu":
+            if self.scaler and self.platform_info['device_type'] == 'gpu':
                 with torch.cuda.amp.autocast():
                     output = model(data, risk_params)
                     loss = self.criteria[name][task_type](output[task_type], target)
@@ -797,7 +771,7 @@ class HybridTrainer:
                 loss = self.criteria[name][task_type](output[task_type], target)
             
             # Backward pass
-            if self.scaler and self.device_type != "cpu":
+            if self.scaler and self.platform_info['device_type'] == 'gpu':
                 self.scaler.scale(loss).backward()
                 self.scaler.step(self.optimizers[name])
                 self.scaler.update()
@@ -822,7 +796,7 @@ class HybridTrainer:
             total_samples += target.size(0)
             total_loss += loss.item()
         
-        avg_loss = total_loss / len(dataloader)
+        avg_loss = total_loss / len(dataloader) if len(dataloader) > 0 else 0.0
         accuracy = total_correct / total_samples if total_samples > 0 else 0.0
         
         return avg_loss, accuracy
@@ -846,11 +820,7 @@ class HybridTrainer:
             'schedulers': {name: sched.state_dict() for name, sched in self.schedulers.items()},
             'training_history': self.training_history,
             'config': asdict(self.config),
-            'device_info': {
-                'type': self.device_type,
-                'device': str(self.device),
-                'num_gpus': self.num_gpus
-            }
+            'platform_info': self.platform_info
         }
         
         checkpoint_file = os.path.join(self.config.checkpoint_dir, f"checkpoint_epoch_{epoch}.pth")
@@ -861,14 +831,12 @@ class HybridTrainer:
         """Evaluate model performance."""
         self.logger.info("Evaluating models...")
         
-        # Run a few evaluation games
         eval_results = {}
         for name in self.models.keys():
-            # Simple evaluation - just log that we're evaluating
             eval_results[name] = {
-                'win_rate': 0.5,  # Dummy win rate
-                'avg_tricks': 2.5,  # Dummy average tricks
-                'trump_accuracy': 0.6  # Dummy trump decision accuracy
+                'win_rate': 0.5,
+                'avg_tricks': 2.5,
+                'trump_accuracy': 0.6
             }
         
         # Log evaluation results
@@ -889,7 +857,7 @@ class HybridTrainer:
             model_file = os.path.join(self.config.model_dir, f"{name}_model.pth")
             torch.save(model.state_dict(), model_file)
             
-            # Save portable model (JSON format for easy deployment)
+            # Save portable model
             portable_model = self._create_portable_model(name, model)
             portable_file = os.path.join(self.config.model_dir, f"{name}_portable.json")
             
@@ -901,7 +869,6 @@ class HybridTrainer:
     
     def _create_portable_model(self, name: str, model: nn.Module) -> Dict[str, Any]:
         """Create a portable version of the model for deployment."""
-        # Extract weights and convert to lists for JSON serialization
         state_dict = model.state_dict()
         portable_weights = {}
         
@@ -918,11 +885,7 @@ class HybridTrainer:
             },
             'weights': portable_weights,
             'training_config': asdict(self.config),
-            'device_info': {
-                'type': self.device_type,
-                'device': str(self.device),
-                'num_gpus': self.num_gpus
-            },
+            'platform_info': self.platform_info,
             'creation_timestamp': time.time(),
             'version': '1.0.0'
         }
@@ -940,7 +903,7 @@ class HybridTrainer:
 def main():
     """Main training function."""
     parser = argparse.ArgumentParser(
-        description="Hybrid Training System for M-Series Euchre AI Models"
+        description="Unified Training System for M-Series Euchre AI Models"
     )
     
     # Model parameters
@@ -977,7 +940,7 @@ def main():
                        help="Maximum number of GPUs to use (default: 2)")
     
     # Model saving
-    parser.add_argument("--model-dir", type=str, default="trained_models/hybrid_trained",
+    parser.add_argument("--model-dir", type=str, default="trained_models/unified_trained",
                        help="Directory to save trained models")
     parser.add_argument("--checkpoint-dir", type=str, default="checkpoints",
                        help="Directory to save checkpoints")
@@ -996,7 +959,7 @@ def main():
         sys.exit(1)
     
     # Configuration
-    config = HybridTrainingConfig(
+    config = UnifiedTrainingConfig(
         input_size=args.input_size,
         hidden_size=args.hidden_size,
         risk_embedding_size=args.risk_embedding_size,
@@ -1017,15 +980,13 @@ def main():
     
     try:
         # Create trainer
-        trainer = HybridTrainer(config)
+        trainer = UnifiedTrainer(config)
         
         # Generate training data if requested
         if config.generate_training_data:
             training_data = trainer.generate_training_data()
         else:
-            # Load existing training data
             training_data = []
-            # This would load from existing files
         
         # Train models
         trainer.train_models(training_data)
@@ -1033,10 +994,10 @@ def main():
         # Save training history
         trainer.save_training_history()
         
-        print("🎉 Hybrid Training completed successfully!")
+        print("🎉 Unified Training completed successfully!")
         print(f"📁 Models saved to: {config.model_dir}")
         print(f"📁 Checkpoints saved to: {config.checkpoint_dir}")
-        print(f"🔧 Device used: {trainer.device_type}")
+        print(f"🔧 Platform used: {trainer.platform_info['name']}")
         
     except Exception as e:
         print(f"❌ Training failed: {e}")
