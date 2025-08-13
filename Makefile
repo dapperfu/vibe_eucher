@@ -1,4 +1,4 @@
-.PHONY: help venv install install-pip test run clean train-ai evaluate-ai ai-game ai-game-ncurses ncurses logged profiles mass-games analyze cleanup jupyter jupyter-lab train-self-play train-integer-vs-float generate-profiles generate-profiles-cpu generate-profiles-gpu list-players play-trained tournament benchmark neural-tournament neural-analysis list-neural-models install-gpu train-m-series train-m-series-fast train-m-series-intensive evaluate-m-series train-m-series-vs-traditional m-series-tournament m-series-analysis list-m-series-models
+.PHONY: help venv install install-pip test run clean train-ai evaluate-ai ai-game ai-game-ncurses ncurses logged profiles mass-games analyze cleanup jupyter jupyter-lab train-self-play train-integer-vs-float generate-profiles generate-profiles-cpu generate-profiles-gpu list-players play-trained tournament benchmark neural-tournament neural-analysis list-neural-models install-gpu train-m-series train-m-series-fast train-m-series-intensive evaluate-m-series train-m-series-vs-traditional m-series-tournament m-series-analysis list-m-series-models benchmark-m-series benchmark-training-progression benchmark-comprehensive quick-benchmark benchmark-analysis
 
 help: ## Show this help message
 	@echo "Available commands:"
@@ -162,6 +162,39 @@ else: \
 # M-SERIES VS TRADITIONAL AI COMPETITION
 # =============================================================================
 
+benchmark-m-series: install ## Run comprehensive M-Series vs Traditional AI benchmark
+	@echo "🏆 Running M-Series vs Traditional AI Benchmark..."
+	@echo "This will compare M-Series models against traditional AI in head-to-head matches"
+	venv/bin/python m_series_benchmark.py --mode tournament --games 200
+
+benchmark-training-progression: install ## Run training progression benchmark to show improvement
+	@echo "📈 Running Training Progression Benchmark..."
+	@echo "This will demonstrate how M-Series performance improves with more training data"
+	venv/bin/python training_progression_benchmark.py
+
+benchmark-comprehensive: install ## Run both tournament and progression benchmarks
+	@echo "🚀 Running Comprehensive Benchmark Suite..."
+	@echo "This includes both head-to-head tournament and training progression analysis"
+	venv/bin/python m_series_benchmark.py --mode both --games 300
+	@echo ""
+	@echo "📊 Running Training Progression Analysis..."
+	venv/bin/python training_progression_benchmark.py
+
+quick-benchmark: install ## Run quick benchmark (50 games per matchup)
+	@echo "⚡ Running Quick Benchmark (50 games per matchup)..."
+	venv/bin/python m_series_benchmark.py --mode tournament --games 50
+
+benchmark-analysis: install ## Analyze benchmark results and generate reports
+	@echo "📊 Analyzing benchmark results..."
+	@if [ -f "m_series_benchmark_*.json" ]; then \
+		echo "Found benchmark results:"; \
+		ls -la m_series_benchmark_*.json; \
+		echo ""; \
+		echo "Run: venv/bin/python -c \"import json; print(json.dumps(json.load(open('m_series_benchmark_*.json')), indent=2))\" for detailed results"; \
+	else \
+		echo "No benchmark results found. Run benchmark-m-series first."; \
+	fi
+
 train-m-series-vs-traditional: install-gpu ## Train M-Series models specifically to compete against traditional AI
 	@echo "Training M-Series models to compete against traditional AI..."
 	@echo "This will focus on strategies that outperform traditional rule-based AI..."
@@ -212,45 +245,39 @@ list-m-series-models: install-gpu ## List available M-Series models
 	fi
 
 # =============================================================================
-# HUMAN VS AI GAMEPLAY
+# HUMAN VS AI GAMES
 # =============================================================================
 
-human-vs-ai: install ## Play as human vs AI with configurable AI types
-	@echo "🎮 Human vs AI Euchre Game"
-	@echo "Usage examples:"
-	@echo "  make human-vs-ai-default          # Play with default settings"
-	@echo "  make human-vs-ai-aggressive      # Play with aggressive partner"
-	@echo "  make human-vs-ai-conservative    # Play with conservative partner"
-	@echo "  make human-vs-ai-balanced        # Play with balanced partner"
-	@echo "  make human-vs-ai-opportunistic   # Play with opportunistic partner"
-	@echo "  make human-vs-ai-custom          # Play with custom AI configuration"
+human-vs-ai: install ## Play human vs AI game with configurable AI types
+	@echo "🎮 Starting Human vs AI Game..."
+	@echo "Usage: make human-vs-ai PLAYER_NAME=YourName POSITION=0 PARTNER_AI=balanced OPP1_AI=aggressive OPP2_AI=conservative"
+	@echo "Available AI types: aggressive, conservative, balanced, opportunistic, magnus, maverick, mentor, mystic"
+	@echo "Example: make human-vs-ai PLAYER_NAME=Alice POSITION=0 PARTNER_AI=magnus OPP1_AI=aggressive OPP2_AI=balanced"
+	venv/bin/python -m euchre.cli_main human-vs-ai $(PLAYER_NAME) --your-position $(POSITION) --partner-ai-type $(PARTNER_AI) --opponent1-ai-type $(OPP1_AI) --opponent2-ai-type $(OPP2_AI)
 
-human-vs-ai-default: install ## Play as human with balanced AI partner vs balanced opponents
-	venv/bin/python -m euchre.cli_main human-vs-ai --player-name "Player" --your-position 0 --partner-ai-type balanced --opponent1-ai-type balanced --opponent2-ai-type balanced
+human-vs-m-series: install ## Play human vs M-Series AI specifically
+	@echo "🧠 Starting Human vs M-Series AI Game..."
+	@echo "Usage: make human-vs-m-series PLAYER_NAME=YourName POSITION=0 MODEL=magnus MODEL_PATH=path/to/model.pth"
+	@echo "Available M-Series models: magnus, maverick, mentor, mystic"
+	@echo "Example: make human-vs-m-series PLAYER_NAME=Alice POSITION=0 MODEL=magnus MODEL_PATH=models/magnus_trained.pth"
+	venv/bin/python -m euchre.cli_main human-vs-m-series $(PLAYER_NAME) --your-position $(POSITION) --m-series-model $(MODEL) --model-path $(MODEL_PATH)
 
-human-vs-ai-aggressive: install ## Play as human with aggressive AI partner
-	venv/bin/python -m euchre.cli_main human-vs-ai --player-name "Player" --your-position 0 --partner-ai-type aggressive --opponent1-ai-type balanced --opponent2-ai-type balanced
+list-ai-types: install ## List all available AI types including M-Series models
+	@echo "🤖 Listing Available AI Types..."
+	venv/bin/python -m euchre.cli_main list-ai-types
 
-human-vs-ai-conservative: install ## Play as human with conservative AI partner
-	venv/bin/python -m euchre.cli_main human-vs-ai --player-name "Player" --your-position 0 --partner-ai-type conservative --opponent1-ai-type balanced --opponent2-ai-type balanced
+# =============================================================================
+# GAME MODES
+# =============================================================================
 
-human-vs-ai-balanced: install ## Play as human with balanced AI partner
-	venv/bin/python -m euchre.cli_main human-vs-ai --player-name "Player" --your-position 0 --partner-ai-type balanced --opponent1-ai-type balanced --opponent2-ai-type balanced
+ai-game: install ## Play AI vs AI game
+	@echo "🤖 Starting AI vs AI Game..."
+	venv/bin/python -m euchre.cli_main ai-vs-ai
 
-human-vs-ai-opportunistic: install ## Play as human with opportunistic AI partner
-	venv/bin/python -m euchre.cli_main human-vs-ai --player-name "Player" --your-position 0 --partner-ai-type opportunistic --opponent1-ai-type balanced --opponent2-ai-type balanced
+ai-game-ncurses: install ## Play AI vs AI game with ncurses interface
+	@echo "🖥️  Starting ncurses interface..."
+	venv/bin/python -m euchre.cli_main ncurses
 
-human-vs-ai-custom: install ## Play as human with custom AI configuration
-	@echo "🎮 Custom Human vs AI Configuration"
-	@echo "Available AI types: aggressive, conservative, balanced, opportunistic"
-	@echo "Risk ratios: 0.0 (very conservative) to 1.0 (very aggressive)"
-	@echo ""
-	@read -p "Enter your name: " name; \
-	read -p "Enter your position (0=Alice, 1=Bob, 2=Charlie, 3=David): " pos; \
-	read -p "Enter partner AI type: " partner; \
-	read -p "Enter opponent1 AI type: " opp1; \
-	read -p "Enter opponent2 AI type: " opp2; \
-	read -p "Enter partner risk ratio (0.0-1.0): " prisk; \
-	read -p "Enter opponent1 risk ratio (0.0-1.0): " orisk1; \
-	read -p "Enter opponent2 risk ratio (0.0-1.0): " orisk2; \
-	venv/bin/python -m euchre.cli_main human-vs-ai --player-name "$$name" --your-position $$pos --partner-ai-type $$partner --opponent1-ai-type $$opp1 --opponent2-ai-type $$opp2 --partner-risk $$prisk --opponent1-risk $$orisk1 --opponent2-risk $$orisk2 
+logged-game: install ## Play AI vs AI game with logging
+	@echo "📝 Starting logged game..."
+	venv/bin/python -m euchre.cli_main logged-game 
