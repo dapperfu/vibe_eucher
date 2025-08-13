@@ -1,0 +1,39 @@
+2025-08-13 15:30:27 - euchre.game - INFO - Starting new game
+2025-08-13 15:30:27 - euchre.game - INFO - Number of players: 4
+2025-08-13 15:30:27 - euchre.game - INFO - 🎲 Traditional dealer selection completed:
+2025-08-13 15:30:27 - euchre.game - INFO -   North received: A♦️
+2025-08-13 15:30:27 - euchre.game - INFO -   East received: K♣️
+2025-08-13 15:30:27 - euchre.game - INFO -   South received: A♣️
+2025-08-13 15:30:27 - euchre.game - INFO -   West received: A♥️
+2025-08-13 15:30:27 - euchre.game - INFO -   North received: Q♦️
+2025-08-13 15:30:27 - euchre.game - INFO -   East received: Q♠️
+2025-08-13 15:30:27 - euchre.game - INFO -   South received: 10♦️
+2025-08-13 15:30:27 - euchre.game - INFO -   West received: 9♣️
+2025-08-13 15:30:27 - euchre.game - INFO -   North received: K♥️
+2025-08-13 15:30:27 - euchre.game - INFO -   East received: K♦️
+2025-08-13 15:30:27 - euchre.game - INFO -   South received: J♦️
+2025-08-13 15:30:27 - euchre.game - INFO -   West received: 9♥️
+2025-08-13 15:30:27 - euchre.game - INFO -   North received: K♠️
+2025-08-13 15:30:27 - euchre.game - INFO -   East received: J♣️
+2025-08-13 15:30:27 - euchre.game - INFO - 👑 East selected as first dealer!
+2025-08-13 15:30:27 - euchre.game - INFO - 🎴 Dealing cards using traditional Euchre pattern...
+2025-08-13 15:30:27 - euchre.game - INFO -    First round: Deal 2 cards to each player
+2025-08-13 15:30:27 - euchre.game - INFO -    Second round: Deal 3 cards to each player
+2025-08-13 15:30:27 - euchre.game - INFO - Kitty: 3 cards remaining
+2025-08-13 15:30:27 - euchre.game - INFO - Dealer: East
+2025-08-13 15:30:27 - euchre.game - INFO - Initial hands:
+2025-08-13 15:30:27 - euchre.game - INFO - North: ['10♠️', 'Q♠️', '10♦️', 'J♥️', 'Q♣️']
+2025-08-13 15:30:27 - euchre.game - INFO - East: ['A♣️', 'K♦️', 'K♠️', 'A♠️', 'J♠️']
+2025-08-13 15:30:27 - euchre.game - INFO - South: ['K♥️', 'Q♥️', 'A♦️', '10♥️', 'K♣️']
+2025-08-13 15:30:27 - euchre.game - INFO - West: ['9♣️', 'Q♦️', '9♥️', 'J♦️', '9♦️']
+2025-08-13 15:30:27 - euchre.game - INFO - Game started with players: North, East, South, West
+2025-08-13 15:30:27 - euchre.game - INFO - Dealer: East
+Dealer: East
+================================================================================
+EUCHRE GAME LOG
+================================================================================
+Game started: 2025-08-13 15:30:27
+Players: North, East, South, West
+Dealer: East
+================================================================================
+
