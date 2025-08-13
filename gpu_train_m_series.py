@@ -508,16 +508,16 @@ class GPUTrainer:
                 # Basic card encoding (simplified)
                 card_start = i * 50  # 50 features per card
                 if hasattr(card, 'suit') and hasattr(card, 'rank'):
-                    # Suit encoding (4 features)
-                    suit_idx = getattr(card.suit, 'value', 0) % 4
+                    # Suit encoding (4 features) - use enum index, not string value
+                    suit_idx = list(card.suit.__class__).index(card.suit) % 4
                     features[card_start + suit_idx] = 1.0
                     
-                    # Rank encoding (13 features)
-                    rank_idx = getattr(card.rank, 'value', 0) % 13
+                    # Rank encoding (13 features) - use enum index, not integer value
+                    rank_idx = list(card.rank.__class__).index(card.rank) % 13
                     features[card_start + 4 + rank_idx] = 1.0
                     
-                    # Card strength (normalized)
-                    features[card_start + 17] = (getattr(card.rank, 'value', 0) - 1) / 12.0
+                    # Card strength (normalized) - use enum index for consistency
+                    features[card_start + 17] = list(card.rank.__class__).index(card.rank) / 12.0
         
         return features
     
