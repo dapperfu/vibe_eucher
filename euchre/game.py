@@ -176,6 +176,10 @@ class EuchreGame:
         # Reset round state
         self.current_trick = None
         self.tricks_won = {player.name: 0 for player in self.players}
+        
+        # Reset player tricks_won attributes for proper scoring
+        for player in self.players:
+            player.tricks_won = 0
         self.trump_suit = None
         self._top_card_picked_up = False  # Reset top card picked up flag
         
