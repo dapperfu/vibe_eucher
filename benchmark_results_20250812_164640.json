@@ -1,0 +1,349 @@
+{
+  "summary": {
+    "inference": {
+      "float_avg_duration_ms": 102.6618480682373,
+      "int_avg_duration_ms": 202.72421836853027,
+      "speedup": 0.5064113646333532,
+      "int_faster": 0
+    },
+    "training_step": {
+      "float_avg_duration_ms": 22.896766662597656,
+      "int_avg_duration_ms": 31.834204991658527,
+      "speedup": 0.7192504624694496,
+      "int_faster": 0
+    },
+    "forward_pass": {
+      "float_avg_duration_ms": 26.849130789438885,
+      "int_avg_duration_ms": 39.59310054779053,
+      "speedup": 0.6781265022937737,
+      "int_faster": 0
+    }
+  },
+  "detailed_results": [
+    {
+      "model_type": "float",
+      "operation": "forward_pass",
+      "batch_size": 1,
+      "input_size": 64,
+      "duration_ms": 11.792182922363281,
+      "memory_usage_mb": 0.0,
+      "throughput": 8480.194096239386,
+      "error_rate": 0.0
+    },
+    {
+      "model_type": "int",
+      "operation": "forward_pass",
+      "batch_size": 1,
+      "input_size": 64,
+      "duration_ms": 24.68276023864746,
+      "memory_usage_mb": 0.0,
+      "throughput": 4051.4107430911745,
+      "error_rate": 0.0
+    },
+    {
+      "model_type": "float",
+      "operation": "forward_pass",
+      "batch_size": 1,
+      "input_size": 128,
+      "duration_ms": 11.806964874267578,
+      "memory_usage_mb": 0.0,
+      "throughput": 8469.577157626913,
+      "error_rate": 0.0
+    },
+    {
+      "model_type": "int",
+      "operation": "forward_pass",
+      "batch_size": 1,
+      "input_size": 128,
+      "duration_ms": 25.99477767944336,
+      "memory_usage_mb": 0.0,
+      "throughput": 3846.926533981473,
+      "error_rate": 0.0
+    },
+    {
+      "model_type": "float",
+      "operation": "forward_pass",
+      "batch_size": 1,
+      "input_size": 256,
+      "duration_ms": 12.089967727661133,
+      "memory_usage_mb": 0.0,
+      "throughput": 8271.320672858861,
+      "error_rate": 0.0
+    },
+    {
+      "model_type": "int",
+      "operation": "forward_pass",
+      "batch_size": 1,
+      "input_size": 256,
+      "duration_ms": 26.86786651611328,
+      "memory_usage_mb": 0.0,
+      "throughput": 3721.918148581976,
+      "error_rate": 0.0
+    },
+    {
+      "model_type": "float",
+      "operation": "forward_pass",
+      "batch_size": 4,
+      "input_size": 64,
+      "duration_ms": 40.292978286743164,
+      "memory_usage_mb": 0.0,
+      "throughput": 2481.822001053248,
+      "error_rate": 0.0
+    },
+    {
+      "model_type": "int",
+      "operation": "forward_pass",
+      "batch_size": 4,
+      "input_size": 64,
+      "duration_ms": 50.75550079345703,
+      "memory_usage_mb": 0.0,
+      "throughput": 1970.229796508897,
+      "error_rate": 0.0
+    },
+    {
+      "model_type": "float",
+      "operation": "forward_pass",
+      "batch_size": 4,
+      "input_size": 128,
+      "duration_ms": 17.767667770385742,
+      "memory_usage_mb": 0.0,
+      "throughput": 5628.200689719953,
+      "error_rate": 0.0
+    },
+    {
+      "model_type": "int",
+      "operation": "forward_pass",
+      "batch_size": 4,
+      "input_size": 128,
+      "duration_ms": 35.44139862060547,
+      "memory_usage_mb": 0.0,
+      "throughput": 2821.55907757716,
+      "error_rate": 0.0
+    },
+    {
+      "model_type": "float",
+      "operation": "forward_pass",
+      "batch_size": 4,
+      "input_size": 256,
+      "duration_ms": 18.973588943481445,
+      "memory_usage_mb": 0.0,
+      "throughput": 5270.484160792149,
+      "error_rate": 0.0
+    },
+    {
+      "model_type": "int",
+      "operation": "forward_pass",
+      "batch_size": 4,
+      "input_size": 256,
+      "duration_ms": 48.81739616394043,
+      "memory_usage_mb": 0.0,
+      "throughput": 2048.450098898684,
+      "error_rate": 0.0
+    },
+    {
+      "model_type": "float",
+      "operation": "forward_pass",
+      "batch_size": 8,
+      "input_size": 64,
+      "duration_ms": 116.75715446472168,
+      "memory_usage_mb": 0.0,
+      "throughput": 856.4785640627712,
+      "error_rate": 0.0
+    },
+    {
+      "model_type": "int",
+      "operation": "forward_pass",
+      "batch_size": 8,
+      "input_size": 64,
+      "duration_ms": 37.87374496459961,
+      "memory_usage_mb": 0.0,
+      "throughput": 2640.351517745855,
+      "error_rate": 0.0
+    },
+    {
+      "model_type": "float",
+      "operation": "forward_pass",
+      "batch_size": 8,
+      "input_size": 128,
+      "duration_ms": 25.848388671875,
+      "memory_usage_mb": 0.0,
+      "throughput": 3868.7131050767416,
+      "error_rate": 0.0
+    },
+    {
+      "model_type": "int",
+      "operation": "forward_pass",
+      "batch_size": 8,
+      "input_size": 128,
+      "duration_ms": 39.36505317687988,
+      "memory_usage_mb": 0.0,
+      "throughput": 2540.324270633339,
+      "error_rate": 0.0
+    },
+    {
+      "model_type": "float",
+      "operation": "forward_pass",
+      "batch_size": 8,
+      "input_size": 256,
+      "duration_ms": 17.89236068725586,
+      "memory_usage_mb": 0.0,
+      "throughput": 5588.977427177998,
+      "error_rate": 0.0
+    },
+    {
+      "model_type": "int",
+      "operation": "forward_pass",
+      "batch_size": 8,
+      "input_size": 256,
+      "duration_ms": 53.327083587646484,
+      "memory_usage_mb": 0.0,
+      "throughput": 1875.2197433719318,
+      "error_rate": 0.0
+    },
+    {
+      "model_type": "float",
+      "operation": "forward_pass",
+      "batch_size": 16,
+      "input_size": 64,
+      "duration_ms": 17.354488372802734,
+      "memory_usage_mb": 0.0,
+      "throughput": 5762.198104135184,
+      "error_rate": 0.0
+    },
+    {
+      "model_type": "int",
+      "operation": "forward_pass",
+      "batch_size": 16,
+      "input_size": 64,
+      "duration_ms": 45.21465301513672,
+      "memory_usage_mb": 0.0,
+      "throughput": 2211.6723967011876,
+      "error_rate": 0.0
+    },
+    {
+      "model_type": "float",
+      "operation": "forward_pass",
+      "batch_size": 16,
+      "input_size": 128,
+      "duration_ms": 17.153024673461914,
+      "memory_usage_mb": 0.0,
+      "throughput": 5829.875599416221,
+      "error_rate": 0.0
+    },
+    {
+      "model_type": "int",
+      "operation": "forward_pass",
+      "batch_size": 16,
+      "input_size": 128,
+      "duration_ms": 42.66929626464844,
+      "memory_usage_mb": 0.0,
+      "throughput": 2343.6055607706407,
+      "error_rate": 0.0
+    },
+    {
+      "model_type": "float",
+      "operation": "forward_pass",
+      "batch_size": 16,
+      "input_size": 256,
+      "duration_ms": 14.46080207824707,
+      "memory_usage_mb": 0.0,
+      "throughput": 6915.245742172688,
+      "error_rate": 0.0
+    },
+    {
+      "model_type": "int",
+      "operation": "forward_pass",
+      "batch_size": 16,
+      "input_size": 256,
+      "duration_ms": 44.107675552368164,
+      "memory_usage_mb": 0.0,
+      "throughput": 2267.179096329209,
+      "error_rate": 0.0
+    },
+    {
+      "model_type": "float",
+      "operation": "inference",
+      "batch_size": 1000,
+      "input_size": 128,
+      "duration_ms": 102.6618480682373,
+      "memory_usage_mb": 0.0,
+      "throughput": 9740.7169149665,
+      "error_rate": 0.0
+    },
+    {
+      "model_type": "int",
+      "operation": "inference",
+      "batch_size": 1000,
+      "input_size": 128,
+      "duration_ms": 202.72421836853027,
+      "memory_usage_mb": 0.0,
+      "throughput": 4932.809745415371,
+      "error_rate": 0.0
+    },
+    {
+      "model_type": "float",
+      "operation": "training_step",
+      "batch_size": 1,
+      "input_size": 128,
+      "duration_ms": 17.03810691833496,
+      "memory_usage_mb": 0.0,
+      "throughput": 586.9196647216041,
+      "error_rate": 0.0
+    },
+    {
+      "model_type": "int",
+      "operation": "training_step",
+      "batch_size": 1,
+      "input_size": 128,
+      "duration_ms": 19.91558074951172,
+      "memory_usage_mb": 0.0,
+      "throughput": 502.1194272853517,
+      "error_rate": 0.0
+    },
+    {
+      "model_type": "float",
+      "operation": "training_step",
+      "batch_size": 4,
+      "input_size": 128,
+      "duration_ms": 22.840023040771484,
+      "memory_usage_mb": 0.0,
+      "throughput": 437.8279296018706,
+      "error_rate": 0.0
+    },
+    {
+      "model_type": "int",
+      "operation": "training_step",
+      "batch_size": 4,
+      "input_size": 128,
+      "duration_ms": 49.01409149169922,
+      "memory_usage_mb": 0.0,
+      "throughput": 204.02295943185135,
+      "error_rate": 0.0
+    },
+    {
+      "model_type": "float",
+      "operation": "training_step",
+      "batch_size": 8,
+      "input_size": 128,
+      "duration_ms": 28.812170028686523,
+      "memory_usage_mb": 0.0,
+      "throughput": 347.0755583506417,
+      "error_rate": 0.0
+    },
+    {
+      "model_type": "int",
+      "operation": "training_step",
+      "batch_size": 8,
+      "input_size": 128,
+      "duration_ms": 26.57294273376465,
+      "memory_usage_mb": 0.0,
+      "throughput": 376.3226414247903,
+      "error_rate": 0.0
+    }
+  ],
+  "recommendations": [
+    "Float model is 1.97x faster for inference",
+    "Float model is 1.39x faster for training_step",
+    "Float model is 1.47x faster for forward_pass"
+  ]
+}

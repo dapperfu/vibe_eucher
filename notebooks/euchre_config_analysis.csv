@@ -1,0 +1,6 @@
+,total_games,team1_wins,team2_wins,ties,team1_win_rate,team2_win_rate,avg_rounds,avg_duration
+aggressive_vs_balanced,250,126,124,0,0.504,0.496,16.328,2.640923566818237
+opportunistic_vs_aggressive,250,112,138,0,0.448,0.552,16.604,2.730472403526306
+aggressive_vs_conservative,250,125,125,0,0.5,0.5,16.312,3.205061236381531
+mixed_vs_mixed,250,119,131,0,0.476,0.524,16.336,2.8331368961334227
+conservative_vs_balanced,250,121,129,0,0.484,0.516,16.632,3.8701509771347045
