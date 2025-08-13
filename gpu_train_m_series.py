@@ -305,6 +305,11 @@ class GPUTrainer:
             Training configuration
         """
         self.config = config
+        
+        # Setup logging first (needed by _setup_device)
+        self._setup_logging()
+        
+        # Setup device
         self.device = self._setup_device()
         
         # Initialize models
@@ -323,9 +328,6 @@ class GPUTrainer:
             'win_rates': [],
             'model_performance': {}
         }
-        
-        # Setup logging
-        self._setup_logging()
         
         # Create directories
         self._create_directories()
