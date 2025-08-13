@@ -303,9 +303,8 @@ class GameCommands:
             # Show game setup - use the position name for consistency
             GameCommands._show_human_vs_ai_game_info(game, positions[your_position], your_position)
             
-            # Run the game using the proper full game method
-            # This will handle the complete game flow including trump selection and tricks
-            game.run_full_game()
+            # Run interactive human vs AI game
+            GameCommands._run_interactive_human_vs_ai_game(game, positions[your_position], your_position)
             
         except Exception as e:
             click.echo(f"❌ Error during Human vs AI game: {e}", err=True)
@@ -341,31 +340,528 @@ class GameCommands:
         click.echo("\n" + "=" * 60)
     
     @staticmethod
-    def tournament_game(num_games: int, verbose: bool = False, very_verbose: bool = False) -> None:
-        """Run a tournament between AI players.
+    def _run_interactive_human_vs_ai_game(game: EuchreGame, player_position: str, your_position: int) -> None:
+        """Run an interactive human vs AI game with proper human decision-making.
         
         Parameters
         ----------
-        num_games : int
-            Number of games to play
-        verbose : bool
-            Enable verbose logging
-        very_verbose : bool
-            Enable very verbose logging
+        game : EuchreGame
+            The game instance
+        player_position : str
+            Human player position name (Alice, Bob, Charlie, David)
+        your_position : int
+            Human player position index (0-3)
         """
-        try:
-            click.echo(f"Starting tournament with {num_games} games...")
+        click.echo("\n🎯 Starting Interactive Human vs AI Game!")
+        click.echo("=" * 60)
+        
+        # Start the game
+        game.start_new_game()
+        
+        # Play the first round
+        GameCommands._play_interactive_round(game, player_position, your_position)
+        
+        # Continue rounds until game is over
+        while not game.scoring_manager.is_game_over(game.players):
+            game.round_number += 1
+            click.echo(f"\n🔄 Starting Round {game.round_number}")
+            click.echo("=" * 60)
             
-            # Create AI players with different styles
-            ai_players = AIFactory.create_mixed_ai_players()
+            # Start new round
+            game._start_new_round()
             
-            # Create tournament game
-            game = EuchreGame(ai_players, verbose=verbose, very_verbose=very_verbose)
+            # Play the round
+            GameCommands._play_interactive_round(game, player_position, your_position)
+        
+        # Show final results
+        GameCommands._show_final_game_results(game)
+    
+    @staticmethod
+    def _play_interactive_round(game: EuchreGame, player_position: str, your_position: int) -> None:
+        """Play a single round with human interaction.
+        
+        Parameters
+        ----------
+        game : EuchreGame
+            The game instance
+        player_position : str
+            Human player position name
+        your_position : int
+            Human player position index
+        """
+        click.echo(f"\n🎴 Round {game.round_number}")
+        click.echo(f"Dealer: {game.game_state_manager.get_dealer().name}")
+        click.echo(f"Top Card: {game.top_card.unicode_str()}")
+        
+        # Show human player's hand
+        your_hand = game.get_player_hand(player_position)
+        if your_hand:
+            click.echo(f"\n🃏 Your hand ({player_position}):")
+            for i, card in enumerate(your_hand):
+                click.echo(f"  {i+1}. {card.unicode_str()}")
+        
+        # Trump selection phase
+        GameCommands._handle_trump_selection(game, player_position, your_position)
+        
+        # Play 5 tricks
+        for trick_number in range(1, 6):
+            click.echo(f"\n--- Trick {trick_number} ---")
+            GameCommands._play_interactive_trick(game, player_position, your_position, trick_number)
+        
+        # Score the round
+        GameCommands._score_round(game)
+    
+    @staticmethod
+    def _handle_trump_selection(game: EuchreGame, player_position: str, your_position: int) -> None:
+        """Handle the trump selection phase with human input.
+        
+        Parameters
+        ----------
+        game : EuchreGame
+            The game instance
+        player_position : str
+            Human player position name
+        your_position : int
+            Human player position index
+        """
+        click.echo(f"\n🎯 Trump Selection Phase")
+        click.echo("=" * 40)
+        
+        # First round of trump selection
+        click.echo("First round - players can order up the top card")
+        
+        # Determine player order for trump selection
+        dealer = game.game_state_manager.get_dealer()
+        dealer_index = next(i for i, p in enumerate(game.players) if p.name == dealer.name)
+        
+        # Start with player after dealer
+        current_index = (dealer_index + 1) % 4
+        
+        # Go through each player for trump selection
+        for i in range(4):
+            current_player = game.players[current_index]
             
-            click.echo(f"Tournament players: {', '.join(p.name for p in game.players)}")
+            if current_player.name == player_position:
+                # Human player's turn
+                click.echo(f"\n🤔 {player_position}'s turn to decide on trump")
+                click.echo(f"Top card: {game.top_card.unicode_str()}")
+                
+                # Show current hand
+                your_hand = game.get_player_hand(player_position)
+                click.echo(f"Your hand:")
+                for j, card in enumerate(your_hand):
+                    click.echo(f"  {j+1}. {card.unicode_str()}")
+                
+                # Get human decision
+                while True:
+                    try:
+                        choice = click.prompt(
+                            "Do you want to order up the top card? (y/n)",
+                            type=click.Choice(['y', 'n', 'yes', 'no']),
+                            default='n'
+                        )
+                        if choice in ['y', 'yes']:
+                            # Human orders up the top card
+                            trump_suit = game.top_card.suit
+                            game.trump_suit = trump_suit
+                            game.game_state_manager.set_trump_suit(trump_suit, current_player)
+                            click.echo(f"🎯 {player_position} orders up {trump_suit.name} as trump!")
+                            
+                            # Human gets to discard one card and pick up the top card
+                            GameCommands._handle_human_discard_and_pickup(game, player_position)
+                            return
+                        else:
+                            click.echo(f"😴 {player_position} passes")
+                            break
+                    except Exception as e:
+                        click.echo(f"Invalid input: {e}")
+            else:
+                # AI player's turn
+                # For now, use simple AI logic - can be enhanced later
+                if hasattr(current_player, 'choose_trump_action'):
+                    action = current_player.choose_trump_action(game.top_card)
+                else:
+                    # Simple AI logic: order up if you have good cards in that suit
+                    action = GameCommands._simple_ai_trump_decision(current_player, game.top_card)
+                
+                if action == 'order_up':
+                    trump_suit = game.top_card.suit
+                    game.trump_suit = trump_suit
+                    game.game_state_manager.set_trump_suit(trump_suit, current_player)
+                    click.echo(f"🎯 {current_player.name} orders up {trump_suit.name} as trump!")
+                    return
+                else:
+                    click.echo(f"😴 {current_player.name} passes")
             
-            # Run tournament
-            game.run_tournament(num_games)
+            current_index = (current_index + 1) % 4
+        
+        # If no one ordered up, go to second round
+        click.echo(f"\n🔄 Second round - dealer must pick a suit")
+        GameCommands._handle_second_trump_round(game, player_position, your_position)
+    
+    @staticmethod
+    def _handle_human_discard_and_pickup(game: EuchreGame, player_position: str) -> None:
+        """Handle human player discarding a card and picking up the top card.
+        
+        Parameters
+        ----------
+        game : EuchreGame
+            The game instance
+        player_position : str
+            Human player position name
+        """
+        click.echo(f"\n🔄 {player_position}, you need to discard one card and pick up the top card")
+        
+        # Show current hand
+        your_hand = game.get_player_hand(player_position)
+        click.echo(f"Your current hand:")
+        for i, card in enumerate(your_hand):
+            click.echo(f"  {i+1}. {card.unicode_str()}")
+        
+        click.echo(f"Top card to pick up: {game.top_card.unicode_str()}")
+        
+        # Get discard choice
+        while True:
+            try:
+                discard_choice = click.prompt(
+                    "Which card do you want to discard? (1-5)",
+                    type=int,
+                    default=1
+                )
+                if 1 <= discard_choice <= len(your_hand):
+                    discarded_card = your_hand[discard_choice - 1]
+                    your_hand.remove(discarded_card)
+                    your_hand.append(game.top_card)
+                    
+                    click.echo(f"🗑️  Discarded: {discarded_card.unicode_str()}")
+                    click.echo(f"🆕 Picked up: {game.top_card.unicode_str()}")
+                    
+                    # Update the player's hand in the game
+                    for player in game.players:
+                        if player.name == player_position:
+                            player.hand = your_hand
+                            break
+                    
+                    break
+                else:
+                    click.echo(f"Please enter a number between 1 and {len(your_hand)}")
+            except Exception as e:
+                click.echo(f"Invalid input: {e}")
+    
+    @staticmethod
+    def _handle_second_trump_round(game: EuchreGame, player_position: str, your_position: int) -> None:
+        """Handle the second round of trump selection where dealer must pick a suit.
+        
+        Parameters
+        ----------
+        game : EuchreGame
+            The game instance
+        player_position : str
+            Human player position name
+        your_position : int
+            Human player position index
+        """
+        dealer = game.game_state_manager.get_dealer()
+        
+        if dealer.name == player_position:
+            # Human is dealer and must pick a suit
+            click.echo(f"\n👑 {player_position}, you are the dealer and must pick a trump suit")
             
-        except ValueError as e:
-            click.echo(f"Error: {e}", err=True) 
+            # Show available suits (excluding the top card suit)
+            top_suit = game.top_card.suit
+            available_suits = [suit for suit in game.deck.suits if suit != top_suit]
+            
+            click.echo(f"Available suits (excluding {top_suit.name}):")
+            for i, suit in enumerate(available_suits):
+                click.echo(f"  {i+1}. {suit.name}")
+            
+            # Get human choice
+            while True:
+                try:
+                    suit_choice = click.prompt(
+                        f"Which suit do you want as trump? (1-{len(available_suits)})",
+                        type=int,
+                        default=1
+                    )
+                    if 1 <= suit_choice <= len(available_suits):
+                        chosen_suit = available_suits[suit_choice - 1]
+                        game.trump_suit = chosen_suit
+                        game.game_state_manager.set_trump_suit(chosen_suit, dealer)
+                        click.echo(f"🎯 {player_position} chooses {chosen_suit.name} as trump!")
+                        break
+                    else:
+                        click.echo(f"Please enter a number between 1 and {len(available_suits)}")
+                except Exception as e:
+                    click.echo(f"Invalid input: {e}")
+        else:
+            # AI dealer picks a suit
+            # Simple AI logic for now
+            top_suit = game.top_card.suit
+            available_suits = [suit for suit in game.deck.suits if suit != top_suit]
+            
+            if available_suits:
+                chosen_suit = available_suits[0]  # Simple: pick first available
+                game.trump_suit = chosen_suit
+                game.game_state_manager.set_trump_suit(chosen_suit, dealer)
+                click.echo(f"🎯 {dealer.name} chooses {chosen_suit.name} as trump!")
+    
+    @staticmethod
+    def _simple_ai_trump_decision(player, top_card) -> str:
+        """Simple AI logic for trump decision.
+        
+        Parameters
+        ----------
+        player
+            The AI player
+        top_card
+            The top card for trump selection
+            
+        Returns
+        -------
+        str
+            'order_up' or 'pass'
+        """
+        # Simple logic: order up if you have at least 2 cards in that suit
+        suit_count = sum(1 for card in player.hand if card.suit == top_card.suit)
+        return 'order_up' if suit_count >= 2 else 'pass'
+    
+    @staticmethod
+    def _play_interactive_trick(game: EuchreGame, player_position: str, your_position: int, trick_number: int) -> None:
+        """Play a single trick with human interaction.
+        
+        Parameters
+        ----------
+        game : EuchreGame
+            The game instance
+        player_position : str
+            Human player position name
+        your_position : int
+            Human player position index
+        trick_number : int
+            Current trick number
+        """
+        click.echo(f"\n🎴 Playing Trick {trick_number}")
+        
+        # Start new trick
+        game.trick_manager.start_new_trick()
+        game.current_trick = game.trick_manager.get_current_trick()
+        
+        # Determine starting player
+        if trick_number == 1:
+            # First trick: player after dealer
+            dealer_index = next(i for i, p in enumerate(game.players) if p.name == game.game_state_manager.get_dealer().name)
+            current_player_index = (dealer_index + 1) % 4
+        else:
+            # Subsequent tricks: winner of previous trick
+            max_tricks = max(game.tricks_won.values())
+            winners = [name for name, count in game.tricks_won.items() if count == max_tricks]
+            if winners:
+                winner_name = winners[0]
+                current_player_index = next(i for i, p in enumerate(game.players) if p.name == winner_name)
+            else:
+                # Fallback to player after dealer
+                dealer_index = next(i for i, p in enumerate(game.players) if p.name == game.game_state_manager.get_dealer().name)
+                current_player_index = (dealer_index + 1) % 4
+        
+        # Play cards for this trick
+        for _ in range(4):
+            current_player = game.players[current_player_index]
+            
+            if current_player.name == player_position:
+                # Human player's turn
+                GameCommands._handle_human_card_play(game, player_position, your_position)
+            else:
+                # AI player's turn
+                GameCommands._handle_ai_card_play(game, current_player)
+            
+            # Move to next player
+            current_player_index = (current_player_index + 1) % 4
+        
+        # Complete the trick
+        winner = game.trick_manager.complete_trick()
+        game.tricks_won[winner.name] += 1
+        
+        click.echo(f"🏆 Trick {trick_number} won by {winner.name}!")
+        click.echo(f"Tricks won so far: Alice: {game.tricks_won['Alice']}, Bob: {game.tricks_won['Bob']}, Charlie: {game.tricks_won['Charlie']}, David: {game.tricks_won['David']}")
+    
+    @staticmethod
+    def _handle_human_card_play(game: EuchreGame, player_position: str, your_position: int) -> None:
+        """Handle human player playing a card.
+        
+        Parameters
+        ----------
+        game : EuchreGame
+            The game instance
+        player_position : str
+            Human player position name
+        your_position : int
+            Human player position index
+        """
+        click.echo(f"\n🤔 {player_position}'s turn to play a card")
+        
+        # Show current trick state
+        current_trick = game.trick_manager.get_current_trick()
+        if current_trick and current_trick.cards_played:
+            click.echo("Cards played so far:")
+            for i, (player, card) in enumerate(current_trick.cards_played):
+                click.echo(f"  {player.name}: {card.unicode_str()}")
+        
+        # Show human player's hand
+        your_hand = game.get_player_hand(player_position)
+        click.echo(f"Your hand:")
+        for i, card in enumerate(your_hand):
+            click.echo(f"  {i+1}. {card.unicode_str()}")
+        
+        # Get card choice
+        while True:
+            try:
+                card_choice = click.prompt(
+                    f"Which card do you want to play? (1-{len(your_hand)})",
+                    type=int,
+                    default=1
+                )
+                if 1 <= card_choice <= len(your_hand):
+                    chosen_card = your_hand[card_choice - 1]
+                    
+                    # Remove card from hand
+                    your_hand.remove(chosen_card)
+                    
+                    # Update the player's hand in the game
+                    for player in game.players:
+                        if player.name == player_position:
+                            player.hand = your_hand
+                            break
+                    
+                    # Play the card
+                    game.trick_manager.play_card(game.players[your_position], chosen_card)
+                    
+                    click.echo(f"🎴 {player_position} plays {chosen_card.unicode_str()}")
+                    break
+                else:
+                    click.echo(f"Please enter a number between 1 and {len(your_hand)}")
+            except Exception as e:
+                click.echo(f"Invalid input: {e}")
+    
+    @staticmethod
+    def _handle_ai_card_play(game: EuchreGame, ai_player) -> None:
+        """Handle AI player playing a card.
+        
+        Parameters
+        ----------
+        game : EuchreGame
+            The game instance
+        ai_player
+            The AI player
+        """
+        # For now, use simple AI logic
+        if hasattr(ai_player, 'choose_card_to_play'):
+            card = ai_player.choose_card_to_play(game.current_trick, game.trump_suit)
+        else:
+            card = GameCommands._simple_ai_card_choice(ai_player, game.current_trick, game.trump_suit)
+        
+        # Remove card from hand
+        ai_player.hand.remove(card)
+        
+        # Play the card
+        game.trick_manager.play_card(ai_player, card)
+        
+        click.echo(f"🤖 {ai_player.name} plays {card.unicode_str()}")
+    
+    @staticmethod
+    def _simple_ai_card_choice(player, current_trick, trump_suit) -> 'Card':
+        """Simple AI logic for card choice.
+        
+        Parameters
+        ----------
+        player
+            The AI player
+        current_trick
+            The current trick
+        trump_suit
+            The trump suit
+            
+        Returns
+        -------
+        Card
+            The chosen card
+        """
+        # Simple logic: play first card if leading, otherwise play highest card of lead suit
+        if not current_trick or not current_trick.cards_played:
+            # Leading - play first card
+            return player.hand[0]
+        else:
+            # Must follow suit if possible
+            lead_suit = current_trick.cards_played[0][1].suit
+            cards_of_suit = [card for card in player.hand if card.suit == lead_suit]
+            if cards_of_suit:
+                return max(cards_of_suit, key=lambda c: c.rank.value)
+            else:
+                # Can't follow suit - play first card
+                return player.hand[0]
+    
+    @staticmethod
+    def _score_round(game: EuchreGame) -> None:
+        """Score the current round.
+        
+        Parameters
+        ----------
+        game : EuchreGame
+            The game instance
+        """
+        # Determine which team called trump
+        trump_caller = game.game_state_manager.trump_caller
+        if trump_caller:
+            trump_caller_team = 0 if game.players.index(trump_caller) % 2 == 0 else 1
+        else:
+            # If no trump caller, use dealer's team
+            dealer = game.game_state_manager.get_dealer()
+            trump_caller_team = 0 if game.players.index(dealer) % 2 == 0 else 1
+        
+        # Score the round
+        team1_score, team2_score = game.scoring_manager.score_round(game.players, trump_caller_team)
+        
+        # Update player scores
+        for i in range(0, 4, 2):  # Team 1
+            game.players[i].score += team1_score
+        for i in range(1, 4, 2):  # Team 2
+            game.players[i].score += team2_score
+        
+        # Display round results
+        click.echo(f"\n📊 Round {game.round_number} Complete!")
+        click.echo(f"Final trick counts: Alice: {game.tricks_won['Alice']}, Bob: {game.tricks_won['Bob']}, Charlie: {game.tricks_won['Charlie']}, David: {game.tricks_won['David']}")
+        click.echo(f"Team 1 (Alice & Charlie): {team1_score} points")
+        click.echo(f"Team 2 (Bob & David): {team2_score} points")
+        
+        # Show current game scores
+        team1_total = sum(game.players[i].score for i in range(0, 4, 2))
+        team2_total = sum(game.players[i].score for i in range(1, 4, 2))
+        click.echo(f"Game Score - Team 1: {team1_total}, Team 2: {team2_total}")
+    
+    @staticmethod
+    def _show_final_game_results(game: EuchreGame) -> None:
+        """Show the final game results.
+        
+        Parameters
+        ----------
+        game : EuchreGame
+            The game instance
+        """
+        click.echo("\n🎉 GAME OVER! 🎉")
+        
+        # Get final scores
+        team1_total = sum(game.players[i].score for i in range(0, 4, 2))
+        team2_total = sum(game.players[i].score for i in range(1, 4, 2))
+        
+        if team1_total > team2_total:
+            click.echo("🏆 Team 1 (Alice & Charlie) wins!")
+        else:
+            click.echo("🏆 Team 2 (Bob & David) wins!")
+        
+        click.echo(f"Final Score - Team 1: {team1_total}, Team 2: {team2_total}")
+        
+        # Check if team gets set
+        trump_caller = game.game_state_manager.trump_caller
+        if trump_caller:
+            trump_caller_team = 0 if game.players.index(trump_caller) % 2 == 0 else 1
+            if game.scoring_manager.is_team_set(game.players, trump_caller_team):
+                click.echo("\n🚨 TEAM SET! The trump calling team lost after calling trump!") 
