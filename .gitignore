@@ -141,4 +141,51 @@ Thumbs.db
 
 # Game log files (large files that shouldn't be tracked)
 euchre_game_*.txt
-game_*.txt 
+game_*.txt
+
+# Training data and models (should not be in version control)
+training_data/
+*.pkl
+*.pickle
+trained_models/
+models/
+checkpoints/
+*.pth
+*.pt
+*.ckpt
+*.json
+!*.py
+!*.md
+!*.txt
+!*.toml
+!*.yml
+!*.yaml
+!Makefile
+!requirements*.txt
+
+# Game data files
+games/
+neural_games/
+test_ai_profiles/
+test_output/
+test_tournament/
+test_models/
+tournament_results/
+training_results/
+adaptive_training_results/
+adaptive_ai_memory/
+adaptive_balanced_results/
+benchmark_results_*.json
+
+# Notebooks with large outputs
+notebooks/games/
+
+# Excel files
+*.xlsx
+*.xls
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup 
