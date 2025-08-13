@@ -129,6 +129,9 @@ class EuchreGame:
         # Reset round number
         self.round_number = 1
         
+        # Log game start to file
+        self.logger.log_game_start(self.players, dealer)
+        
         self.logger.debug("Game initialization complete")
     
     def _deal_cards(self):
@@ -220,6 +223,11 @@ class EuchreGame:
         for player in self.players:
             self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
         
+        # Log round start to file
+        hands_dict = {player.name: player.hand for player in self.players}
+        trump_suit_name = trump_suit.name if trump_suit else "None"
+        self.logger.log_round_start(self.round_number, trump_suit_name, hands_dict)
+        
         # Play 5 tricks
         for trick_number in range(1, 6):
             self.logger.info(f"\n--- Trick {trick_number} ---")
@@ -255,13 +263,24 @@ class EuchreGame:
         team2_total = sum(self.players[i].score for i in range(1, 4, 2))
         self.logger.info(f"Game Score - Team 1: {team1_total}, Team 2: {team2_total}")
         
+        # Log round end to file
+        final_scores = {player.name: self.tricks_won[player.name] for player in self.players}
+        team_scores = {"Team 1 (Alice & Charlie)": team1_score, "Team 2 (Bob & David)": team2_score}
+        self.logger.log_round_end(self.round_number, final_scores, team_scores)
+        
         # Check if game is over
         if self.scoring_manager.is_game_over(self.players):
             self.logger.info("\n🎉 GAME OVER! 🎉")
             if team1_total > team2_total:
                 self.logger.info("Team 1 (Alice & Charlie) wins!")
+                winner = "Team 1 (Alice & Charlie)"
             else:
                 self.logger.info("Team 2 (Bob & David) wins!")
+                winner = "Team 2 (Bob & David)"
+            
+            # Log game end to file
+            final_team_scores = {"Team 1 (Alice & Charlie)": team1_total, "Team 2 (Bob & David)": team2_total}
+            self.logger.log_game_end(winner, final_team_scores)
     
     def _update_trump_status(self, trump_suit: Suit) -> None:
         """Update the trump status of all cards.
@@ -421,6 +440,11 @@ class EuchreGame:
         # Display trick result
         self.logger.info(f"Trick won by {winner.name}!")
         self.logger.info(f"Tricks won so far: Alice: {self.tricks_won['Alice']}, Bob: {self.tricks_won['Bob']}, Charlie: {self.tricks_won['Charlie']}, David: {self.tricks_won['David']}")
+        
+        # Log trick completion to file
+        winning_card = self.current_trick.cards_played[-1][1] if self.current_trick and self.current_trick.cards_played else None
+        if winning_card:
+            self.logger.log_trick(trick_number, self.current_trick, winner, winning_card)
     
     def _ai_play_card(self, player: Player) -> Card:
         """Get a card from an AI player."""
