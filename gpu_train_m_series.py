@@ -127,70 +127,22 @@ class MSeriesGameDataset(Dataset):
             # Extract trump decision samples
             if 'trump_decisions' in game:
                 for decision in game['trump_decisions']:
-                    features = self._encode_game_state(decision['game_state'])
-                    target = torch.tensor([decision['should_order']], dtype=torch.float32)
+                    # Use the hand_features directly since that's what we're recording
+                    features = decision['hand_features']
+                    target = decision['target']
                     samples.append((features, target, 'trump_decision'))
             
             # Extract card play samples
             if 'card_plays' in game:
                 for play in game['card_plays']:
-                    features = self._encode_game_state(play['game_state'])
-                    target = torch.tensor([play['card_index']], dtype=torch.long)
+                    # Use the hand_features directly since that's what we're recording
+                    features = play['hand_features']
+                    target = play['target']
                     samples.append((features, target, 'card_play'))
         
         return samples
     
-    def _encode_game_state(self, game_state: Dict[str, Any]) -> torch.Tensor:
-        """Encode game state into feature vector."""
-        # This is a simplified encoding - in practice, you'd use the full MSeriesGameStateEncoder
-        features = []
-        
-        # Hand encoding (5 cards × 24 features = 120)
-        hand = game_state.get('hand', [])
-        for card in hand:
-            # Suit one-hot (4 features)
-            suit_features = [1.0 if card['suit'] == i else 0.0 for i in range(4)]
-            # Rank one-hot (13 features)
-            rank_features = [1.0 if card['rank'] == i else 0.0 for i in range(13)]
-            # Trump indicator (1 feature)
-            trump_indicator = 1.0 if card.get('is_trump', False) else 0.0
-            # Card strength (6 features)
-            strength_features = [card.get('strength', 0.0)] * 6
-            
-            card_features = suit_features + rank_features + [trump_indicator] + strength_features
-            features.extend(card_features)
-        
-        # Pad to 5 cards if necessary
-        while len(features) < 120:
-            features.extend([0.0] * 24)
-        
-        # Game context (136 features)
-        context_features = [
-            game_state.get('position', 0.0),
-            game_state.get('is_dealer', 0.0),
-            game_state.get('is_partner_dealing', 0.0),
-            game_state.get('trump_suit', 0.0),
-            game_state.get('tricks_won', 0.0),
-            game_state.get('partner_tricks_won', 0.0),
-            game_state.get('opponent_tricks_won', 0.0),
-            game_state.get('round_number', 0.0),
-            game_state.get('trick_number', 0.0),
-            game_state.get('lead_suit', 0.0),
-            game_state.get('cards_played', 0.0),
-            game_state.get('score_team1', 0.0),
-            game_state.get('score_team2', 0.0),
-            game_state.get('risk_profile', 0.0),
-            game_state.get('game_phase', 0.0),
-            game_state.get('hand_strength', 0.0)
-        ]
-        
-        # Pad context to 136 features
-        while len(context_features) < 136:
-            context_features.append(0.0)
-        
-        features.extend(context_features)
-        
-        return torch.tensor(features, dtype=torch.float32)
+
     
     def __len__(self) -> int:
         return len(self.samples)
