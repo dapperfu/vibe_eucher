@@ -51,9 +51,14 @@ class TrickManager:
         if self._is_renege(player, card, self.current_trick.lead_suit):
             self.renege_count += 1
     
-    def complete_trick(self) -> Player:
+    def complete_trick(self, trump_suit: Optional[Suit] = None) -> Player:
         """Complete the current trick and determine the winner.
         
+        Parameters
+        ----------
+        trump_suit : Optional[Suit]
+            The trump suit for this round
+            
         Returns
         -------
         Player
@@ -63,7 +68,7 @@ class TrickManager:
             raise ValueError("No current trick to complete")
         
         # Determine winner
-        winner = self._determine_trick_winner()
+        winner = self._determine_trick_winner(trump_suit)
         winner.tricks_won += 1
         
         # Set winner on the trick object
@@ -77,9 +82,14 @@ class TrickManager:
         
         return winner
     
-    def _determine_trick_winner(self) -> Player:
+    def _determine_trick_winner(self, trump_suit: Optional[Suit] = None) -> Player:
         """Determine who won the current trick.
         
+        Parameters
+        ----------
+        trump_suit : Optional[Suit]
+            The trump suit for this round
+            
         Returns
         -------
         Player
@@ -92,13 +102,13 @@ class TrickManager:
         winning_player = self.current_trick.cards_played[0][0]
         
         for player, card in self.current_trick.cards_played[1:]:
-            if self._card_beats(card, winning_card):
+            if self._card_beats(card, winning_card, trump_suit):
                 winning_card = card
                 winning_player = player
         
         return winning_player
     
-    def _card_beats(self, card1: Card, card2: Card) -> bool:
+    def _card_beats(self, card1: Card, card2: Card, trump_suit: Optional[Suit] = None) -> bool:
         """Check if card1 beats card2.
         
         Parameters
@@ -107,21 +117,27 @@ class TrickManager:
             First card
         card2 : Card
             Second card
+        trump_suit : Optional[Suit]
+            The trump suit for this round
             
         Returns
         -------
         bool
             True if card1 beats card2
         """
+        # Check if cards are trump cards
+        card1_is_trump = card1.is_trump_card(trump_suit) if trump_suit else False
+        card2_is_trump = card2.is_trump_card(trump_suit) if trump_suit else False
+        
         # Trump cards always beat non-trump cards
-        if card1.is_trump and not card2.is_trump:
+        if card1_is_trump and not card2_is_trump:
             return True
-        if not card1.is_trump and card2.is_trump:
+        if not card1_is_trump and card2_is_trump:
             return False
         
         # If both are trump or both are non-trump, compare values
-        if card1.is_trump and card2.is_trump:
-            return card1.rank.value > card2.rank.value
+        if card1_is_trump and card2_is_trump:
+            return card1.get_trump_value(trump_suit) > card2.get_trump_value(trump_suit)
         
         # Both non-trump - must follow lead suit
         if card1.suit == self.current_trick.lead_suit and card2.suit == self.current_trick.lead_suit:

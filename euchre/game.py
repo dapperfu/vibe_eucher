@@ -397,7 +397,7 @@ class EuchreGame:
             current_player_index = (current_player_index + 1) % 4
         
         # Complete the trick
-        winner = self.trick_manager.complete_trick()
+        winner = self.trick_manager.complete_trick(self.trump_suit)
         self.logger.debug(f"Trick won by: {winner.name}")
         self.logger.debug("Player hands after completing trick:")
         for player in self.players:
