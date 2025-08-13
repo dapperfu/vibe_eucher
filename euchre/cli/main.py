@@ -85,6 +85,23 @@ def ncurses():
 
 
 @main.command()
+@click.option("--position", default=2, help="Human player position (0=North, 1=East, 2=South, 3=West)")
+def ncurses_human_vs_ai(position: int):
+    """Run human vs AI euchre game with ncurses interface."""
+    click.echo(f"🎮 Starting human vs AI ncurses game (you at position {position})...")
+    click.echo("Positions: 0=North, 1=East, 2=South (default), 3=West")
+    
+    try:
+        from euchre.ncurses_game import NcursesGame
+        game = NcursesGame(human_player_position=position)
+        game.run()
+    except ImportError:
+        click.echo("❌ Ncurses interface not available. Install ncurses dependencies.")
+    except Exception as e:
+        click.echo(f"❌ Human vs AI ncurses game failed: {e}", err=True)
+
+
+@main.command()
 def logged_game():
     """Run AI vs AI euchre game with logging (no ncurses)."""
     click.echo("📝 Starting logged game...")
