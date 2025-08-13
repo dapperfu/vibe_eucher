@@ -339,6 +339,15 @@ class GameCommands:
         else:
             click.echo(f"  Top Card: Picked up by player")
         
+        # Debug: Show kitty (remaining cards in deck)
+        if hasattr(game, 'deck') and hasattr(game.deck, 'size'):
+            click.echo(f"  Kitty: {game.deck.size} cards remaining")
+            if game.deck.size <= 10:  # Show actual cards if few remain
+                remaining_cards = game.deck.get_remaining_cards()
+                click.echo(f"  Remaining cards: {[card.unicode_str() for card in remaining_cards]}")
+        else:
+            click.echo(f"  Kitty: Deck info not available")
+        
         click.echo(f"\n🎮 You are playing as {positions[your_position]}")
         click.echo(f"🤝 Your partner is {positions[(your_position + 2) % 4]}")
         click.echo(f"👥 Your opponents are {positions[(your_position + 1) % 4]} and {positions[(your_position + 3) % 4]}")
@@ -402,6 +411,13 @@ class GameCommands:
         for player in game.players:
             click.echo(f"  {player.name}: {len(player.hand)} cards - {[card.unicode_str() for card in player.hand]}")
         
+        # Debug: Show kitty (remaining cards in deck)
+        if hasattr(game, 'deck') and hasattr(game.deck, 'size'):
+            click.echo(f"🔍 Debug: Kitty - {game.deck.size} cards remaining")
+            if game.deck.size <= 10:  # Show actual cards if few remain
+                remaining_cards = game.deck.get_remaining_cards()
+                click.echo(f"  Remaining cards: {[card.unicode_str() for card in remaining_cards]}")
+        
         # Trump selection phase (hand and top card shown during this phase)
         GameCommands._handle_trump_selection(game, player_position, your_position)
         
@@ -409,6 +425,13 @@ class GameCommands:
         click.echo(f"\n🔍 Debug: Player hands after trump selection:")
         for player in game.players:
             click.echo(f"  {player.name}: {len(player.hand)} cards - {[card.unicode_str() for card in player.hand]}")
+        
+        # Debug: Show kitty (remaining cards in deck) after trump selection
+        if hasattr(game, 'deck') and hasattr(game.deck, 'size'):
+            click.echo(f"🔍 Debug: Kitty after trump selection - {game.deck.size} cards remaining")
+            if game.deck.size <= 10:  # Show actual cards if few remain
+                remaining_cards = game.deck.get_remaining_cards()
+                click.echo(f"  Remaining cards: {[card.unicode_str() for card in remaining_cards]}")
         
         # Now show the final hand after trump selection
         GameCommands._show_human_game_info(game, player_position)
@@ -503,6 +526,16 @@ class GameCommands:
                     game.trump_suit = trump_suit
                     game.game_state_manager.set_trump_suit(trump_suit, current_player)
                     click.echo(f"🎯 {current_player.name} orders up {trump_suit.name} as trump!")
+                    
+                    # When someone orders up, the DEALER must discard and pick up the top card
+                    dealer = game.game_state_manager.get_dealer()
+                    if dealer.name == player_position:
+                        # Human is dealer - they need to discard and pick up
+                        GameCommands._handle_human_discard_and_pickup(game, player_position)
+                    else:
+                        # AI is dealer - handle AI discard and pickup
+                        GameCommands._handle_ai_discard_and_pickup(game, dealer)
+                    
                     return
                 else:
                     click.echo(f"😴 {current_player.name} passes")
@@ -646,6 +679,44 @@ class GameCommands:
                     click.echo(f"Please enter a number between 1 and {len(your_hand)}")
             except Exception as e:
                 click.echo(f"Invalid input: {e}")
+    
+    @staticmethod
+    def _handle_ai_discard_and_pickup(game: EuchreGame, dealer: 'Player') -> None:
+        """Handle AI dealer discarding a card and picking up the top card.
+        
+        Parameters
+        ----------
+        game : EuchreGame
+            The game instance
+        dealer : Player
+            The AI dealer who needs to discard and pick up
+        """
+        click.echo(f"\n🔄 {dealer.name} (AI dealer) needs to discard one card and pick up the top card")
+        
+        # AI logic: discard the lowest value card
+        if dealer.hand:
+            # Simple AI logic: discard the lowest card
+            lowest_card = min(dealer.hand, key=lambda c: c.rank.value)
+            dealer.hand.remove(lowest_card)
+            dealer.hand.append(game.top_card)
+            
+            click.echo(f"🤖 {dealer.name} discarded: {lowest_card.unicode_str()}")
+            click.echo(f"🤖 {dealer.name} picked up: {game.top_card.unicode_str()}")
+            
+            # Mark the top card as picked up
+            game._top_card_picked_up = True
+            
+            # Debug: Check all player hands after the update
+            click.echo(f"\n🔍 Debug: Player hands after AI dealer pickup:")
+            for player in game.players:
+                click.echo(f"  {player.name}: {len(player.hand)} cards - {[card.unicode_str() for card in player.hand]}")
+            
+            # Debug: Show kitty (remaining cards in deck) after AI dealer pickup
+            if hasattr(game, 'deck') and hasattr(game.deck, 'size'):
+                click.echo(f"🔍 Debug: Kitty after AI dealer pickup - {game.deck.size} cards remaining")
+                if game.deck.size <= 10:  # Show actual cards if few remain
+                    remaining_cards = game.deck.get_remaining_cards()
+                    click.echo(f"  Remaining cards: {[card.unicode_str() for card in remaining_cards]}")
     
     @staticmethod
     def _handle_second_trump_round(game: EuchreGame, player_position: str, your_position: int) -> None:

@@ -133,6 +133,10 @@ class EuchreGame:
     
     def _deal_cards(self):
         """Deal 5 cards to each player and set the top card."""
+        self.logger.info("🎴 Dealing cards using traditional Euchre pattern...")
+        self.logger.info("   First round: Deal 2 cards to each player")
+        self.logger.info("   Second round: Deal 3 cards to each player")
+        
         hands = self.deck.deal_cards(len(self.players))
         
         # Debug: Print player objects and their hands
@@ -151,6 +155,9 @@ class EuchreGame:
         self.logger.debug("Final hand verification after dealing:")
         for player in self.players:
             self.logger.debug(f"{player.name} (id: {id(player)}) final hand: {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
+        
+        # Show kitty size
+        self.logger.info(f"Kitty: {self.deck.size} cards remaining")
     
     def _start_new_round(self) -> None:
         """Start a new round of the game."""
