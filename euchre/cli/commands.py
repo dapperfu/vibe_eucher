@@ -398,9 +398,10 @@ class GameCommands:
         GameCommands._show_human_game_info(game, player_position)
         
         # Play 5 tricks
+        previous_trick_winner = None
         for trick_number in range(1, 6):
             click.echo(f"\n--- Trick {trick_number} ---")
-            GameCommands._play_interactive_trick(game, player_position, your_position, trick_number)
+            previous_trick_winner = GameCommands._play_interactive_trick(game, player_position, your_position, trick_number, previous_trick_winner)
         
         # Score the round
         GameCommands._score_round(game)
@@ -620,7 +621,7 @@ class GameCommands:
         return 'order_up' if suit_count >= 2 else 'pass'
     
     @staticmethod
-    def _play_interactive_trick(game: EuchreGame, player_position: str, your_position: int, trick_number: int) -> None:
+    def _play_interactive_trick(game: EuchreGame, player_position: str, your_position: int, trick_number: int, previous_trick_winner: Optional[str] = None) -> str:
         """Play a single trick with human interaction.
         
         Parameters
@@ -633,6 +634,13 @@ class GameCommands:
             Human player position index
         trick_number : int
             Current trick number
+        previous_trick_winner : Optional[str]
+            Name of the player who won the previous trick (None for first trick)
+            
+        Returns
+        -------
+        str
+            Name of the player who won this trick
         """
         click.echo(f"\n🎴 Playing Trick {trick_number}")
         
@@ -645,17 +653,17 @@ class GameCommands:
             # First trick: player after dealer
             dealer_index = next(i for i, p in enumerate(game.players) if p.name == game.game_state_manager.get_dealer().name)
             current_player_index = (dealer_index + 1) % 4
+            click.echo(f"First trick - starting with {game.players[current_player_index].name}")
         else:
             # Subsequent tricks: winner of previous trick
-            max_tricks = max(game.tricks_won.values())
-            winners = [name for name, count in game.tricks_won.items() if count == max_tricks]
-            if winners:
-                winner_name = winners[0]
-                current_player_index = next(i for i, p in enumerate(game.players) if p.name == winner_name)
+            if previous_trick_winner:
+                current_player_index = next(i for i, p in enumerate(game.players) if p.name == previous_trick_winner)
+                click.echo(f"Starting trick with {previous_trick_winner} (winner of previous trick)")
             else:
                 # Fallback to player after dealer
                 dealer_index = next(i for i, p in enumerate(game.players) if p.name == game.game_state_manager.get_dealer().name)
                 current_player_index = (dealer_index + 1) % 4
+                click.echo(f"Fallback - starting with {game.players[current_player_index].name}")
         
         # Play cards for this trick
         for _ in range(4):
@@ -677,6 +685,8 @@ class GameCommands:
         
         click.echo(f"🏆 Trick {trick_number} won by {winner.name}!")
         click.echo(f"Tricks won so far: Alice: {game.tricks_won['Alice']}, Bob: {game.tricks_won['Bob']}, Charlie: {game.tricks_won['Charlie']}, David: {game.tricks_won['David']}")
+        
+        return winner.name
     
     @staticmethod
     def _handle_human_card_play(game: EuchreGame, player_position: str, your_position: int) -> None:
