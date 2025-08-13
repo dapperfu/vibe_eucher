@@ -1,4 +1,4 @@
-.PHONY: help venv install install-pip test run clean train-ai evaluate-ai ai-game ai-game-ncurses ncurses logged profiles mass-games analyze cleanup jupyter jupyter-lab train-self-play train-integer-vs-float generate-profiles generate-profiles-cpu generate-profiles-gpu list-players play-trained tournament benchmark neural-tournament neural-analysis list-neural-models install-gpu train-gpu-m-series evaluate-gpu-models
+.PHONY: help venv install install-pip test run clean train-ai evaluate-ai ai-game ai-game-ncurses ncurses logged profiles mass-games analyze cleanup jupyter jupyter-lab train-self-play train-integer-vs-float generate-profiles generate-profiles-cpu generate-profiles-gpu list-players play-trained tournament benchmark neural-tournament neural-analysis list-neural-models install-gpu train-gpu-m-series evaluate-gpu-models install-rocm train-hybrid-m-series evaluate-hybrid-models
 
 help: ## Show this help message
 	@echo "Available commands:"
@@ -145,6 +145,61 @@ if os.path.exists(model_dir):
         print(f'  - {model}')
 else:
     print('No trained models found. Run train-gpu-m-series first.')
+"
+
+install-rocm: install ## Install ROCm dependencies for AMD GPU training
+	@echo "Installing ROCm PyTorch and dependencies..."
+	venv/bin/pip uninstall torch torchvision torchaudio -y
+	venv/bin/pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.6
+	venv/bin/pip install "numpy<2"
+	@echo "ROCm dependencies installed. Checking compatibility..."
+	venv/bin/python -c "import torch; print(f'PyTorch: {torch.__version__}'); print(f'ROCm available: {torch.cuda.is_available()}'); print(f'Device count: {torch.cuda.device_count()}')"
+
+train-hybrid-m-series: install-rocm ## Train M-Series AI models using hybrid system (AMD ROCm + CPU fallback)
+	@echo "Starting hybrid training for M-Series AI models..."
+	@echo "This will automatically detect and use AMD ROCm GPU or fall back to CPU"
+	@echo "Training ${TOTAL_GAMES:-20000} games over ${EPOCHS:-1000} epochs..."
+	venv/bin/python hybrid_train_m_series.py \
+		--epochs ${EPOCHS:-1000} \
+		--total-games ${TOTAL_GAMES:-20000} \
+		--batch-size ${BATCH_SIZE:-64} \
+		--learning-rate ${LR:-0.001} \
+		--device auto \
+		--max-gpus ${MAX_GPUS:-2}
+
+train-hybrid-m-series-fast: install-rocm ## Quick hybrid training (1000 games, 100 epochs)
+	@echo "Starting fast hybrid training for M-Series AI models..."
+	venv/bin/python hybrid_train_m_series.py \
+		--epochs 100 \
+		--total-games 1000 \
+		--batch-size 32 \
+		--learning-rate 0.001 \
+		--device auto \
+		--max-gpus 2
+
+train-hybrid-m-series-extensive: install-rocm ## Extensive hybrid training (50000 games, 2000 epochs)
+	@echo "Starting extensive hybrid training for M-Series AI models..."
+	venv/bin/python hybrid_train_m_series.py \
+		--epochs 2000 \
+		--total-games 50000 \
+		--batch-size 128 \
+		--learning-rate 0.0005 \
+		--device auto \
+		--max-gpus 2
+
+evaluate-hybrid-models: install-rocm ## Evaluate trained hybrid models
+	@echo "Evaluating trained hybrid models..."
+	venv/bin/python -c "
+import json
+import os
+model_dir = 'trained_models/hybrid_trained'
+if os.path.exists(model_dir):
+    models = [f for f in os.listdir(model_dir) if f.endswith('.json')]
+    print(f'Found {len(models)} portable models:')
+    for model in models:
+        print(f'  - {model}')
+else:
+    print('No trained models found. Run train-hybrid-m-series first.')
 "
 
 human-vs-ai: install ## Play as human vs AI with configurable AI types
