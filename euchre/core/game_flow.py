@@ -176,9 +176,9 @@ class GameFlow:
         self.state.trump_suit = None
         self.state.trump_caller = None
         
-        # Reset player round statistics
+        # Reset player round statistics (but NOT their hands - they keep their cards!)
         for player in self.players:
-            player.reset_round_stats()
+            player.tricks_won = 0  # Only reset tricks won, not the hand
         
         self.transition_to_phase(GamePhase.SCORING)
     
