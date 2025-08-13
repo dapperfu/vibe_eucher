@@ -473,10 +473,53 @@ class GPUTrainer:
             'winner': None
         }
         
-        # This is a simplified recording - in practice, you'd record much more detail
-        # about each decision point in the game
+        # Record trump decisions (simplified - in practice you'd record actual decisions)
+        # For now, create dummy training data to get the pipeline working
+        for player in players:
+            # Create dummy trump decision data
+            trump_decision_data = {
+                'player_name': player.name,
+                'hand_features': self._encode_hand_features(player.hand),
+                'decision': 1 if random.random() > 0.5 else 0,  # Random binary decision
+                'target': torch.tensor([1 if random.random() > 0.5 else 0], dtype=torch.float32)
+            }
+            game_data['trump_decisions'].append(trump_decision_data)
+            
+            # Create dummy card play data
+            card_play_data = {
+                'player_name': player.name,
+                'hand_features': self._encode_hand_features(player.hand),
+                'card_choice': random.randint(0, 4),  # Random card index
+                'target': torch.tensor([random.randint(0, 4)], dtype=torch.long)
+            }
+            game_data['card_plays'].append(card_play_data)
         
         return game_data
+    
+    def _encode_hand_features(self, hand: List) -> torch.Tensor:
+        """Encode hand features for neural network input."""
+        # Create a simple feature vector for the hand
+        # In practice, this would be much more sophisticated
+        features = torch.zeros(self.config.input_size)
+        
+        # Simple encoding: one-hot for cards, position encoding, etc.
+        for i, card in enumerate(hand):
+            if i < 5:  # Maximum 5 cards
+                # Basic card encoding (simplified)
+                card_start = i * 50  # 50 features per card
+                if hasattr(card, 'suit') and hasattr(card, 'rank'):
+                    # Suit encoding (4 features)
+                    suit_idx = getattr(card.suit, 'value', 0) % 4
+                    features[card_start + suit_idx] = 1.0
+                    
+                    # Rank encoding (13 features)
+                    rank_idx = getattr(card.rank, 'value', 0) % 13
+                    features[card_start + 4 + rank_idx] = 1.0
+                    
+                    # Card strength (normalized)
+                    features[card_start + 17] = (getattr(card.rank, 'value', 0) - 1) / 12.0
+        
+        return features
     
     def train_models(self, training_data: List[Dict[str, Any]]) -> None:
         """Train all M-Series models."""
@@ -561,14 +604,40 @@ class GPUTrainer:
             card_samples = []
             
             for game in training_data:
-                # Extract relevant samples for this model
-                # This is simplified - in practice, you'd filter based on model characteristics
-                pass
+                # Extract trump decision samples
+                for trump_data in game['trump_decisions']:
+                    sample = {
+                        'features': trump_data['hand_features'],
+                        'target': trump_data['target'],
+                        'player_name': trump_data['player_name']
+                    }
+                    trump_samples.append(sample)
+                
+                # Extract card play samples
+                for card_data in game['card_plays']:
+                    sample = {
+                        'features': card_data['hand_features'],
+                        'target': card_data['target'],
+                        'player_name': card_data['player_name']
+                    }
+                    card_samples.append(sample)
             
-            datasets[name] = {
-                'trump_decision': MSeriesGameDataset(trump_samples, name),
-                'card_play': MSeriesGameDataset(card_samples, name)
-            }
+            # Create datasets only if we have samples
+            if trump_samples:
+                datasets[name] = {
+                    'trump_decision': MSeriesGameDataset(trump_samples, name),
+                    'card_play': MSeriesGameDataset(card_samples, name)
+                }
+            else:
+                # Create dummy datasets with at least one sample to avoid errors
+                dummy_features = torch.zeros(self.config.input_size)
+                dummy_target = torch.tensor([0], dtype=torch.float32)
+                dummy_sample = {'features': dummy_features, 'target': dummy_target, 'player_name': 'dummy'}
+                
+                datasets[name] = {
+                    'trump_decision': MSeriesGameDataset([dummy_sample], name),
+                    'card_play': MSeriesGameDataset([dummy_sample], name)
+                }
         
         return datasets
     
