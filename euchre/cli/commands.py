@@ -3,7 +3,7 @@
 import click
 from typing import List, Optional
 from ..game import EuchreGame
-from ..models import PlayerType
+from ..models import PlayerType, Suit
 from ..ai.ai_factory import AIFactory
 
 
@@ -491,8 +491,72 @@ class GameCommands:
             current_index = (current_index + 1) % 4
         
         # If no one ordered up, go to second round
-        click.echo(f"\n🔄 Second round - dealer must pick a suit")
-        GameCommands._handle_second_trump_round(game, player_position, your_position)
+        click.echo(f"\n🔄 Second round - players can call any suit as trump")
+        
+        # Second round: players can call any suit (except the top card suit)
+        top_suit = game.top_card.suit
+        available_suits = [suit for suit in Suit if suit != top_suit]
+        
+        # Start with player after dealer
+        current_index = (dealer_index + 1) % 4
+        
+        # Go through each player for second round trump selection
+        for i in range(4):
+            current_player = game.players[current_index]
+            
+            if current_player.name == player_position:
+                # Human player's turn
+                click.echo(f"\n🤔 {player_position}'s turn to call trump")
+                click.echo(f"Available suits (excluding {top_suit.name}):")
+                for j, suit in enumerate(available_suits):
+                    click.echo(f"  {j+1}. {suit.name}")
+                
+                # Get human decision
+                while True:
+                    try:
+                        choice = click.prompt(
+                            "Do you want to call a trump suit? (y/n)",
+                            type=click.Choice(['y', 'n', 'yes', 'no']),
+                            default='n'
+                        )
+                        if choice in ['y', 'yes']:
+                            # Human calls a trump suit
+                            suit_choice = click.prompt(
+                                f"Which suit do you want as trump? (1-{len(available_suits)})",
+                                type=int,
+                                default=1
+                            )
+                            if 1 <= suit_choice <= len(available_suits):
+                                chosen_suit = available_suits[suit_choice - 1]
+                                game.trump_suit = chosen_suit
+                                game.game_state_manager.set_trump_suit(chosen_suit, current_player)
+                                click.echo(f"🎯 {player_position} calls {chosen_suit.name} as trump!")
+                                return
+                            else:
+                                click.echo(f"Please enter a number between 1 and {len(available_suits)}")
+                        else:
+                            click.echo(f"😴 {player_position} passes")
+                            break
+                    except Exception as e:
+                        click.echo(f"Invalid input: {e}")
+            else:
+                # AI player's turn
+                # For now, use simple AI logic - can be enhanced later
+                if hasattr(current_player, 'should_call_trump'):
+                    trump_suit = current_player.should_call_trump(top_card)
+                    if trump_suit and trump_suit != top_suit:
+                        game.trump_suit = trump_suit
+                        game.game_state_manager.set_trump_suit(trump_suit, current_player)
+                        click.echo(f"🎯 {current_player.name} calls {trump_suit.name} as trump!")
+                        return
+                
+                click.echo(f"😴 {current_player.name} passes")
+            
+            current_index = (current_index + 1) % 4
+        
+        # If no one called trump, dealer must pick (Screw the Dealer!)
+        click.echo(f"\n👑 {dealer.name} must pick a trump suit (Screw the Dealer!)")
+        GameCommands._handle_dealer_trump_selection(game, player_position, your_position)
     
     @staticmethod
     def _handle_human_discard_and_pickup(game: EuchreGame, player_position: str) -> None:
@@ -564,7 +628,7 @@ class GameCommands:
             
             # Show available suits (excluding the top card suit)
             top_suit = game.top_card.suit
-            available_suits = [suit for suit in game.deck.suits if suit != top_suit]
+            available_suits = [suit for suit in Suit if suit != top_suit]
             
             click.echo(f"Available suits (excluding {top_suit.name}):")
             for i, suit in enumerate(available_suits):
@@ -592,7 +656,7 @@ class GameCommands:
             # AI dealer picks a suit
             # Simple AI logic for now
             top_suit = game.top_card.suit
-            available_suits = [suit for suit in game.deck.suits if suit != top_suit]
+            available_suits = [suit for suit in Suit if suit != top_suit]
             
             if available_suits:
                 chosen_suit = available_suits[0]  # Simple: pick first available
