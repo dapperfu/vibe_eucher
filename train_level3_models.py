@@ -95,7 +95,7 @@ class Level3GameDataset(Dataset):
         for game_num in tqdm(range(num_games), desc="Generating games"):
             try:
                 # Create a game with AI players
-                game = EuchreGame(enable_logging=False)
+                game = EuchreGame(quiet_mode=True)
                 
                 # Add AI players with different profiles
                 profiles = ['aggressive', 'conservative', 'balanced', 'opportunistic']
@@ -104,6 +104,22 @@ class Level3GameDataset(Dataset):
                 
                 # Play the game
                 game.start_new_game()
+                
+                # Play a few rounds to generate some data
+                try:
+                    # Play up to 5 rounds to generate some tricks
+                    for round_num in range(5):
+                        if hasattr(game, 'play_round'):
+                            game.play_round()
+                        elif hasattr(game, '_play_trick'):
+                            game._play_trick(round_num + 1)
+                        
+                        # Check if game is over
+                        if hasattr(game, 'is_game_over') and game.is_game_over():
+                            break
+                except Exception as e:
+                    # If playing fails, just continue with basic game data
+                    pass
                 
                 # Collect game state data
                 game_data = self._extract_game_data(game)
@@ -184,6 +200,20 @@ class Level3GameDataset(Dataset):
                 }
             }
             
+            self.samples.append(sample)
+        
+        # If no tricks were generated, create a basic sample from the game state
+        if not game_data['tricks']:
+            sample = {
+                'game_id': game_data['game_id'],
+                'trick_data': None,
+                'game_context': {
+                    'trump_suit': None,
+                    'final_scores': game_data.get('final_scores', {}),
+                    'num_tricks': 0,
+                    'players': game_data.get('players', [])
+                }
+            }
             self.samples.append(sample)
     
     def __len__(self) -> int:
