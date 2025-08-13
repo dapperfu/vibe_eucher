@@ -542,7 +542,8 @@ class NcursesGame:
             
         # Show final scores
         if self.game.game_state_manager:
-            final_score = f"Final Score - Team 1: {self.game.game_state_manager.team1_score}, Team 2: {self.game.game_state_manager.team2_score}"
+            team1_score, team2_score = self.game.scoring_manager.get_team_scores(self.game.players)
+            final_score = f"Final Score - Team 1: {team1_score}, Team 2: {team2_score}"
             try:
                 self.screen.addstr(self.max_y // 2, (self.max_x - len(final_score)) // 2, final_score)
             except curses.error:
@@ -574,7 +575,9 @@ class NcursesGame:
         if self.max_y < 3 or self.max_x < 50:
             return
             
-        score_line = f"Team 1 (North/South): {self.game.game_state_manager.team1_score} | Team 2 (East/West): {self.game.game_state_manager.team2_score}"
+        # Get team scores from scoring manager
+        team1_score, team2_score = self.game.scoring_manager.get_team_scores(self.game.players)
+        score_line = f"Team 1 (North/South): {team1_score} | Team 2 (East/West): {team2_score}"
         
         # Truncate if too long for screen
         if len(score_line) > self.max_x - 4:
