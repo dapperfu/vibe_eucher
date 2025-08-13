@@ -197,23 +197,105 @@ class GameCommands:
             click.echo(f"Error: {e}", err=True)
     
     @staticmethod
-    def ai_vs_ai_game(ctx):
-        """Run an AI vs AI Euchre game."""
+    def ai_vs_ai_game(verbose: bool = False, very_verbose: bool = False, dealer_method: str = "black_jack") -> None:
+        """Run AI vs AI euchre game.
+        
+        Parameters
+        ----------
+        verbose : bool
+            Enable verbose logging
+        very_verbose : bool
+            Enable very verbose logging
+        dealer_method : str
+            Dealer selection method
+        """
         try:
             # Setup signal handling for graceful exit
             GameCommands._setup_signal_handling()
             
-            # Create and start the game
-            game = EuchreGame()
-            game.start_new_game()
+            click.echo(f"Starting AI vs AI euchre game with {dealer_method} dealer selection...")
             
-            # Run the full game
-            game.run_full_game()
+            # Create AI players with different profiles
+            players = []
+            ai_types = ["aggressive", "conservative", "balanced", "opportunistic"]
+            risk_ratios = [0.7, 0.3, 0.5, 0.6]
+            
+            for i, (name, ai_type, risk) in enumerate(zip(["Alice", "Bob", "Charlie", "David"], ai_types, risk_ratios)):
+                ai_player = AIFactory.create_ai_player(name, ai_type, risk)
+                players.append(ai_player)
+            
+            # Create game
+            game = EuchreGame(players, verbose=verbose, very_verbose=very_verbose)
+            game.dealer_selection_method = dealer_method
+            
+            # Start and run the game
+            game.start_new_game()
+            click.echo("Game started! Playing rounds...")
+            
+            # Play the game with Ctrl+C handling and round limit
+            GameCommands._run_ai_vs_ai_game_with_limits(game)
+            
         except KeyboardInterrupt:
             GameCommands._signal_handler(signal.SIGINT, None)
         except Exception as e:
-            click.echo(f"❌ Error: {e}")
-            sys.exit(1)
+            click.echo(f"❌ Error during AI vs AI game: {e}", err=True)
+    
+    @staticmethod
+    def _run_ai_vs_ai_game_with_limits(game: EuchreGame, max_rounds: int = 10) -> None:
+        """Run AI vs AI game with proper limits and Ctrl+C handling.
+        
+        Parameters
+        ----------
+        game : EuchreGame
+            The game instance
+        max_rounds : int
+            Maximum number of rounds to play
+        """
+        try:
+            # Start the first round
+            game._start_new_round()
+            
+            # Continue rounds until game is over or max rounds reached
+            while game.round_number < max_rounds:
+                try:
+                    # Check if game is over by checking accumulated team scores
+                    team1_score = game.game_state_manager.game_scores.get("Team 1", 0)
+                    team2_score = game.game_state_manager.game_scores.get("Team 2", 0)
+                    
+                    if team1_score >= 10 or team2_score >= 10:
+                        click.echo(f"\n🎉 Game Over! Team 1: {team1_score}, Team 2: {team2_score}")
+                        break
+                    
+                    game.round_number += 1
+                    click.echo(f"\n🔄 Starting Round {game.round_number}")
+                    
+                    # Start new round
+                    game._start_new_round()
+                    
+                    # Play the round
+                    game._play_round()
+                    
+                    click.echo(f"✅ Completed Round {game.round_number}")
+                    
+                    # Add a small delay to make the game readable
+                    import time
+                    time.sleep(0.5)
+                    
+                except KeyboardInterrupt:
+                    click.echo("\n🛑 Game interrupted by user (Ctrl+C)")
+                    click.echo("👋 Thanks for playing Euchre!")
+                    return
+                    
+            if game.round_number >= max_rounds:
+                click.echo(f"\n🏁 Maximum rounds ({max_rounds}) reached. Game ended.")
+                team1_score = game.game_state_manager.game_scores.get("Team 1", 0)
+                team2_score = game.game_state_manager.game_scores.get("Team 2", 0)
+                click.echo(f"Final Score - Team 1: {team1_score}, Team 2: {team2_score}")
+                
+        except KeyboardInterrupt:
+            click.echo("\n🛑 Game interrupted by user (Ctrl+C)")
+            click.echo("👋 Thanks for playing Euchre!")
+            return
     
     @staticmethod
     def human_vs_ai_game(player_name: str, your_position: int, 
