@@ -1,4 +1,4 @@
-.PHONY: help venv install install-pip test run clean train-ai evaluate-ai ai-game ai-game-ncurses ncurses logged profiles mass-games analyze cleanup jupyter jupyter-lab train-self-play train-integer-vs-float generate-profiles generate-profiles-cpu generate-profiles-gpu list-players play-trained tournament benchmark neural-tournament neural-analysis list-neural-models install-gpu train-m-series train-m-series-fast train-m-series-intensive evaluate-m-series train-m-series-vs-traditional m-series-tournament m-series-analysis list-m-series-models
+.PHONY: help venv install install-pip test run clean train-ai evaluate-ai ai-game ai-game-ncurses ncurses logged profiles mass-games analyze cleanup jupyter jupyter-lab train-self-play train-integer-vs-float generate-profiles generate-profiles-cpu generate-profiles-gpu list-players play-trained tournament benchmark neural-tournament neural-analysis list-neural-models install-gpu train-m-series train-m-series-fast train-m-series-intensive evaluate-m-series train-m-series-vs-traditional m-series-tournament m-series-analysis list-m-series-models benchmark-m-series benchmark-training-progression benchmark-comprehensive quick-benchmark benchmark-analysis
 
 help: ## Show this help message
 	@echo "Available commands:"
@@ -161,6 +161,39 @@ else: \
 # =============================================================================
 # M-SERIES VS TRADITIONAL AI COMPETITION
 # =============================================================================
+
+benchmark-m-series: install ## Run comprehensive M-Series vs Traditional AI benchmark
+	@echo "🏆 Running M-Series vs Traditional AI Benchmark..."
+	@echo "This will compare M-Series models against traditional AI in head-to-head matches"
+	venv/bin/python m_series_benchmark.py --mode tournament --games 200
+
+benchmark-training-progression: install ## Run training progression benchmark to show improvement
+	@echo "📈 Running Training Progression Benchmark..."
+	@echo "This will demonstrate how M-Series performance improves with more training data"
+	venv/bin/python training_progression_benchmark.py
+
+benchmark-comprehensive: install ## Run both tournament and progression benchmarks
+	@echo "🚀 Running Comprehensive Benchmark Suite..."
+	@echo "This includes both head-to-head tournament and training progression analysis"
+	venv/bin/python m_series_benchmark.py --mode both --games 300
+	@echo ""
+	@echo "📊 Running Training Progression Analysis..."
+	venv/bin/python training_progression_benchmark.py
+
+quick-benchmark: install ## Run quick benchmark (50 games per matchup)
+	@echo "⚡ Running Quick Benchmark (50 games per matchup)..."
+	venv/bin/python m_series_benchmark.py --mode tournament --games 50
+
+benchmark-analysis: install ## Analyze benchmark results and generate reports
+	@echo "📊 Analyzing benchmark results..."
+	@if [ -f "m_series_benchmark_*.json" ]; then \
+		echo "Found benchmark results:"; \
+		ls -la m_series_benchmark_*.json; \
+		echo ""; \
+		echo "Run: venv/bin/python -c \"import json; print(json.dumps(json.load(open('m_series_benchmark_*.json')), indent=2))\" for detailed results"; \
+	else \
+		echo "No benchmark results found. Run benchmark-m-series first."; \
+	fi
 
 train-m-series-vs-traditional: install-gpu ## Train M-Series models specifically to compete against traditional AI
 	@echo "Training M-Series models to compete against traditional AI..."
