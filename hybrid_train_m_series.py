@@ -552,40 +552,53 @@ class HybridTrainer:
                 'team2': getattr(game.game_state, 'team2_score', 0)
             }
         
-        # Record player hands and basic info
-        game_data['player_hands'] = {}
+        # Record trump decisions (simplified - in practice you'd record actual decisions)
+        # For now, create dummy training data to get the pipeline working
         for player in players:
-            if hasattr(player, 'hand'):
-                game_data['player_hands'][player.name] = [
-                    {'suit': str(card.suit), 'rank': str(card.rank)} 
-                    for card in player.hand
-                ]
-        
-        # Add some dummy training data for now
-        # In practice, you'd record actual decision points during the game
-        game_data['trump_decisions'].append({
-            'game_state': {
-                'hand': game_data['player_hands'].get('AI_0', []),
-                'position': 0,
-                'is_dealer': False,
-                'trump_suit': None,
-                'tricks_won': 0,
-                'partner_tricks_won': 0,
-                'opponent_tricks_won': 0,
-                'round_number': 1,
-                'trick_number': 1,
-                'lead_suit': None,
-                'cards_played': 0,
-                'score_team1': 0,
-                'score_team2': 0,
-                'risk_profile': 0.5,
-                'game_phase': 0,
-                'hand_strength': 0.5
-            },
-            'should_order': 1.0  # Dummy decision
-        })
+            # Create dummy trump decision data
+            trump_decision_data = {
+                'player_name': player.name,
+                'hand_features': self._encode_hand_features(player.hand),
+                'decision': 1 if random.random() > 0.5 else 0,  # Random binary decision
+                'target': torch.tensor([1 if random.random() > 0.5 else 0], dtype=torch.float32)
+            }
+            game_data['trump_decisions'].append(trump_decision_data)
+            
+            # Create dummy card play data
+            card_play_data = {
+                'player_name': player.name,
+                'hand_features': self._encode_hand_features(player.hand),
+                'card_choice': random.randint(0, 4),  # Random card index
+                'target': torch.tensor([random.randint(0, 4)], dtype=torch.long)
+            }
+            game_data['card_plays'].append(card_play_data)
         
         return game_data
+    
+    def _encode_hand_features(self, hand: List) -> torch.Tensor:
+        """Encode hand features for neural network input."""
+        # Create a simple feature vector for the hand
+        # In practice, this would be much more sophisticated
+        features = torch.zeros(self.config.input_size)
+        
+        # Simple encoding: one-hot for cards, position encoding, etc.
+        for i, card in enumerate(hand):
+            if i < 5:  # Maximum 5 cards
+                # Basic card encoding (simplified)
+                card_start = i * 50  # 50 features per card
+                if hasattr(card, 'suit') and hasattr(card, 'rank'):
+                    # Suit encoding (4 features)
+                    suit_idx = list(card.suit.__class__).index(card.suit) % 4
+                    features[card_start + suit_idx] = 1.0
+                    
+                    # Rank encoding (13 features)
+                    rank_idx = list(card.rank.__class__).index(card.rank) % 13
+                    features[card_start + 4 + rank_idx] = 1.0
+                    
+                    # Card strength (normalized)
+                    features[card_start + 17] = list(card.rank.__class__).index(card.rank) / 12.0
+        
+        return features
     
     def train_models(self, training_data: List[Dict[str, Any]]) -> None:
         """Train all M-Series models."""

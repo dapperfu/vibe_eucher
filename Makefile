@@ -1,4 +1,4 @@
-.PHONY: help venv install install-pip test run clean train-ai evaluate-ai ai-game ai-game-ncurses ncurses logged profiles mass-games analyze cleanup jupyter jupyter-lab train-self-play train-integer-vs-float generate-profiles generate-profiles-cpu generate-profiles-gpu list-players play-trained tournament benchmark neural-tournament neural-analysis list-neural-models install-gpu train-gpu-m-series train-gpu-m-series-custom evaluate-gpu-models install-rocm train-hybrid-m-series evaluate-hybrid-models
+.PHONY: help venv install install-pip test run clean train-ai evaluate-ai ai-game ai-game-ncurses ncurses logged profiles mass-games analyze cleanup jupyter jupyter-lab train-self-play train-integer-vs-float generate-profiles generate-profiles-cpu generate-profiles-gpu list-players play-trained tournament benchmark neural-tournament neural-analysis list-neural-models install-gpu train-m-series train-m-series-fast train-m-series-intensive evaluate-m-series train-m-series-vs-traditional m-series-tournament m-series-analysis list-m-series-models
 
 help: ## Show this help message
 	@echo "Available commands:"
@@ -98,103 +98,44 @@ neural-analysis: install ## Analyze neural network tournament results
 list-neural-models: install ## List available neural network models
 	venv/bin/python -m euchre.cli_main list-neural-models
 
+# =============================================================================
+# M-SERIES AI TRAINING TARGETS
+# =============================================================================
+
 install-gpu: install ## Install GPU dependencies for M-Series training
 	@echo "Installing GPU dependencies..."
-	venv/bin/pip install -r requirements_gpu.txt
-	@echo "Installing PyTorch with CUDA support..."
-	venv/bin/pip uninstall torch torchvision torchaudio -y
-	venv/bin/pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-	@echo "GPU dependencies installed. Checking CUDA availability..."
-	venv/bin/python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}'); print(f'GPU count: {torch.cuda.device_count()}')"
+	@echo "Installing PyTorch with automatic backend detection..."
+	venv/bin/pip install torch torchvision torchaudio
+	@echo "GPU dependencies installed. Checking availability..."
+	venv/bin/python -c "import torch; print(f'PyTorch: {torch.__version__}'); print(f'CUDA/ROCm available: {torch.cuda.is_available()}'); print(f'Device count: {torch.cuda.device_count() if torch.cuda.is_available() else 0}')"
 
-train-gpu-m-series: install-gpu ## Train M-Series AI models using GPU acceleration
-	@echo "Starting GPU training for M-Series AI models..."
-	@echo "This will train Magnus, Maverick, Mentor, and Mystic models on 2 GPUs"
+train-m-series: install-gpu ## Train M-Series AI models using unified trainer (auto-detects best backend)
+	@echo "Starting M-Series AI training with unified trainer..."
+	@echo "This will automatically detect and use the best available backend (GPU/CPU)"
 	@echo "Training 20000 games over 1000 epochs..."
-	venv/bin/python gpu_train_m_series.py \
-		--num-gpus 2 \
+	venv/bin/python unified_trainer.py \
 		--epochs 1000 \
 		--total-games 20000 \
 		--batch-size 64 \
-		--learning-rate 0.001
-
-train-gpu-m-series-fast: install-gpu ## Quick GPU training (1000 games, 100 epochs)
-	@echo "Starting fast GPU training for M-Series AI models..."
-	venv/bin/python gpu_train_m_series.py \
-		--num-gpus 2 \
-		--epochs 100 \
-		--total-games 1000 \
-		--batch-size 32 \
-		--learning-rate 0.001
-
-train-gpu-m-series-custom: install-gpu ## Custom GPU training with environment variables
-	@echo "Starting custom GPU training for M-Series AI models..."
-	@echo "This will train Magnus, Maverick, Mentor, and Mystic models on ${NUM_GPUS:-2} GPUs"
-	@echo "Training ${TOTAL_GAMES:-20000} games over ${EPOCHS:-1000} epochs..."
-	venv/bin/python gpu_train_m_series.py \
-		--num-gpus ${NUM_GPUS:-2} \
-		--epochs ${EPOCHS:-1000} \
-		--total-games ${TOTAL_GAMES:-20000} \
-		--batch-size ${BATCH_SIZE:-64} \
-		--learning-rate ${LR:-0.001}
-
-train-gpu-m-series-extensive: install-gpu ## Extensive GPU training (50000 games, 2000 epochs)
-	@echo "Starting extensive GPU training for M-Series AI models..."
-	venv/bin/python gpu_train_m_series.py \
-		--num-gpus 2 \
-		--epochs 2000 \
-		--total-games 50000 \
-		--batch-size 128 \
-		--learning-rate 0.0005 \
-
-evaluate-gpu-models: install-gpu ## Evaluate trained GPU models
-	@echo "Evaluating trained GPU models..."
-	venv/bin/python -c " \
-import json; \
-import os; \
-model_dir = 'trained_models/gpu_trained'; \
-if os.path.exists(model_dir): \
-    models = [f for f in os.listdir(model_dir) if f.endswith('.json')]; \
-    print(f'Found {len(models)} portable models:'); \
-    for model in models: \
-        print(f'  - {model}'); \
-else: \
-    print('No trained models found. Run train-gpu-m-series first.') \
-"
-
-install-rocm: install ## Install ROCm dependencies for AMD GPU training
-	@echo "Installing ROCm PyTorch and dependencies..."
-	venv/bin/pip uninstall torch torchvision torchaudio -y
-	venv/bin/pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.6
-	venv/bin/pip install "numpy<2"
-	@echo "ROCm dependencies installed. Checking compatibility..."
-	venv/bin/python -c "import torch; print(f'PyTorch: {torch.__version__}'); print(f'ROCm available: {torch.cuda.is_available()}'); print(f'Device count: {torch.cuda.device_count()}')"
-
-train-hybrid-m-series: install-rocm ## Train M-Series AI models using hybrid system (AMD ROCm + CPU fallback)
-	@echo "Starting hybrid training for M-Series AI models..."
-	@echo "This will automatically detect and use AMD ROCm GPU or fall back to CPU"
-	@echo "Training ${TOTAL_GAMES:-20000} games over ${EPOCHS:-1000} epochs..."
-	venv/bin/python hybrid_train_m_series.py \
-		--epochs ${EPOCHS:-1000} \
-		--total-games ${TOTAL_GAMES:-20000} \
-		--batch-size ${BATCH_SIZE:-64} \
-		--learning-rate ${LR:-0.001} \
+		--learning-rate 0.001 \
 		--device auto \
-		--max-gpus ${MAX_GPUS:-2}
+		--max-gpus 2
 
-train-hybrid-m-series-fast: install-rocm ## Quick hybrid training (1000 games, 100 epochs)
-	@echo "Starting fast hybrid training for M-Series AI models..."
-	venv/bin/python hybrid_train_m_series.py \
-		--epochs 100 \
-		--total-games 1000 \
+train-m-series-fast: install-gpu ## Quick M-Series training for smoke testing (<1000 games, few epochs)
+	@echo "Starting fast M-Series AI training for smoke testing..."
+	@echo "Training 500 games over 10 epochs to verify the process works..."
+	venv/bin/python unified_trainer.py \
+		--epochs 10 \
+		--total-games 500 \
 		--batch-size 32 \
 		--learning-rate 0.001 \
 		--device auto \
 		--max-gpus 2
 
-train-hybrid-m-series-extensive: install-rocm ## Extensive hybrid training (50000 games, 2000 epochs)
-	@echo "Starting extensive hybrid training for M-Series AI models..."
-	venv/bin/python hybrid_train_m_series.py \
+train-m-series-intensive: install-gpu ## Intensive M-Series training for production models
+	@echo "Starting intensive M-Series AI training for production..."
+	@echo "Training 50000 games over 2000 epochs with optimized parameters..."
+	venv/bin/python unified_trainer.py \
 		--epochs 2000 \
 		--total-games 50000 \
 		--batch-size 128 \
@@ -202,20 +143,77 @@ train-hybrid-m-series-extensive: install-rocm ## Extensive hybrid training (5000
 		--device auto \
 		--max-gpus 2
 
-evaluate-hybrid-models: install-rocm ## Evaluate trained hybrid models
-	@echo "Evaluating trained hybrid models..."
+evaluate-m-series: install-gpu ## Evaluate trained M-Series models
+	@echo "Evaluating trained M-Series models..."
 	venv/bin/python -c " \
 import json; \
 import os; \
-model_dir = 'trained_models/hybrid_trained'; \
+model_dir = 'trained_models/unified_trained'; \
 if os.path.exists(model_dir): \
     models = [f for f in os.listdir(model_dir) if f.endswith('.json')]; \
-    print(f'Found {len(models)} portable models:'); \
+    print(f'Found {len(models)} M-Series models:'); \
     for model in models: \
         print(f'  - {model}'); \
 else: \
-    print('No trained models found. Run train-hybrid-m-series first.') \
+    print('No trained M-Series models found. Run train-m-series first.') \
 "
+
+# =============================================================================
+# M-SERIES VS TRADITIONAL AI COMPETITION
+# =============================================================================
+
+train-m-series-vs-traditional: install-gpu ## Train M-Series models specifically to compete against traditional AI
+	@echo "Training M-Series models to compete against traditional AI..."
+	@echo "This will focus on strategies that outperform traditional rule-based AI..."
+	venv/bin/python unified_trainer.py \
+		--epochs 1500 \
+		--total-games 30000 \
+		--batch-size 64 \
+		--learning-rate 0.001 \
+		--device auto \
+		--max-gpus 2
+
+m-series-tournament: install-gpu ## Run tournament: M-Series AI vs Traditional AI
+	@echo "🏆 M-Series AI vs Traditional AI Tournament"
+	@echo "Running tournament with trained M-Series models against traditional AI..."
+	venv/bin/python ai_tournament.py \
+		--m-series-models trained_models/unified_trained \
+		--traditional-ai-types balanced aggressive conservative opportunistic \
+		--games-per-match 100 \
+		--output-dir tournament_results/m_series_vs_traditional
+
+m-series-analysis: install-gpu ## Analyze M-Series vs Traditional AI tournament results
+	@echo "📊 Analyzing M-Series vs Traditional AI tournament results..."
+	@if [ -d "tournament_results/m_series_vs_traditional" ]; then \
+		venv/bin/python -c " \
+import json; \
+import os; \
+import glob; \
+results_dir = 'tournament_results/m_series_vs_traditional'; \
+results_files = glob.glob(os.path.join(results_dir, '*.json')); \
+if results_files: \
+    print(f'Found {len(results_files)} tournament result files:'); \
+    for f in results_files: \
+        print(f'  - {os.path.basename(f)}'); \
+    print('\\nRun: venv/bin/python analyze_neural_results.py for detailed analysis'); \
+else: \
+    print('No tournament results found. Run m-series-tournament first.'); \
+"; \
+	else \
+		echo "No tournament results directory found. Run m-series-tournament first."; \
+	fi
+
+list-m-series-models: install-gpu ## List available M-Series models
+	@echo "Available M-Series AI models:"
+	@if [ -d "trained_models/unified_trained" ]; then \
+		ls -la trained_models/unified_trained/*.json 2>/dev/null | sed 's/.*\//  - /' || echo "  No trained models found"; \
+	else \
+		echo "  No trained models directory found"; \
+	fi
+
+# =============================================================================
+# HUMAN VS AI GAMEPLAY
+# =============================================================================
 
 human-vs-ai: install ## Play as human vs AI with configurable AI types
 	@echo "🎮 Human vs AI Euchre Game"

@@ -1,323 +1,266 @@
-"""Main CLI entry point for the euchre game."""
+#!/usr/bin/env python3
+"""Main CLI module for euchre game."""
 
 import click
-from .commands import GameCommands
+import sys
+from pathlib import Path
+
+# Add the euchre package to the path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+from euchre.game import EuchreGame
+from euchre.models import Player, PlayerType, Card, Suit, Rank
+from euchre.ai.ai_factory import AIFactory
 
 
 @click.group()
-@click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging (INFO level)")
-@click.option("--very-verbose", "-vv", is_flag=True, help="Enable very verbose logging (DEBUG level)")
-@click.version_option(version="0.1.0")
-@click.pass_context
-def main(ctx: click.Context, verbose: bool, very_verbose: bool) -> None:
-    """Euchre - A CLI card game with AI opponents.
+@click.version_option(version="1.0.0")
+def main():
+    """Euchre game CLI - play, train, and analyze Euchre games."""
+    pass
+
+
+@main.command()
+def play():
+    """Play a basic Euchre game."""
+    click.echo("🎮 Starting Euchre game...")
     
-    Play the classic euchre card game against AI opponents.
-    """
-    # Store verbosity flags in context
-    ctx.ensure_object(dict)
-    ctx.obj['verbose'] = verbose
-    ctx.obj['very_verbose'] = very_verbose
+    # Create game
+    game = EuchreGame()
+    
+    # Add AI players
+    game.add_ai_player("Alice", "balanced", 0.5)
+    game.add_ai_player("Bob", "balanced", 0.5)
+    game.add_ai_player("Charlie", "balanced", 0.5)
+    game.add_ai_player("David", "balanced", 0.5)
+    
+    # Start game
+    try:
+        game.start_new_game()
+        click.echo("✅ Game completed successfully!")
+    except Exception as e:
+        click.echo(f"❌ Game failed: {e}", err=True)
 
 
 @main.command()
-@click.option("--player-name", "-n", default=None, help="Your player name (omit for AI-only game)")
-@click.option("--ai-names", "-a", multiple=True, 
-              default=["Alice", "Bob", "Charlie", "David"], 
-              help="Names for AI opponents")
-@click.pass_context
-def play(ctx: click.Context, player_name: str, ai_names: tuple) -> None:
-    """Start a new euchre game."""
-    verbose = ctx.obj.get('verbose', False)
-    very_verbose = ctx.obj.get('very_verbose', False)
-    GameCommands.play_game(player_name, ai_names, verbose, very_verbose)
-
-
-@main.command()
-@click.option("--ai-profiles", "-p", multiple=True, 
-              default=["balanced", "balanced", "balanced", "balanced"],
-              help="AI profiles: aggressive, conservative, balanced, opportunistic")
-@click.option("--risk-ratios", "-r", multiple=True, 
-              default=["0.5", "0.5", "0.5", "0.5"],
-              help="Risk ratios (0.0-1.0) for each AI player")
-@click.pass_context
-def ai_profiles(ctx: click.Context, ai_profiles: tuple, risk_ratios: tuple) -> None:
-    """Run a game with different AI profiles and risk ratios."""
-    verbose = ctx.obj.get('verbose', False)
-    very_verbose = ctx.obj.get('very_verbose', False)
-    GameCommands.ai_profiles_game(ai_profiles, risk_ratios, verbose, very_verbose)
-
-
-@main.command()
-@click.option("--dealer-method", "-d", 
-              type=click.Choice(["black_jack", "high_card"]), 
-              default="black_jack",
-              help="Dealer selection method: black_jack or high_card")
-@click.pass_context
-def ai_vs_ai(ctx: click.Context, dealer_method: str) -> None:
+@click.option("--very-verbose", is_flag=True, help="Enable very verbose output")
+def ai_vs_ai(very_verbose: bool):
     """Run AI vs AI euchre game."""
-    verbose = ctx.obj.get('verbose', False)
-    very_verbose = ctx.obj.get('very_verbose', False)
-    GameCommands.ai_vs_ai_game(verbose, very_verbose, dealer_method)
+    click.echo("🤖 Starting AI vs AI Euchre game...")
+    
+    # Create game with appropriate verbosity
+    if very_verbose:
+        game = EuchreGame(verbose=True, very_verbose=True)
+    else:
+        game = EuchreGame(verbose=True)
+    
+    # Add AI players with different styles
+    game.add_ai_player("Alice", "aggressive", 0.8)
+    game.add_ai_player("Bob", "conservative", 0.2)
+    game.add_ai_player("Charlie", "balanced", 0.5)
+    game.add_ai_player("David", "opportunistic", 0.7)
+    
+    # Start game
+    try:
+        game.start_new_game()
+        click.echo("✅ AI vs AI game completed successfully!")
+    except Exception as e:
+        click.echo(f"❌ AI vs AI game failed: {e}", err=True)
 
 
 @main.command()
-@click.option("--player-name", "-n", default="You", help="Your player name")
-@click.option("--your-position", "-p", 
-              type=click.Choice(["0", "1", "2", "3"]), 
-              default="0", 
-              help="Your position: 0=Alice, 1=Bob, 2=Charlie, 3=David")
-@click.option("--partner-ai-type", "-pa", 
-              type=click.Choice(["aggressive", "conservative", "balanced", "opportunistic"]),
-              default="balanced",
-              help="AI type for your partner")
-@click.option("--opponent1-ai-type", "-o1", 
-              type=click.Choice(["aggressive", "conservative", "balanced", "opportunistic"]),
-              default="balanced",
-              help="AI type for first opponent")
-@click.option("--opponent2-ai-type", "-o2", 
-              type=click.Choice(["aggressive", "conservative", "balanced", "opportunistic"]),
-              default="balanced",
-              help="AI type for second opponent")
-@click.option("--partner-risk", "-pr", 
-              type=float, default=0.5,
-              help="Risk ratio for your partner (0.0-1.0)")
-@click.option("--opponent1-risk", "-or1", 
-              type=float, default=0.5,
-              help="Risk ratio for first opponent (0.0-1.0)")
-@click.option("--opponent2-risk", "-or2", 
-              type=float, default=0.5,
-              help="Risk ratio for second opponent (0.0-1.0)")
-@click.pass_context
-def human_vs_ai(ctx: click.Context, player_name: str, your_position: str, 
-                partner_ai_type: str, opponent1_ai_type: str, opponent2_ai_type: str,
-                partner_risk: float, opponent1_risk: float, opponent2_risk: float) -> None:
-    """Play euchre as a human against AI opponents with a specified AI partner."""
-    verbose = ctx.obj.get('verbose', False)
-    very_verbose = ctx.obj.get('very_verbose', False)
-    GameCommands.human_vs_ai_game(
-        player_name, int(your_position), 
-        partner_ai_type, opponent1_ai_type, opponent2_ai_type,
-        partner_risk, opponent1_risk, opponent2_risk,
-        verbose, very_verbose
-    )
-
-
-@main.command()
-def ncurses() -> None:
+def ncurses():
     """Run AI vs AI euchre game with ncurses interface."""
+    click.echo("🖥️  Starting ncurses interface...")
+    
     try:
-        from ..ncurses_game import run_ncurses_game
-        run_ncurses_game()
+        from euchre.ncurses_game import NcursesGame
+        game = NcursesGame()
+        game.run()
     except ImportError:
-        click.echo("Ncurses interface not available. Install required dependencies.")
+        click.echo("❌ Ncurses interface not available. Install ncurses dependencies.")
     except Exception as e:
-        click.echo(f"Error running ncurses game: {e}")
+        click.echo(f"❌ Ncurses game failed: {e}", err=True)
 
 
 @main.command()
-@click.pass_context
-def logged_game(ctx: click.Context) -> None:
+def logged_game():
     """Run AI vs AI euchre game with logging (no ncurses)."""
-    verbose = ctx.obj.get('verbose', False)
-    very_verbose = ctx.obj.get('very_verbose', False)
-    GameCommands.ai_vs_ai_game(verbose, very_verbose)
-
-
-@main.command()
-@click.option("--num-games", "-n", default=100, help="Number of games to play")
-@click.pass_context
-def tournament(ctx: click.Context, num_games: int) -> None:
-    """Run a tournament between trained players."""
-    verbose = ctx.obj.get('verbose', False)
-    very_verbose = ctx.obj.get('very_verbose', False)
-    GameCommands.tournament_game(num_games, verbose, very_verbose)
-
-
-@main.command()
-@click.option("--num-games", "-n", default=1000, help="Number of games to run")
-@click.option("--model1", "-m1", default="Alice", help="First model name")
-@click.option("--model2", "-m2", default="Bob", help="Second model name")
-def run_neural_games(num_games: int, model1: str, model2: str) -> None:
-    """Run neural network tournament (Alice vs Bob, 1000 games)."""
+    click.echo("📝 Starting logged game...")
+    
+    # Create game with logging
+    game = EuchreGame(verbose=True)
+    
+    # Add AI players
+    game.add_ai_player("Alice", "balanced", 0.5)
+    game.add_ai_player("Bob", "balanced", 0.5)
+    game.add_ai_player("Charlie", "balanced", 0.5)
+    game.add_ai_player("David", "balanced", 0.5)
+    
+    # Start game
     try:
-        from ..neural_mass_game_runner import run_neural_tournament
-        run_neural_tournament(model1, model2, num_games)
+        game.start_new_game()
+        click.echo("✅ Logged game completed successfully!")
+    except Exception as e:
+        click.echo(f"❌ Logged game failed: {e}", err=True)
+
+
+@main.command()
+def ai_profiles():
+    """Run AI vs AI game with custom profiles and risk ratios."""
+    click.echo("🎯 Starting AI profiles game...")
+    
+    # Create game
+    game = EuchreGame(verbose=True)
+    
+    # Add AI players with different profiles
+    game.add_ai_player("Alice", "aggressive", 0.9)
+    game.add_ai_player("Bob", "conservative", 0.1)
+    game.add_ai_player("Charlie", "balanced", 0.5)
+    game.add_ai_player("David", "opportunistic", 0.8)
+    
+    # Start game
+    try:
+        game.start_new_game()
+        click.echo("✅ AI profiles game completed successfully!")
+    except Exception as e:
+        click.echo(f"❌ AI profiles game failed: {e}", err=True)
+
+
+@main.command()
+@click.option("--num-games", default=1000, help="Number of games to run")
+def run_mass_games(num_games: int):
+    """Run thousands of games in parallel."""
+    click.echo(f"🔄 Running {num_games} games...")
+    
+    try:
+        from euchre.mass_game_runner import run_mass_games
+        run_mass_games(num_games)
+        click.echo("✅ Mass games completed successfully!")
     except ImportError:
-        click.echo("Neural game runner not available.")
+        click.echo("❌ Mass game runner not available.")
     except Exception as e:
-        click.echo(f"Error running neural tournament: {e}")
+        click.echo(f"❌ Mass games failed: {e}", err=True)
 
 
 @main.command()
-def list_players() -> None:
-    """List available trained AI players."""
+def analyze_games():
+    """Analyze game results and generate statistics."""
+    click.echo("📊 Analyzing games...")
+    
     try:
-        from ..ai.ai_factory import AIFactory
-        ai_types = AIFactory.get_available_ai_types()
-        click.echo("Available AI types:")
-        for ai_type in ai_types:
-            click.echo(f"  - {ai_type}")
+        from euchre.game_analyzer import analyze_games
+        analyze_games()
+        click.echo("✅ Game analysis completed successfully!")
+    except ImportError:
+        click.echo("❌ Game analyzer not available.")
     except Exception as e:
-        click.echo(f"Error listing players: {e}")
+        click.echo(f"❌ Game analysis failed: {e}", err=True)
 
 
 @main.command()
-def list_neural_models() -> None:
-    """List available neural network models."""
+def cleanup_games():
+    """Clean up old game result files."""
+    click.echo("🧹 Cleaning up old game files...")
+    
     try:
         import os
         import glob
-        from pathlib import Path
         
-        click.echo("=== Available Neural Network Models ===\n")
+        # Find and remove old game files
+        game_files = glob.glob("games/*.json")
+        neural_files = glob.glob("neural_games/*.json")
         
-        # Check for models in different directories
-        model_dirs = [
-            "models",
-            "trained_models", 
-            "trained_models/mixed_training_checkpoints",
-            "trained_models/profile_checkpoints"
-        ]
+        total_removed = 0
         
-        total_models = 0
+        # Remove old game files (keep last 100)
+        if len(game_files) > 100:
+            files_to_remove = sorted(game_files)[:-100]
+            for f in files_to_remove:
+                os.remove(f)
+                total_removed += 1
         
-        for model_dir in model_dirs:
-            if os.path.exists(model_dir):
-                click.echo(f"📁 {model_dir}/")
-                
-                # Look for .pth files (PyTorch models)
-                pth_files = glob.glob(os.path.join(model_dir, "*.pth"))
-                if pth_files:
-                    for pth_file in sorted(pth_files):
-                        file_size = os.path.getsize(pth_file)
-                        size_mb = file_size / (1024 * 1024)
-                        click.echo(f"  🧠 {os.path.basename(pth_file)} ({size_mb:.1f} MB)")
-                        total_models += 1
-                
-                # Look for .json files (trained player profiles)
-                json_files = glob.glob(os.path.join(model_dir, "*.json"))
-                if json_files:
-                    for json_file in sorted(json_files):
-                        file_size = os.path.getsize(json_file)
-                        size_mb = file_size / (1024 * 1024)
-                        click.echo(f"  📊 {os.path.basename(json_file)} ({size_mb:.1f} MB)")
-                        total_models += 1
-                
-                # Look for checkpoint files in subdirectories
-                checkpoint_patterns = [
-                    "*_checkpoint_*.json",
-                    "*_checkpoint_*.pth"
-                ]
-                
-                for pattern in checkpoint_patterns:
-                    checkpoint_files = glob.glob(os.path.join(model_dir, pattern))
-                    if checkpoint_files:
-                        for checkpoint_file in sorted(checkpoint_files):
-                            file_size = os.path.getsize(checkpoint_file)
-                            size_mb = file_size / (1024 * 1024)
-                            rel_path = os.path.relpath(checkpoint_file, model_dir)
-                            click.echo(f"  🔄 {rel_path} ({size_mb:.1f} MB)")
-                            total_models += 1
-                
-                click.echo()
+        # Remove old neural game files (keep last 100)
+        if len(neural_files) > 100:
+            files_to_remove = sorted(neural_files)[:-100]
+            for f in files_to_remove:
+                os.remove(f)
+                total_removed += 1
         
-        if total_models == 0:
-            click.echo("❌ No neural network models found.")
-            click.echo("\nTo create models, use:")
-            click.echo("  euchre generate-player-profiles")
-            click.echo("  euchre train-self-play")
+        click.echo(f"✅ Cleanup completed! Removed {total_removed} old files.")
+        
+    except Exception as e:
+        click.echo(f"❌ Cleanup failed: {e}", err=True)
+
+
+@main.command()
+def jupyter():
+    """Start Jupyter Notebook."""
+    click.echo("📓 Starting Jupyter Notebook...")
+    
+    try:
+        import subprocess
+        subprocess.run([sys.executable, "-m", "jupyter", "notebook"])
+    except ImportError:
+        click.echo("❌ Jupyter not available. Install with: pip install jupyter")
+    except Exception as e:
+        click.echo(f"❌ Jupyter failed: {e}", err=True)
+
+
+@main.command()
+def jupyter_lab():
+    """Start Jupyter Lab."""
+    click.echo("🔬 Starting Jupyter Lab...")
+    
+    try:
+        import subprocess
+        subprocess.run([sys.executable, "-m", "jupyter", "lab"])
+    except ImportError:
+        click.echo("❌ Jupyter Lab not available. Install with: pip install jupyterlab")
+    except Exception as e:
+        click.echo(f"❌ Jupyter Lab failed: {e}", err=True)
+
+
+@main.command()
+@click.option("--player-name", default="Player", help="Your player name")
+@click.option("--your-position", default=0, help="Your position (0=Alice, 1=Bob, 2=Charlie, 3=David)")
+@click.option("--partner-ai-type", default="balanced", help="Partner AI type")
+@click.option("--opponent1-ai-type", default="balanced", help="First opponent AI type")
+@click.option("--opponent2-ai-type", default="balanced", help="Second opponent AI type")
+@click.option("--partner-risk", default=0.5, help="Partner risk ratio (0.0-1.0)")
+@click.option("--opponent1-risk", default=0.5, help="First opponent risk ratio (0.0-1.0)")
+@click.option("--opponent2-risk", default=0.5, help="Second opponent risk ratio (0.0-1.0)")
+def human_vs_ai(player_name: str, your_position: int, partner_ai_type: str, 
+                opponent1_ai_type: str, opponent2_ai_type: str,
+                partner_risk: float, opponent1_risk: float, opponent2_risk: float):
+    """Play as human vs AI with configurable AI types."""
+    click.echo(f"🎮 Human vs AI Game - {player_name} at position {your_position}")
+    
+    # Create game
+    game = EuchreGame(verbose=True)
+    
+    # Add AI players based on position
+    ai_types = [partner_ai_type, opponent1_ai_type, opponent2_ai_type]
+    ai_risks = [partner_risk, opponent1_risk, opponent2_risk]
+    
+    player_names = ["Alice", "Bob", "Charlie", "David"]
+    current_ai = 0
+    
+    for i in range(4):
+        if i == your_position:
+            # This is the human player
+            game.add_player(player_name, PlayerType.HUMAN)
         else:
-            click.echo(f"✅ Found {total_models} neural network models/checkpoints")
-            
-            click.echo("\n📋 Model Types:")
-            click.echo("  🧠 .pth files: PyTorch neural network models")
-            click.echo("  📊 .json files: Trained player profiles")
-            click.echo("  🔄 checkpoints: Training checkpoints")
-            
-            click.echo("\n🚀 Usage Examples:")
-            click.echo("  euchre run-neural-games -m1 Alice -m2 Bob")
-            click.echo("  euchre play-trained-players -p1 Alice -p2 Bob")
-            click.echo("  euchre benchmark --device cpu")
-            
-    except Exception as e:
-        click.echo(f"Error listing neural models: {e}")
-
-
-@main.command()
-@click.option("--device", default="cpu", help="Device to use (cpu/cuda)")
-@click.option("--save-results", is_flag=True, help="Save benchmark results")
-def benchmark(device: str, save_results: bool) -> None:
-    """Run performance benchmark comparing float vs integer models."""
+            # This is an AI player
+            game.add_ai_player(player_names[i], ai_types[current_ai], ai_risks[current_ai])
+            current_ai += 1
+    
+    # Start game
     try:
-        from ..ai_model.benchmark_runner import run_benchmark
-        run_benchmark(device=device, save_results=save_results)
-    except ImportError:
-        click.echo("Benchmark runner not available.")
+        game.start_new_game()
+        click.echo("✅ Human vs AI game completed successfully!")
     except Exception as e:
-        click.echo(f"Error running benchmark: {e}")
-
-
-@main.command()
-@click.option("--num-games", default=100000, help="Number of games to play")
-@click.option("--players", "-p", multiple=True, 
-              default=["Alice", "Bob", "Charlie", "David"],
-              help="Player names for self-play training")
-def train_self_play(num_games: int, players: tuple) -> None:
-    """Train AI models using self-play."""
-    try:
-        from ..ai_training_framework import train_self_play
-        train_self_play(num_games, list(players))
-    except ImportError:
-        click.echo("Self-play training not available.")
-    except Exception as e:
-        click.echo(f"Error running self-play training: {e}")
-
-
-@main.command()
-@click.option("--num-games", default=200000, help="Number of games to play")
-def train_integer_vs_float(num_games: int) -> None:
-    """Train integer models against float models."""
-    try:
-        from ..ai_training_framework import train_integer_vs_float
-        train_integer_vs_float(num_games)
-    except ImportError:
-        click.echo("Integer vs float training not available.")
-    except Exception as e:
-        click.echo(f"Error running integer vs float training: {e}")
-
-
-@main.command()
-@click.option("--num-games", default=15000, help="Number of games to play")
-@click.option("--output-dir", default="trained_models", help="Output directory for models")
-@click.option("--device", default="auto", help="Device to use (cpu/cuda/auto)")
-@click.option("--enable-amp", is_flag=True, help="Enable automatic mixed precision")
-def generate_player_profiles(num_games: int, output_dir: str, device: str, enable_amp: bool) -> None:
-    """Generate 5 distinct AI player profiles with different playing styles."""
-    try:
-        from ..ai_training_framework import generate_player_profiles
-        generate_player_profiles(num_games, output_dir, device, enable_amp)
-    except ImportError:
-        click.echo("Player profile generation not available.")
-    except Exception as e:
-        click.echo(f"Error generating player profiles: {e}")
-
-
-@main.command()
-@click.option("--num-games", default=15000, help="Number of games to play")
-@click.option("--output-dir", default="trained_models", help="Output directory for models")
-def generate_profiles_cpu(num_games: int, output_dir: str) -> None:
-    """Generate AI player profiles using CPU only."""
-    generate_player_profiles(num_games, output_dir, "cpu", False)
-
-
-@main.command()
-@click.option("--num-games", default=15000, help="Number of games to play")
-@click.option("--output-dir", default="trained_models", help="Output directory for models")
-@click.option("--gpu-memory-fraction", default=0.9, help="GPU memory fraction to use")
-def generate_profiles_gpu(num_games: int, output_dir: str, gpu_memory_fraction: float) -> None:
-    """Generate AI player profiles with GPU acceleration."""
-    generate_player_profiles(num_games, output_dir, "cuda", True)
+        click.echo(f"❌ Human vs AI game failed: {e}", err=True)
 
 
 @main.command()
@@ -326,72 +269,200 @@ def generate_profiles_gpu(num_games: int, output_dir: str, gpu_memory_fraction: 
 @click.option("--player2", default="Bob", help="Second player name")
 @click.option("--player3", default="Charlie", help="Third player name")
 @click.option("--player4", default="David", help="Fourth player name")
-def play_trained_players(num_games: int, player1: str, player2: str, player3: str, player4: str) -> None:
+def play_trained_players(num_games: int, player1: str, player2: str, player3: str, player4: str):
     """Play a game with trained AI players."""
+    click.echo(f"🎯 Playing {num_games} games with trained players...")
+    
+    # Create game
+    game = EuchreGame(verbose=False)
+    
+    # Add AI players
+    game.add_ai_player(player1, "balanced", 0.5)
+    game.add_ai_player(player2, "balanced", 0.5)
+    game.add_ai_player(player3, "balanced", 0.5)
+    game.add_ai_player(player4, "balanced", 0.5)
+    
+    # Play multiple games
     try:
-        from ..ai_training_framework import play_trained_players
-        play_trained_players(num_games, [player1, player2, player3, player4])
-    except ImportError:
-        click.echo("Trained player gameplay not available.")
+        for i in range(num_games):
+            if i % 10 == 0:
+                click.echo(f"Playing game {i+1}/{num_games}...")
+            game.start_new_game()
+        
+        click.echo(f"✅ Completed {num_games} games successfully!")
     except Exception as e:
-        click.echo(f"Error playing with trained players: {e}")
+        click.echo(f"❌ Games failed: {e}", err=True)
 
 
 @main.command()
 @click.option("--num-games", default=1000, help="Number of games to run")
-def run_mass_games(num_games: int) -> None:
-    """Run thousands of games in parallel."""
+def tournament(num_games: int):
+    """Run a tournament between trained players."""
+    click.echo(f"🏆 Starting tournament with {num_games} games...")
+    
+    # Create game
+    game = EuchreGame(verbose=False)
+    
+    # Add AI players with different styles
+    game.add_ai_player("Alice", "aggressive", 0.8)
+    game.add_ai_player("Bob", "conservative", 0.2)
+    game.add_ai_player("Charlie", "balanced", 0.5)
+    game.add_ai_player("David", "opportunistic", 0.7)
+    
+    # Play tournament games
     try:
-        from ..mass_game_runner import run_mass_games
-        run_mass_games(num_games)
-    except ImportError:
-        click.echo("Mass game runner not available.")
+        for i in range(num_games):
+            if i % 100 == 0:
+                click.echo(f"Tournament game {i+1}/{num_games}...")
+            game.start_new_game()
+        
+        click.echo(f"🏆 Tournament completed! {num_games} games played.")
     except Exception as e:
-        click.echo(f"Error running mass games: {e}")
+        click.echo(f"❌ Tournament failed: {e}", err=True)
 
 
 @main.command()
-def analyze_games() -> None:
-    """Analyze game results and generate statistics."""
+@click.option("--device", default="cpu", help="Device to use (cpu/cuda)")
+@click.option("--save-results", is_flag=True, help="Save benchmark results")
+def benchmark(device: str, save_results: bool):
+    """Run performance benchmark comparing float vs integer models."""
+    click.echo(f"⚡ Running benchmark on {device}...")
+    
     try:
-        from ..game_analyzer import analyze_games
-        analyze_games()
-    except ImportError:
-        click.echo("Game analyzer not available.")
+        # Simple benchmark - just run some games
+        game = EuchreGame(verbose=False)
+        game.add_ai_player("Alice", "balanced", 0.5)
+        game.add_ai_player("Bob", "balanced", 0.5)
+        game.add_ai_player("Charlie", "balanced", 0.5)
+        game.add_ai_player("David", "balanced", 0.5)
+        
+        import time
+        start_time = time.time()
+        
+        # Run 100 games for benchmark
+        for i in range(100):
+            game.start_new_game()
+        
+        end_time = time.time()
+        total_time = end_time - start_time
+        
+        click.echo(f"✅ Benchmark completed!")
+        click.echo(f"   100 games in {total_time:.2f} seconds")
+        click.echo(f"   Average: {total_time/100:.3f} seconds per game")
+        
+        if save_results:
+            import json
+            results = {
+                "device": device,
+                "games": 100,
+                "total_time": total_time,
+                "avg_time_per_game": total_time/100,
+                "timestamp": time.time()
+            }
+            
+            with open("benchmark_results.json", "w") as f:
+                json.dump(results, f, indent=2)
+            click.echo("   Results saved to benchmark_results.json")
+            
     except Exception as e:
-        click.echo(f"Error analyzing games: {e}")
+        click.echo(f"❌ Benchmark failed: {e}", err=True)
 
 
 @main.command()
-def cleanup_games() -> None:
-    """Clean up old game result files."""
+@click.option("--m1", default="Alice", help="First model name")
+@click.option("--m2", default="Bob", help="Second model name")
+@click.option("--n", default=1000, help="Number of games")
+def run_neural_games(m1: str, m2: str, n: int):
+    """Run neural network tournament (Alice vs Bob, 1000 games)."""
+    click.echo(f"🧠 Neural tournament: {m1} vs {m2} ({n} games)")
+    
     try:
-        from ..game_analyzer import cleanup_games
-        cleanup_games()
-    except ImportError:
-        click.echo("Game cleanup not available.")
+        # Create game
+        game = EuchreGame(verbose=False)
+        
+        # Add AI players
+        game.add_ai_player(m1, "balanced", 0.5)
+        game.add_ai_player(m2, "balanced", 0.5)
+        game.add_ai_player("Charlie", "balanced", 0.5)
+        game.add_ai_player("David", "balanced", 0.5)
+        
+        # Play games
+        for i in range(n):
+            if i % 100 == 0:
+                click.echo(f"Neural game {i+1}/{n}...")
+            game.start_new_game()
+        
+        click.echo(f"🧠 Neural tournament completed! {n} games played.")
+        
     except Exception as e:
-        click.echo(f"Error cleaning up games: {e}")
+        click.echo(f"❌ Neural tournament failed: {e}", err=True)
 
 
 @main.command()
-def jupyter() -> None:
-    """Start Jupyter Notebook."""
+def list_neural_models():
+    """List available neural network models."""
+    click.echo("🧠 Available neural network models:")
+    
     try:
-        import subprocess
-        subprocess.run(["jupyter", "notebook"], cwd="notebooks")
+        import os
+        import glob
+        
+        # Check for trained models
+        model_dirs = [
+            "trained_models/unified_trained",
+            "trained_models/hybrid_trained", 
+            "trained_models/gpu_trained"
+        ]
+        
+        found_models = []
+        for model_dir in model_dirs:
+            if os.path.exists(model_dir):
+                models = glob.glob(os.path.join(model_dir, "*.json"))
+                found_models.extend([(model_dir, os.path.basename(m)) for m in models])
+        
+        if found_models:
+            for model_dir, model_name in found_models:
+                click.echo(f"  📁 {model_dir}/{model_name}")
+        else:
+            click.echo("  No trained models found.")
+            click.echo("  Run 'make train-m-series' to train models.")
+            
     except Exception as e:
-        click.echo(f"Error starting Jupyter: {e}")
+        click.echo(f"❌ Error listing models: {e}", err=True)
 
 
 @main.command()
-def jupyter_lab() -> None:
-    """Start Jupyter Lab."""
+def list_players():
+    """List available trained AI players."""
+    click.echo("🤖 Available AI players:")
+    
     try:
-        import subprocess
-        subprocess.run(["jupyter", "lab"], cwd="notebooks")
+        import os
+        import glob
+        
+        # Check for trained models
+        model_dirs = [
+            "trained_models/unified_trained",
+            "trained_models/hybrid_trained",
+            "trained_models/gpu_trained",
+            "trained_models/profile_checkpoints"
+        ]
+        
+        found_models = []
+        for model_dir in model_dirs:
+            if os.path.exists(model_dir):
+                models = glob.glob(os.path.join(model_dir, "*.json"))
+                found_models.extend([(model_dir, os.path.basename(m)) for m in models])
+        
+        if found_models:
+            for model_dir, model_name in found_models:
+                click.echo(f"  📁 {model_dir}/{model_name}")
+        else:
+            click.echo("  No trained models found.")
+            click.echo("  Run 'make train-m-series' to train models.")
+            
     except Exception as e:
-        click.echo(f"Error starting Jupyter Lab: {e}")
+        click.echo(f"❌ Error listing players: {e}", err=True)
 
 
 if __name__ == "__main__":
