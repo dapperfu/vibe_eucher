@@ -228,59 +228,7 @@ class EuchreGame:
         trump_suit_name = trump_suit.name if trump_suit else "None"
         self.logger.log_round_start(self.round_number, trump_suit_name, hands_dict)
         
-        # Play 5 tricks
-        for trick_number in range(1, 6):
-            self.logger.info(f"\n--- Trick {trick_number} ---")
-            self.logger.debug("Before starting trick - Player hands:")
-            for player in self.players:
-                self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
-            
-            self._play_trick(trick_number)
-            
-            self.logger.debug("After completing trick - Player hands:")
-            for player in self.players:
-                self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
-        
-        # Score the round
-        # Determine which team called trump
-        trump_caller_team = 0 if caller and self.players.index(caller) % 2 == 0 else 1
-        team1_score, team2_score = self.scoring_manager.score_round(self.players, trump_caller_team)
-        
-        # Update player scores (assuming team 1 is players 0,2 and team 2 is players 1,3)
-        for i in range(0, 4, 2):  # Team 1
-            self.players[i].score += team1_score
-        for i in range(1, 4, 2):  # Team 2
-            self.players[i].score += team2_score
-        
-        # Display round results
-        self.logger.info(f"\n=== Round {self.round_number} Complete ===")
-        self.logger.info(f"Final trick counts: Alice: {self.tricks_won['Alice']}, Bob: {self.tricks_won['Bob']}, Charlie: {self.tricks_won['Charlie']}, David: {self.tricks_won['David']}")
-        self.logger.info(f"Team 1 (Alice & Charlie): {team1_score} points")
-        self.logger.info(f"Team 2 (Bob & David): {team2_score} points")
-        
-        # Show current game scores
-        team1_total = sum(self.players[i].score for i in range(0, 4, 2))
-        team2_total = sum(self.players[i].score for i in range(1, 4, 2))
-        self.logger.info(f"Game Score - Team 1: {team1_total}, Team 2: {team2_total}")
-        
-        # Log round end to file
-        final_scores = {player.name: self.tricks_won[player.name] for player in self.players}
-        team_scores = {"Team 1 (Alice & Charlie)": team1_score, "Team 2 (Bob & David)": team2_score}
-        self.logger.log_round_end(self.round_number, final_scores, team_scores)
-        
-        # Check if game is over
-        if self.scoring_manager.is_game_over(self.players):
-            self.logger.info("\n🎉 GAME OVER! 🎉")
-            if team1_total > team2_total:
-                self.logger.info("Team 1 (Alice & Charlie) wins!")
-                winner = "Team 1 (Alice & Charlie)"
-            else:
-                self.logger.info("Team 2 (Bob & David) wins!")
-                winner = "Team 2 (Bob & David)"
-            
-            # Log game end to file
-            final_team_scores = {"Team 1 (Alice & Charlie)": team1_total, "Team 2 (Bob & David)": team2_total}
-            self.logger.log_game_end(winner, final_team_scores)
+        # Note: Round playing is now handled separately by the calling method
     
     def _update_trump_status(self, trump_suit: Suit) -> None:
         """Update the trump status of all cards.
@@ -330,6 +278,9 @@ class EuchreGame:
             
             # Start new round
             self._start_new_round()
+            
+            # Play the round
+            self._play_round()
             
             self.logger.info(f"Completed round {self.round_number}")
             self.logger.debug("Player hands after round:")
@@ -481,9 +432,12 @@ class EuchreGame:
         # Get the current trick state
         current_trick = self.trick_manager.get_current_trick()
         
+        # Extract lead suit from current trick
+        lead_suit = current_trick.lead_suit if current_trick else None
+        
         # Choose card based on AI profile
         if hasattr(player, 'choose_card_to_play'):
-            card = player.choose_card_to_play(current_trick, self.trump_suit)
+            card = player.choose_card_to_play(lead_suit, self.trump_suit)
         else:
             # Fallback for basic AI
             card = player.hand[0]

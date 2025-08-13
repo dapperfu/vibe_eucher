@@ -237,8 +237,16 @@ class AdaptiveAI(BaseAI):
         
         return base_decision
     
+    def _sync_hand_with_base_ai(self) -> None:
+        """Sync the hand with the base AI instance."""
+        if hasattr(self, 'base_ai') and self.base_ai:
+            self.base_ai.hand = self.hand.copy()
+    
     def choose_card_to_play(self, lead_suit: Optional[Suit], trump_suit: Optional[Suit]) -> Card:
         """Choose which card to play."""
+        # Sync hand with base AI before making decision
+        self._sync_hand_with_base_ai()
+        
         # Use base AI logic
         card = self.base_ai.choose_card_to_play(lead_suit, trump_suit)
         

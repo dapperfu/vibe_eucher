@@ -978,10 +978,13 @@ class GameCommands:
             The AI player
         """
         # For now, use simple AI logic
+        current_trick = game.trick_manager.get_current_trick()
+        lead_suit = current_trick.lead_suit if current_trick else None
+        
         if hasattr(ai_player, 'choose_card_to_play'):
-            card = ai_player.choose_card_to_play(game.current_trick, game.trump_suit)
+            card = ai_player.choose_card_to_play(lead_suit, game.trump_suit)
         else:
-            card = GameCommands._simple_ai_card_choice(ai_player, game.current_trick, game.trump_suit)
+            card = GameCommands._simple_ai_card_choice(ai_player, current_trick, game.trump_suit)
         
         # Play the card (don't remove from hand yet - let trick manager handle it)
         game.trick_manager.play_card(ai_player, card)

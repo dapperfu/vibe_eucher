@@ -1,4 +1,4 @@
-.PHONY: help venv install install-pip test run clean train-ai evaluate-ai ai-game ai-game-ncurses ncurses logged profiles mass-games analyze cleanup jupyter jupyter-lab train-self-play train-integer-vs-float generate-profiles generate-profiles-cpu generate-profiles-gpu list-players play-trained tournament benchmark neural-tournament neural-analysis list-neural-models
+.PHONY: help venv install install-pip test run clean train-ai evaluate-ai ai-game ai-game-ncurses ncurses logged profiles mass-games analyze cleanup jupyter jupyter-lab train-self-play train-integer-vs-float generate-profiles generate-profiles-cpu generate-profiles-gpu list-players play-trained tournament benchmark neural-tournament neural-analysis list-neural-models install-gpu train-gpu-m-series evaluate-gpu-models
 
 help: ## Show this help message
 	@echo "Available commands:"
@@ -97,6 +97,55 @@ neural-analysis: install ## Analyze neural network tournament results
 
 list-neural-models: install ## List available neural network models
 	venv/bin/python -m euchre.cli_main list-neural-models
+
+install-gpu: install ## Install GPU dependencies for M-Series training
+	venv/bin/pip install -r requirements_gpu.txt
+	@echo "GPU dependencies installed. Checking CUDA availability..."
+	venv/bin/python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}'); print(f'GPU count: {torch.cuda.device_count()}')"
+
+train-gpu-m-series: install-gpu ## Train M-Series AI models using GPU acceleration
+	@echo "Starting GPU training for M-Series AI models..."
+	@echo "This will train Magnus, Maverick, Mentor, and Mystic models on ${NUM_GPUS:-2} GPUs"
+	@echo "Training ${TOTAL_GAMES:-20000} games over ${EPOCHS:-1000} epochs..."
+	venv/bin/python gpu_train_m_series.py \
+		--num-gpus ${NUM_GPUS:-2} \
+		--epochs ${EPOCHS:-1000} \
+		--total-games ${TOTAL_GAMES:-20000} \
+		--batch-size ${BATCH_SIZE:-64} \
+		--learning-rate ${LR:-0.001}
+
+train-gpu-m-series-fast: install-gpu ## Quick GPU training (1000 games, 100 epochs)
+	@echo "Starting fast GPU training for M-Series AI models..."
+	venv/bin/python gpu_train_m_series.py \
+		--num-gpus 2 \
+		--epochs 100 \
+		--total-games 1000 \
+		--batch-size 32 \
+		--learning-rate 0.001
+
+train-gpu-m-series-extensive: install-gpu ## Extensive GPU training (50000 games, 2000 epochs)
+	@echo "Starting extensive GPU training for M-Series AI models..."
+	venv/bin/python gpu_train_m_series.py \
+		--num-gpus 2 \
+		--epochs 2000 \
+		--total-games 50000 \
+		--batch-size 128 \
+		--learning-rate 0.0005
+
+evaluate-gpu-models: install-gpu ## Evaluate trained GPU models
+	@echo "Evaluating trained GPU models..."
+	venv/bin/python -c "
+import json
+import os
+model_dir = 'trained_models/gpu_trained'
+if os.path.exists(model_dir):
+    models = [f for f in os.listdir(model_dir) if f.endswith('.json')]
+    print(f'Found {len(models)} portable models:')
+    for model in models:
+        print(f'  - {model}')
+else:
+    print('No trained models found. Run train-gpu-m-series first.')
+"
 
 human-vs-ai: install ## Play as human vs AI with configurable AI types
 	@echo "🎮 Human vs AI Euchre Game"
