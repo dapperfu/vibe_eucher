@@ -241,7 +241,7 @@ class GameCommands:
             click.echo(f"❌ Error during AI vs AI game: {e}", err=True)
     
     @staticmethod
-    def _run_ai_vs_ai_game_with_limits(game: EuchreGame, max_rounds: int = 10) -> None:
+    def _run_ai_vs_ai_game_with_limits(game: EuchreGame, max_rounds: int = 100) -> None:
         """Run AI vs AI game with proper limits and Ctrl+C handling.
         
         Parameters
@@ -249,7 +249,7 @@ class GameCommands:
         game : EuchreGame
             The game instance
         max_rounds : int
-            Maximum number of rounds to play
+            Maximum number of rounds to play (safety cap)
         """
         try:
             # Start the first round
@@ -281,6 +281,11 @@ class GameCommands:
                     current_team1_score = game.game_state_manager.game_scores.get("Team 1", 0)
                     current_team2_score = game.game_state_manager.game_scores.get("Team 2", 0)
                     click.echo(f"📊 Rolling Score - Team 1 (Alice & Charlie): {current_team1_score}, Team 2 (Bob & David): {current_team2_score}")
+                    
+                    # Check again after the round to see if someone reached 10 points
+                    if current_team1_score >= 10 or current_team2_score >= 10:
+                        click.echo(f"\n🎉 Game Over! Team 1: {current_team1_score}, Team 2: {current_team2_score}")
+                        break
                     
                     # Add a small delay to make the game readable
                     import time
