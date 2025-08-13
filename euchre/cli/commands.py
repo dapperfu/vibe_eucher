@@ -421,17 +421,15 @@ class GameCommands:
         # Trump selection phase (hand and top card shown during this phase)
         GameCommands._handle_trump_selection(game, player_position, your_position)
         
+        # Debug: Check all player hands after returning from trump selection
+        click.echo(f"\n🔍 Debug: Player hands AFTER returning from trump selection:")
+        for player in game.players:
+            click.echo(f"  {player.name}: {len(player.hand)} cards - {[card.unicode_str() for card in player.hand]}")
+        
         # Debug: Show all player hands after trump selection
         click.echo(f"\n🔍 Debug: Player hands after trump selection:")
         for player in game.players:
             click.echo(f"  {player.name}: {len(player.hand)} cards - {[card.unicode_str() for card in player.hand]}")
-        
-        # Debug: Show kitty (remaining cards in deck) after trump selection
-        if hasattr(game, 'deck') and hasattr(game.deck, 'size'):
-            click.echo(f"🔍 Debug: Kitty after trump selection - {game.deck.size} cards remaining")
-            if game.deck.size <= 10:  # Show actual cards if few remain
-                remaining_cards = game.deck.get_remaining_cards()
-                click.echo(f"  Remaining cards: {[card.unicode_str() for card in remaining_cards]}")
         
         # Now show the final hand after trump selection
         GameCommands._show_human_game_info(game, player_position)
@@ -583,6 +581,12 @@ class GameCommands:
                                 game.trump_suit = chosen_suit
                                 game.game_state_manager.set_trump_suit(chosen_suit, current_player)
                                 click.echo(f"🎯 {player_position} calls {chosen_suit.name} as trump!")
+                                
+                                # Debug: Check all player hands immediately after trump selection
+                                click.echo(f"\n🔍 Debug: Player hands IMMEDIATELY after trump selection:")
+                                for player in game.players:
+                                    click.echo(f"  {player.name}: {len(player.hand)} cards - {[card.unicode_str() for card in player.hand]}")
+                                
                                 return
                             else:
                                 click.echo(f"Please enter a number between 1 and {len(available_suits)}")
