@@ -74,14 +74,16 @@ class Deck:
             self._cards = self._cards[position:] + self._cards[:position]
     
     def deal_cards(self, num_players: int, cards_per_player: int = 5) -> List[List[Card]]:
-        """Deal cards to players.
+        """Deal cards to players using traditional Euchre pattern.
+        
+        Traditional Euchre dealing: Deal 2 cards to each player, then 3 cards to each player.
         
         Parameters
         ----------
         num_players : int
             Number of players to deal to
         cards_per_player : int
-            Number of cards per player
+            Number of cards per player (should be 5 for Euchre)
             
         Returns
         -------
@@ -93,10 +95,25 @@ class Deck:
         
         hands = [[] for _ in range(num_players)]
         
-        for i in range(cards_per_player):
-            for j in range(num_players):
-                if self._cards:
-                    hands[j].append(self._cards.pop())
+        # Traditional Euchre dealing: 2 cards first, then 3 cards
+        if cards_per_player == 5:
+            # First round: Deal 2 cards to each player
+            for i in range(2):
+                for j in range(num_players):
+                    if self._cards:
+                        hands[j].append(self._cards.pop())
+            
+            # Second round: Deal 3 cards to each player
+            for i in range(3):
+                for j in range(num_players):
+                    if self._cards:
+                        hands[j].append(self._cards.pop())
+        else:
+            # Fallback to round-robin for non-standard card counts
+            for i in range(cards_per_player):
+                for j in range(num_players):
+                    if self._cards:
+                        hands[j].append(self._cards.pop())
         
         return hands
     
