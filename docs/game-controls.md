@@ -326,3 +326,134 @@ Create custom control settings:
 *For gameplay instructions, see [Human vs AI Guide](human-vs-ai.md)*
 *For game rules, see [Game Rules](game-rules.md)*
 *For CLI commands, see [CLI Commands Reference](cli-commands.md)* 
+
+## Ncurses Interface
+
+The euchre game includes a full ncurses-based terminal interface that provides a visual representation of the game table and supports both AI vs AI and human vs AI gameplay.
+
+### Features
+
+- **Visual Table Layout**: Represents a real euchre table with player positions
+- **First-Person Perspective**: Human players see the table from their perspective
+- **Color-Coded Elements**: Different colors for suits, trump cards, and player types
+- **Interactive Gameplay**: Human players can select cards using number keys
+- **Real-Time Updates**: Game state updates as play progresses
+
+### Table Layout
+
+The ncurses interface shows the euchre table from a first-person perspective:
+
+```
+                    Partner
+                  (North - Top)
+                      |
+                      |
+        Opponent      |      Opponent
+      (West - Left)  |   (East - Right)
+                      |
+                      |
+                    YOU
+                (South - Bottom)
+```
+
+- **South (Bottom)**: Your position - your cards are displayed prominently
+- **North (Top)**: Your partner's position - across from you
+- **West (Left)**: Opponent to your left
+- **East (Right)**: Opponent to your right
+
+### Running the Ncurses Game
+
+#### AI vs AI Mode
+```bash
+# Using the CLI
+python -m euchre.cli_main ncurses
+
+# Using make
+make ncurses
+```
+
+#### Human vs AI Mode
+```bash
+# Using the CLI (default position: South)
+python -m euchre.cli_main ncurses-human-vs-ai
+
+# Using the CLI with custom position
+python -m euchre.cli_main ncurses-human-vs-ai --position 0
+
+# Using make (default position: South)
+make ncurses-human
+
+# Using make with custom position
+make ncurses-human POSITION=1
+```
+
+#### Interactive Demo
+```bash
+# Run the interactive demo script
+python demo_ncurses_game.py
+
+# Or using make
+make demo-ncurses
+```
+
+### Player Positions
+
+- **Position 0**: North (top of screen)
+- **Position 1**: East (right side)
+- **Position 2**: South (bottom - recommended for human players)
+- **Position 3**: West (left side)
+
+### Controls
+
+#### Human Player Controls
+- **1-5**: Select cards from your hand (numbered left to right)
+- **q/Q**: Quit the game
+- **Any other key**: No action
+
+#### Navigation
+- The game automatically advances after AI turns
+- Human turns pause for input
+- Game state is continuously updated
+
+### Color Scheme
+
+- **Red**: Hearts ♥ and Diamonds ♦
+- **Black**: Clubs ♣ and Spades ♠
+- **Yellow**: Trump cards (highlighted with *)
+- **Green**: Partner player and winning cards
+- **Red**: Opponent players
+- **Blue**: Human player (highlighted)
+- **Cyan**: Current player
+- **Magenta**: Dealer
+
+### Game Flow
+
+1. **Setup**: Game initializes with players and deals cards
+2. **Trump Selection**: AI players automatically select trump suit
+3. **Trick Play**: Players take turns playing cards
+4. **Human Turn**: When it's your turn, your hand is displayed prominently
+5. **Card Selection**: Choose a card by pressing 1-5
+6. **AI Turns**: AI players automatically play their cards
+7. **Scoring**: Tricks are scored and displayed
+8. **Game End**: Game continues until a team reaches 10 points
+
+### Tips for Human Players
+
+- **Position 2 (South)**: Recommended for best first-person experience
+- **Watch the Table**: Monitor opponent and partner card counts
+- **Trump Awareness**: Trump cards are highlighted in yellow
+- **Partner Coordination**: Your partner is across from you (North)
+- **Screen Size**: Ensure your terminal is large enough (minimum 80x24)
+
+### Troubleshooting
+
+#### Common Issues
+- **Screen too small**: Ensure terminal is at least 80x24 characters
+- **Colors not working**: Some terminals may not support all colors
+- **Game freezes**: Press 'q' to quit if the game becomes unresponsive
+
+#### Requirements
+- Terminal with ncurses support
+- Python 3.7+
+- Minimum screen size: 80x24 characters
+- Color terminal recommended 
