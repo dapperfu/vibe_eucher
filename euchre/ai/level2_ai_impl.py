@@ -20,14 +20,14 @@ from pathlib import Path
 from .base_ai_interface import (
     BaseAIInterface, GameContext, DecisionResult, DecisionType
 )
-from ..models import Card, Suit, Rank
+from ..models import Card, Suit, Rank, Player, PlayerType
 from ..ai_model.level2_models import (
     StrategicModel, AggressiveModel, BalancedModel, IntuitiveModel,
     Level2RiskProfile
 )
 
 
-class Level2AI(BaseAIInterface):
+class Level2AI(Player, BaseAIInterface):
     """
     Level 2 neural AI implementation.
     
@@ -53,7 +53,12 @@ class Level2AI(BaseAIInterface):
         model_path : str, optional
             Path to trained model file (.pth)
         """
-        super().__init__(name, risk_profile)
+        # Initialize as a Player first
+        super().__init__(name, PlayerType.AI)
+        
+        # Initialize AI interface
+        BaseAIInterface.__init__(self, name, risk_profile)
+        
         self.model_type = model_type.lower()
         self.model_path = model_path
         

@@ -299,7 +299,7 @@ class SelfPlayTrainer:
             Game result data
         """
         # Create game
-        game = EuchreGame(enable_logging=False, quiet_mode=True)
+        game = EuchreGame(quiet_mode=True)
         
         # Add players in order (team1 first, then team2)
         all_players = team1_players + team2_players
@@ -576,7 +576,7 @@ class SelfPlayTrainer:
             risk_profiles = ["balanced"] * len(player_names)
         
         # Create game
-        game = EuchreGame(enable_logging=True)
+        game = EuchreGame(verbose=True)
         
         # Add trained players
         for i, (player_name, risk_profile) in enumerate(zip(player_names, risk_profiles)):

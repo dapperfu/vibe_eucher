@@ -205,14 +205,14 @@ class PlayerManager:
     
     def create_game_with_players(self, 
                                 player_configs: List[Dict[str, Any]],
-                                enable_logging: bool = True) -> Optional['EuchreGame']:
+                                verbose: bool = True) -> Optional['EuchreGame']:
         """Create a game with specified players.
         
         Parameters
         ----------
         player_configs : List[Dict[str, Any]]
             List of player configurations
-        enable_logging : bool
+        verbose : bool
             Whether to enable game logging
             
         Returns
@@ -224,7 +224,7 @@ class PlayerManager:
             from ..game import EuchreGame
             
             # Create game
-            game = EuchreGame(enable_logging=enable_logging)
+            game = EuchreGame(verbose=verbose)
             
             # Add players
             for config in player_configs:

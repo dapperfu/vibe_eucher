@@ -107,7 +107,7 @@ class NeuralMassGameRunner:
             start_time = time.time()
             
             # Create game without logging (we'll handle that ourselves)
-            game = EuchreGame(enable_logging=False)
+            game = EuchreGame(quiet_mode=True)
             
             # Add neural network players
             team1_players = game_config["team1"]

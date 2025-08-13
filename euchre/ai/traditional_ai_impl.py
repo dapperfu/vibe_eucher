@@ -18,10 +18,10 @@ import random
 from .base_ai_interface import (
     BaseAIInterface, GameContext, DecisionResult, DecisionType
 )
-from ..models import Card, Suit, Rank
+from ..models import Card, Suit, Rank, Player, PlayerType
 
 
-class TraditionalAI(BaseAIInterface):
+class TraditionalAI(Player, BaseAIInterface):
     """
     Traditional rule-based AI implementation.
     
@@ -44,7 +44,12 @@ class TraditionalAI(BaseAIInterface):
         ai_style : str
             AI style: "aggressive", "conservative", "balanced", "opportunistic"
         """
-        super().__init__(name, risk_profile)
+        # Initialize as a Player first
+        super().__init__(name, PlayerType.AI)
+        
+        # Initialize AI interface
+        BaseAIInterface.__init__(self, name, risk_profile)
+        
         self.ai_style = ai_style.lower()
         
         # Style-specific modifiers
