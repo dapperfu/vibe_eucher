@@ -137,4 +137,8 @@ dmypy.json
 
 # OS
 .DS_Store
-Thumbs.db 
+Thumbs.db
+
+# Game log files (large files that shouldn't be tracked)
+euchre_game_*.txt
+game_*.txt 

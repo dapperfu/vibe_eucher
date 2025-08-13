@@ -1,4 +1,4 @@
-.PHONY: help venv install install-pip test run clean train-ai evaluate-ai ai-game ai-game-ncurses ncurses logged profiles mass-games analyze cleanup jupyter jupyter-lab train-self-play train-integer-vs-float generate-profiles generate-profiles-cpu generate-profiles-gpu list-players play-trained tournament benchmark neural-tournament neural-analysis list-neural-models install-gpu train-gpu-m-series evaluate-gpu-models install-rocm train-hybrid-m-series evaluate-hybrid-models
+.PHONY: help venv install install-pip test run clean train-ai evaluate-ai ai-game ai-game-ncurses ncurses logged profiles mass-games analyze cleanup jupyter jupyter-lab train-self-play train-integer-vs-float generate-profiles generate-profiles-cpu generate-profiles-gpu list-players play-trained tournament benchmark neural-tournament neural-analysis list-neural-models install-gpu train-gpu-m-series train-gpu-m-series-custom evaluate-gpu-models install-rocm train-hybrid-m-series evaluate-hybrid-models
 
 help: ## Show this help message
 	@echo "Available commands:"
@@ -99,20 +99,24 @@ list-neural-models: install ## List available neural network models
 	venv/bin/python -m euchre.cli_main list-neural-models
 
 install-gpu: install ## Install GPU dependencies for M-Series training
+	@echo "Installing GPU dependencies..."
 	venv/bin/pip install -r requirements_gpu.txt
+	@echo "Installing PyTorch with CUDA support..."
+	venv/bin/pip uninstall torch torchvision torchaudio -y
+	venv/bin/pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 	@echo "GPU dependencies installed. Checking CUDA availability..."
 	venv/bin/python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}'); print(f'GPU count: {torch.cuda.device_count()}')"
 
 train-gpu-m-series: install-gpu ## Train M-Series AI models using GPU acceleration
 	@echo "Starting GPU training for M-Series AI models..."
-	@echo "This will train Magnus, Maverick, Mentor, and Mystic models on ${NUM_GPUS:-2} GPUs"
-	@echo "Training ${TOTAL_GAMES:-20000} games over ${EPOCHS:-1000} epochs..."
+	@echo "This will train Magnus, Maverick, Mentor, and Mystic models on 2 GPUs"
+	@echo "Training 20000 games over 1000 epochs..."
 	venv/bin/python gpu_train_m_series.py \
-		--num-gpus ${NUM_GPUS:-2} \
-		--epochs ${EPOCHS:-1000} \
-		--total-games ${TOTAL_GAMES:-20000} \
-		--batch-size ${BATCH_SIZE:-64} \
-		--learning-rate ${LR:-0.001}
+		--num-gpus 2 \
+		--epochs 1000 \
+		--total-games 20000 \
+		--batch-size 64 \
+		--learning-rate 0.001
 
 train-gpu-m-series-fast: install-gpu ## Quick GPU training (1000 games, 100 epochs)
 	@echo "Starting fast GPU training for M-Series AI models..."
@@ -122,6 +126,17 @@ train-gpu-m-series-fast: install-gpu ## Quick GPU training (1000 games, 100 epoc
 		--total-games 1000 \
 		--batch-size 32 \
 		--learning-rate 0.001
+
+train-gpu-m-series-custom: install-gpu ## Custom GPU training with environment variables
+	@echo "Starting custom GPU training for M-Series AI models..."
+	@echo "This will train Magnus, Maverick, Mentor, and Mystic models on ${NUM_GPUS:-2} GPUs"
+	@echo "Training ${TOTAL_GAMES:-20000} games over ${EPOCHS:-1000} epochs..."
+	venv/bin/python gpu_train_m_series.py \
+		--num-gpus ${NUM_GPUS:-2} \
+		--epochs ${EPOCHS:-1000} \
+		--total-games ${TOTAL_GAMES:-20000} \
+		--batch-size ${BATCH_SIZE:-64} \
+		--learning-rate ${LR:-0.001}
 
 train-gpu-m-series-extensive: install-gpu ## Extensive GPU training (50000 games, 2000 epochs)
 	@echo "Starting extensive GPU training for M-Series AI models..."
