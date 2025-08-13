@@ -3,16 +3,11 @@
 import click
 import signal
 import sys
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 from euchre.game import EuchreGame
-from euchre.core.deck import Deck
-from euchre.core.models import Player, Card, Suit, Rank
-from euchre.core.game_state import GameStateManager
+from euchre.models import Player, Card, Suit, Rank
 from euchre.ai.ai_factory import AIFactory
-from euchre.ai.ai_profiles import AIProfile
-from euchre.scoring.balanced_scoring import BalancedScoringManager
-from euchre.core.trick import Trick
 
 
 class GameCommands:
@@ -221,27 +216,101 @@ class GameCommands:
             sys.exit(1)
     
     @staticmethod
-    def human_vs_ai_game(ctx):
-        """Run a human vs AI Euchre game."""
+    def human_vs_ai_game(player_name: str, your_position: int, 
+                         partner_ai_type: str, opponent1_ai_type: str, opponent2_ai_type: str,
+                         partner_risk: float, opponent1_risk: float, opponent2_risk: float,
+                         verbose: bool = False, very_verbose: bool = False) -> None:
+        """Play euchre as a human against AI opponents with a specified AI partner.
+        
+        Parameters
+        ----------
+        player_name : str
+            Your player name
+        your_position : int
+            Your position (0=Alice, 1=Bob, 2=Charlie, 3=David)
+        partner_ai_type : str
+            AI type for your partner
+        opponent1_ai_type : str
+            AI type for first opponent
+        opponent2_ai_type : str
+            AI type for second opponent
+        partner_risk : float
+            Risk ratio for your partner (0.0-1.0)
+        opponent1_risk : float
+            Risk ratio for first opponent (0.0-1.0)
+        opponent2_risk : float
+            Risk ratio for second opponent (0.0-1.0)
+        verbose : bool
+            Enable verbose logging
+        very_verbose : bool
+            Enable very verbose logging
+        """
         try:
             # Setup signal handling for graceful exit
             GameCommands._setup_signal_handling()
             
-            # Get player position
-            player_position = ctx.params.get('position', 'Alice')
-            your_position = 0  # Alice is always position 0
+            click.echo(f"🎮 Welcome to Human vs AI Euchre, {player_name}!")
+            click.echo(f"📍 Your position: {['Alice', 'Bob', 'Charlie', 'David'][your_position]}")
+            click.echo(f"🤝 Your partner: {partner_ai_type} AI (risk: {partner_risk})")
+            click.echo(f"👥 Opponents: {opponent1_ai_type} AI (risk: {opponent1_risk}) and {opponent2_ai_type} AI (risk: {opponent2_risk})")
+            click.echo("=" * 60)
             
-            # Create and start the game
-            game = EuchreGame()
+            # Create players list
+            players = []
+            
+            # Define player positions and types
+            positions = ["Alice", "Bob", "Charlie", "David"]
+            ai_types = [None, None, None, None]  # Will be filled based on your position
+            risk_ratios = [0.5, 0.5, 0.5, 0.5]  # Will be filled based on your position
+            
+            # Set AI types and risk ratios based on your position
+            if your_position == 0:  # Alice - you are human
+                ai_types = [None, opponent1_ai_type, partner_ai_type, opponent2_ai_type]
+                risk_ratios = [0.5, opponent1_risk, partner_risk, opponent2_risk]
+            elif your_position == 1:  # Bob - you are human
+                ai_types = [opponent1_ai_type, None, opponent2_ai_type, partner_ai_type]
+                risk_ratios = [opponent1_risk, 0.5, opponent2_risk, partner_risk]
+            elif your_position == 2:  # Charlie - you are human
+                ai_types = [partner_ai_type, opponent1_ai_type, None, opponent2_ai_type]
+                risk_ratios = [partner_risk, opponent1_risk, 0.5, opponent2_risk]
+            elif your_position == 3:  # David - you are human
+                ai_types = [opponent1_ai_type, partner_ai_type, opponent2_ai_type, None]
+                risk_ratios = [opponent1_risk, partner_risk, opponent2_risk, 0.5]
+            
+            # Create players
+            for i, (name, ai_type, risk) in enumerate(zip(positions, ai_types, risk_ratios)):
+                if i == your_position:
+                    # This is the human player - use position name internally for consistency
+                    from ..models import Player, PlayerType
+                    human_player = Player(name, PlayerType.HUMAN)  # Use position name (Alice, Bob, etc.)
+                    players.append(human_player)
+                    click.echo(f"👤 {name}: {player_name} (Human)")
+                else:
+                    # This is an AI player
+                    ai_player = AIFactory.create_ai_player(name, ai_type, risk)
+                    players.append(ai_player)
+                    click.echo(f"🤖 {name}: {ai_type} AI (risk: {risk})")
+            
+            # Create game with players
+            game = EuchreGame(players, verbose=verbose, very_verbose=very_verbose)
+            
+            # Manually initialize tricks_won with actual player names
+            game.tricks_won = {player.name: 0 for player in players}
+            
+            # Start the game
             game.start_new_game()
+            click.echo("\n🎯 Game started! Dealing cards...")
             
-            # Run the interactive game
-            GameCommands._run_interactive_human_vs_ai_game(game, player_position, your_position)
+            # Show game setup - use the position name for consistency
+            GameCommands._show_human_vs_ai_game_info(game, positions[your_position], your_position)
+            
+            # Run interactive human vs AI game
+            GameCommands._run_interactive_human_vs_ai_game(game, positions[your_position], your_position)
+            
         except KeyboardInterrupt:
             GameCommands._signal_handler(signal.SIGINT, None)
         except Exception as e:
-            click.echo(f"❌ Error: {e}")
-            sys.exit(1)
+            click.echo(f"❌ Error during Human vs AI game: {e}", err=True)
     
     @staticmethod
     def _show_human_vs_ai_game_info(game: EuchreGame, player_name: str, your_position: int) -> None:
