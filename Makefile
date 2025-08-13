@@ -1,4 +1,4 @@
-.PHONY: help venv install install-pip test run clean train-ai evaluate-ai ai-game ncurses logged profiles mass-games analyze cleanup jupyter jupyter-lab train-self-play train-integer-vs-float generate-profiles generate-profiles-cpu generate-profiles-gpu list-players play-trained tournament benchmark neural-tournament neural-analysis list-neural-models
+.PHONY: help venv install install-pip test run clean train-ai evaluate-ai ai-game ai-game-ncurses ncurses logged profiles mass-games analyze cleanup jupyter jupyter-lab train-self-play train-integer-vs-float generate-profiles generate-profiles-cpu generate-profiles-gpu list-players play-trained tournament benchmark neural-tournament neural-analysis list-neural-models
 
 help: ## Show this help message
 	@echo "Available commands:"
@@ -21,7 +21,10 @@ test: install ## Run tests
 run: install ## Run the euchre game
 	venv/bin/python -m euchre.cli_main play
 
-ai-game: install ## Run AI vs AI euchre game with ncurses
+ai-game: install ## Run AI vs AI euchre game with full verbosity
+	venv/bin/python -m euchre.cli_main --very-verbose ai-vs-ai
+
+ai-game-ncurses: install ## Run AI vs AI euchre game with ncurses interface
 	venv/bin/python -m euchre.cli_main ai-vs-ai
 
 ncurses: install ## Run AI vs AI euchre game with ncurses interface
