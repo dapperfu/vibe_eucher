@@ -423,7 +423,7 @@ def list_ai_types():
     click.echo("💡 Level 1 models use traditional rule-based logic with configurable risk profiles")
     
     # Level 2 AI types
-    if AIFactory.LEVEL2_AVAILABLE:
+    if hasattr(AIFactory, 'LEVEL2_AVAILABLE') and AIFactory.LEVEL2_AVAILABLE:
         click.echo("\n🧠 Level 2 Neural AI Models:")
         level2_types = ["level2_strategic", "level2_aggressive", "level2_balanced", "level2_intuitive"]
         for ai_type in level2_types:
