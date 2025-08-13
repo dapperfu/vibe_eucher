@@ -2,7 +2,7 @@
 
 help: ## Show this help message
 	@echo "Available commands:"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 # =============================================================================
 # ENVIRONMENT SETUP
@@ -78,12 +78,12 @@ human-vs-ai: install ## Play human vs AI game with configurable AI types
 	@echo "Example: make human-vs-ai PLAYER_NAME=Alice POSITION=0 PARTNER_AI=magnus OPP1_AI=aggressive OPP2_AI=balanced"
 	venv/bin/python -m euchre.cli_main human-vs-ai $(PLAYER_NAME) --your-position $(POSITION) --partner-ai-type $(PARTNER_AI) --opponent1-ai-type $(OPP1_AI) --opponent2-ai-type $(OPP2_AI)
 
-human-vs-m-series: install ## Play human vs M-Series AI specifically
-	@echo "🧠 Starting Human vs M-Series AI Game..."
-	@echo "Usage: make human-vs-m-series PLAYER_NAME=YourName POSITION=0 MODEL=magnus MODEL_PATH=path/to/model.pth"
-	@echo "Available M-Series models: magnus, maverick, mentor, mystic"
-	@echo "Example: make human-vs-m-series PLAYER_NAME=Alice POSITION=0 MODEL=magnus MODEL_PATH=models/magnus_trained.pth"
-	venv/bin/python -m euchre.cli_main human-vs-m-series $(PLAYER_NAME) --your-position $(POSITION) --m-series-model $(MODEL) --model-path $(MODEL_PATH)
+human-vs-level2: install ## Play human vs Level2 AI specifically
+	@echo "🧠 Starting Human vs Level2 AI Game..."
+	@echo "Usage: make human-vs-level2 PLAYER_NAME=YourName POSITION=0 MODEL=magnus MODEL_PATH=path/to/model.pth"
+	@echo "Available Level2 models: magnus, maverick, mentor, mystic"
+	@echo "Example: make human-vs-level2 PLAYER_NAME=Alice POSITION=0 MODEL=magnus MODEL_PATH=models/magnus_trained.pth"
+	venv/bin/python -m euchre.cli_main human-vs-level2 $(PLAYER_NAME) --your-position $(POSITION) --m-series-model $(MODEL) --model-path $(MODEL_PATH)
 
 # =============================================================================
 # ANALYSIS AND UTILITIES
@@ -175,7 +175,7 @@ install-gpu: install ## Install GPU dependencies for Level2 training
 	@echo "GPU dependencies installed. Checking availability..."
 	venv/bin/python -c "import torch; print(f'PyTorch: {torch.__version__}'); print(f'CUDA/ROCm available: {torch.cuda.is_available()}'); print(f'Device count: {torch.cuda.device_count() if torch.cuda.is_available() else 0}')"
 
-train-level2: install-gpu ## Train Level2 AI models using unified trainer (auto-detects best backend)
+train-level2: install-gpu ## Train Level2 AI models using unified trainer
 	@echo "Starting Level2 AI training with unified trainer..."
 	@echo "This will automatically detect and use the best available backend (GPU/CPU)"
 	@echo "Training 20000 games over 1000 epochs..."
@@ -232,23 +232,23 @@ train-level2-vs-traditional: install-gpu ## Train Level2 models specifically to 
 		--max-gpus 2
 
 # =============================================================================
-# M-SERIES BENCHMARKING AND TOURNAMENTS
+# LEVEL2 BENCHMARKING AND TOURNAMENTS
 # =============================================================================
 
-benchmark-m-series: install-gpu ## Run comprehensive M-Series vs Traditional AI benchmark
-	@echo "🏆 M-Series vs Traditional AI Benchmark"
-	@echo "Running comprehensive benchmark comparing M-Series AI against traditional AI..."
+benchmark-level2: install-gpu ## Run comprehensive Level2 vs Traditional AI benchmark
+	@echo "🏆 Level2 vs Traditional AI Benchmark"
+	@echo "Running comprehensive benchmark comparing Level2 AI against traditional AI..."
 	venv/bin/python m_series_benchmark.py --mode comprehensive --games 200
 
 benchmark-training-progression: install-gpu ## Run training progression benchmark to show improvement
 	@echo "📈 Training Progression Benchmark"
-	@echo "Running benchmark to show how M-Series AI improves during training..."
+	@echo "Running benchmark to show how Level2 AI improves during training..."
 	venv/bin/python m_series_benchmark.py --mode progression --games 100
 
 benchmark-comprehensive: install-gpu ## Run both tournament and progression benchmarks
 	@echo "🔍 Comprehensive Benchmark Suite"
 	@echo "Running both tournament and progression benchmarks..."
-	$(MAKE) benchmark-m-series
+	$(MAKE) benchmark-level2
 	$(MAKE) benchmark-training-progression
 
 quick-benchmark: install-gpu ## Run quick benchmark (50 games per matchup)
@@ -263,26 +263,26 @@ benchmark-analysis: install ## Analyze benchmark results and generate reports
 		echo ""; \
 		echo "Run: venv/bin/python -c \"import json; print(json.dumps(json.load(open('m_series_benchmark_*.json')), indent=2))\" for detailed results"; \
 	else \
-		echo "No benchmark results found. Run benchmark-m-series first."; \
+		echo "No benchmark results found. Run benchmark-level2 first."; \
 	fi
 
-m-series-tournament: install-gpu ## Run tournament: M-Series AI vs Traditional AI
-	@echo "🏆 M-Series AI vs Traditional AI Tournament"
-	@echo "Running tournament with trained M-Series models against traditional AI..."
+level2-tournament: install-gpu ## Run tournament: Level2 AI vs Traditional AI
+	@echo "🏆 Level2 AI vs Traditional AI Tournament"
+	@echo "Running tournament with trained Level2 models against traditional AI..."
 	venv/bin/python ai_tournament.py \
 		--m-series-models trained_models/unified_trained \
 		--traditional-ai-types balanced aggressive conservative opportunistic \
 		--games-per-match 100 \
-		--output-dir tournament_results/m_series_vs_traditional
+		--output-dir tournament_results/level2_vs_traditional
 
-m-series-analysis: install-gpu ## Analyze M-Series vs Traditional AI tournament results
-	@echo "📊 Analyzing M-Series vs Traditional AI tournament results..."
-	@if [ -d "tournament_results/m_series_vs_traditional" ]; then \
+level2-analysis: install-gpu ## Analyze Level2 vs Traditional AI tournament results
+	@echo "📊 Analyzing Level2 vs Traditional AI tournament results..."
+	@if [ -d "tournament_results/level2_vs_traditional" ]; then \
 		venv/bin/python -c " \
 import json; \
 import os; \
 import glob; \
-results_dir = 'tournament_results/m_series_vs_traditional'; \
+results_dir = 'tournament_results/level2_vs_traditional'; \
 results_files = glob.glob(os.path.join(results_dir, '*.json')); \
 if results_files: \
     print(f'Found {len(results_files)} tournament result files:'); \
@@ -290,14 +290,14 @@ if results_files: \
         print(f'  - {os.path.basename(f)}'); \
     print('\\nRun: venv/bin/python analyze_neural_results.py for detailed analysis'); \
 else: \
-    print('No tournament results found. Run m-series-tournament first.'); \
+    print('No tournament results found. Run level2-tournament first.'); \
 "; \
 	else \
-		echo "No tournament results directory found. Run m-series-tournament first."; \
+		echo "No tournament results directory found. Run level2-tournament first."; \
 	fi
 
-list-m-series-models: install-gpu ## List available M-Series models
-	@echo "Available M-Series AI models:"
+list-level2-models: install-gpu ## List available Level2 models
+	@echo "Available Level2 AI models:"
 	@if [ -d "trained_models/unified_trained" ]; then \
 		ls -la trained_models/unified_trained/*.json 2>/dev/null | sed 's/.*\//  - /' || echo "  No trained models found"; \
 	else \

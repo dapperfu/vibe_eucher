@@ -20,7 +20,7 @@ class NcursesGame:
         enable_logging : bool
             Whether to enable game logging
         """
-        self.game = EuchreGame(enable_logging=enable_logging)
+        self.game = EuchreGame(verbose=enable_logging)
         self.screen = None
         self.max_y = 0
         self.max_x = 0
@@ -448,12 +448,12 @@ class NcursesGame:
         
     def _display_round_results(self) -> None:
         """Display the results of the round."""
-        if not self.game.tricks_this_round:
+        if not self.game.trick_manager.tricks_this_round:
             return
             
         # Show each trick result (with bounds checking)
         start_y = 10
-        for i, trick in enumerate(self.game.tricks_this_round):
+        for i, trick in enumerate(self.game.trick_manager.tricks_this_round):
             if start_y + i >= self.max_y - 5:  # Leave space for other info
                 break
                 
@@ -473,7 +473,7 @@ class NcursesGame:
                     continue
                     
         # Show round scoring (with bounds checking)
-        score_y = start_y + len(self.game.tricks_this_round) + 2
+        score_y = start_y + len(self.game.trick_manager.tricks_this_round) + 2
         if score_y < self.max_y - 3:
             team1_tricks = (self.game.players[0].tricks_won + self.game.players[2].tricks_won)
             team2_tricks = (self.game.players[1].tricks_won + self.game.players[3].tricks_won)
