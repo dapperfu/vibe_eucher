@@ -130,21 +130,21 @@ train-gpu-m-series-extensive: install-gpu ## Extensive GPU training (50000 games
 		--epochs 2000 \
 		--total-games 50000 \
 		--batch-size 128 \
-		--learning-rate 0.0005
+		--learning-rate 0.0005 \
 
 evaluate-gpu-models: install-gpu ## Evaluate trained GPU models
 	@echo "Evaluating trained GPU models..."
-	venv/bin/python -c "
-import json
-import os
-model_dir = 'trained_models/gpu_trained'
-if os.path.exists(model_dir):
-    models = [f for f in os.listdir(model_dir) if f.endswith('.json')]
-    print(f'Found {len(models)} portable models:')
-    for model in models:
-        print(f'  - {model}')
-else:
-    print('No trained models found. Run train-gpu-m-series first.')
+	venv/bin/python -c " \
+import json; \
+import os; \
+model_dir = 'trained_models/gpu_trained'; \
+if os.path.exists(model_dir): \
+    models = [f for f in os.listdir(model_dir) if f.endswith('.json')]; \
+    print(f'Found {len(models)} portable models:'); \
+    for model in models: \
+        print(f'  - {model}'); \
+else: \
+    print('No trained models found. Run train-gpu-m-series first.') \
 "
 
 install-rocm: install ## Install ROCm dependencies for AMD GPU training
@@ -189,17 +189,17 @@ train-hybrid-m-series-extensive: install-rocm ## Extensive hybrid training (5000
 
 evaluate-hybrid-models: install-rocm ## Evaluate trained hybrid models
 	@echo "Evaluating trained hybrid models..."
-	venv/bin/python -c "
-import json
-import os
-model_dir = 'trained_models/hybrid_trained'
-if os.path.exists(model_dir):
-    models = [f for f in os.listdir(model_dir) if f.endswith('.json')]
-    print(f'Found {len(models)} portable models:')
-    for model in models:
-        print(f'  - {model}')
-else:
-    print('No trained models found. Run train-hybrid-m-series first.')
+	venv/bin/python -c " \
+import json; \
+import os; \
+model_dir = 'trained_models/hybrid_trained'; \
+if os.path.exists(model_dir): \
+    models = [f for f in os.listdir(model_dir) if f.endswith('.json')]; \
+    print(f'Found {len(models)} portable models:'); \
+    for model in models: \
+        print(f'  - {model}'); \
+else: \
+    print('No trained models found. Run train-hybrid-m-series first.') \
 "
 
 human-vs-ai: install ## Play as human vs AI with configurable AI types
