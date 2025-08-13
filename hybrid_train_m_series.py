@@ -274,57 +274,7 @@ class MSeriesGameDataset(Dataset):
         
         return samples
     
-    def _encode_game_state(self, game_state: Dict[str, Any]) -> torch.Tensor:
-        """Encode game state into feature vector."""
-        # This is a simplified encoding - in practice, you'd use the full MSeriesGameStateEncoder
-        features = []
-        
-        # Hand encoding (5 cards × 24 features = 120)
-        hand = game_state.get('hand', [])
-        for card in hand:
-            # Suit one-hot (4 features)
-            suit_features = [1.0 if card['suit'] == i else 0.0 for i in range(4)]
-            # Rank one-hot (13 features)
-            rank_features = [1.0 if card['rank'] == i else 0.0 for i in range(13)]
-            # Trump indicator (1 feature)
-            trump_indicator = 1.0 if card.get('is_trump', False) else 0.0
-            # Card strength (6 features)
-            strength_features = [card.get('strength', 0.0)] * 6
-            
-            card_features = suit_features + rank_features + [trump_indicator] + strength_features
-            features.extend(card_features)
-        
-        # Pad to 5 cards if necessary
-        while len(features) < 120:
-            features.extend([0.0] * 24)
-        
-        # Game context (136 features)
-        context_features = [
-            game_state.get('position', 0.0),
-            game_state.get('is_dealer', 0.0),
-            game_state.get('is_partner_dealing', 0.0),
-            game_state.get('trump_suit', 0.0),
-            game_state.get('tricks_won', 0.0),
-            game_state.get('partner_tricks_won', 0.0),
-            game_state.get('opponent_tricks_won', 0.0),
-            game_state.get('round_number', 0.0),
-            game_state.get('trick_number', 0.0),
-            game_state.get('lead_suit', 0.0),
-            game_state.get('cards_played', 0.0),
-            game_state.get('score_team1', 0.0),
-            game_state.get('score_team2', 0.0),
-            game_state.get('risk_profile', 0.0),
-            game_state.get('game_phase', 0.0),
-            game_state.get('hand_strength', 0.0)
-        ]
-        
-        # Pad context to 136 features
-        while len(context_features) < 136:
-            context_features.append(0.0)
-        
-        features.extend(context_features)
-        
-        return torch.tensor(features, dtype=torch.float32)
+
     
     def __len__(self) -> int:
         return len(self.samples)
@@ -726,44 +676,51 @@ class HybridTrainer:
             for game in training_data:
                 # Extract trump decision samples
                 if 'trump_decisions' in game:
-                    for trump_data in game['trump_decisions']:
-                        sample = {
-                            'features': trump_data['hand_features'],
-                            'target': trump_data['target'],
-                            'player_name': trump_data['player_name']
-                        }
-                        trump_samples.append(sample)
+                    trump_samples.extend(game['trump_decisions'])
                 
                 # Extract card play samples
                 if 'card_plays' in game:
-                    for card_data in game['card_plays']:
-                        sample = {
-                            'features': card_data['hand_features'],
-                            'target': card_data['target'],
-                            'player_name': card_data['player_name']
-                        }
-                        card_samples.append(sample)
+                    card_samples.extend(game['card_plays'])
+                elif 'player_hands' in game:
+                    # Create card play samples from player hands if no card_plays exist
+                    for player_name, hand in game['player_hands'].items():
+                        if hand:  # If player has cards
+                            # Create a card play sample for each card in hand
+                            for card_idx in range(len(hand)):
+                                card_samples.append({
+                                    'game_state': {
+                                        'hand': hand,
+                                        'position': 0,
+                                        'is_dealer': False,
+                                        'trump_suit': None,
+                                        'tricks_won': 0,
+                                        'partner_tricks_won': 0,
+                                        'opponent_tricks_won': 0,
+                                        'round_number': 1,
+                                        'trick_number': 1,
+                                        'lead_suit': None,
+                                        'cards_played': 0,
+                                        'score_team1': 0,
+                                        'score_team2': 0,
+                                        'risk_profile': 0.5,
+                                        'game_phase': 0,
+                                        'hand_strength': 0.5
+                                    },
+                                    'card_index': card_idx
+                                })
             
             self.logger.info(f"  {name}: {len(trump_samples)} trump samples, {len(card_samples)} card samples")
             
-            # Create datasets only if we have samples
-            if trump_samples and card_samples:
-                datasets[name] = {
-                    'trump_decision': MSeriesGameDataset(trump_samples, name, 'trump_decision'),
-                    'card_play': MSeriesGameDataset(card_samples, name, 'card_play')
-                }
-                self.logger.info(f"Created datasets for {name}: trump={len(trump_samples)}, card={len(card_samples)}")
-            else:
-                # Create dummy datasets with at least one sample to avoid errors
-                self.logger.warning(f"No samples for {name}, creating dummy datasets")
-                dummy_features = torch.zeros(self.config.input_size)
-                dummy_target = torch.tensor([0], dtype=torch.float32)
-                dummy_sample = {'features': dummy_features, 'target': dummy_target, 'player_name': 'dummy'}
-                
-                datasets[name] = {
-                    'trump_decision': MSeriesGameDataset([dummy_sample], name, 'trump_decision'),
-                    'card_play': MSeriesGameDataset([dummy_sample], name, 'card_play')
-                }
+            # Create datasets and verify they have samples
+            trump_dataset = MSeriesGameDataset(trump_samples, name, 'trump_decision')
+            card_dataset = MSeriesGameDataset(card_samples, name, 'card_play')
+            
+            self.logger.info(f"Created datasets for {name}: trump={len(trump_dataset)}, card={len(card_dataset)}")
+            
+            datasets[name] = {
+                'trump_decision': trump_dataset,
+                'card_play': card_dataset
+            }
         
         return datasets
     
