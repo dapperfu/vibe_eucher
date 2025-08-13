@@ -6,7 +6,7 @@ different components like deck management, game state, trick management,
 scoring, and trump selection.
 """
 
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict
 from .core.deck import Deck
 from .core.game_state import GameStateManager
 from .core.trick_manager import TrickManager
@@ -322,6 +322,15 @@ class EuchreGame:
         # Start new round
         self.game_state_manager.start_new_round()
     
+    def play_round(self) -> None:
+        """Public method to play a single round."""
+        self._play_round()
+    
+    def play_game(self) -> None:
+        """Play a complete game until someone wins."""
+        while not self.is_game_over():
+            self._play_round()
+    
     def _play_trick(self, trick_number: int = 1) -> None:
         """Play a single trick."""
         self.logger.debug("Starting new trick")
@@ -607,14 +616,26 @@ class EuchreGame:
         return self.game_state_manager.is_game_over()
     
     def get_winner(self) -> str:
-        """Get the winning team.
+        """Get the winner of the game."""
+        if not self.is_game_over():
+            return "Game not over"
         
-        Returns
-        -------
-        str
-            The winning team
-        """
-        return self.game_state_manager.get_winner()
+        team1_score = self.game_state_manager.game_scores["Team 1"]
+        team2_score = self.game_state_manager.game_scores["Team 2"]
+        
+        if team1_score >= 10:
+            return "Team 1"
+        elif team2_score >= 10:
+            return "Team 2"
+        else:
+            return "No winner yet"
+    
+    def get_scores(self) -> Dict[str, int]:
+        """Get the current scores for both teams."""
+        return {
+            'team1_score': self.game_state_manager.game_scores["Team 1"],
+            'team2_score': self.game_state_manager.game_scores["Team 2"]
+        }
     
     def is_team_set(self) -> bool:
         """Check if the trump calling team got set.
