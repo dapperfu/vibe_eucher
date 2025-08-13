@@ -1,4 +1,4 @@
-.PHONY: help venv install install-pip test run clean train-ai evaluate-ai ai-game ai-game-ncurses ncurses logged profiles mass-games analyze cleanup jupyter jupyter-lab train-self-play train-integer-vs-float generate-profiles generate-profiles-cpu generate-profiles-gpu list-players play-trained tournament benchmark neural-tournament neural-analysis list-neural-models install-gpu train-m-series train-m-series-fast train-m-series-intensive evaluate-m-series train-m-series-vs-traditional m-series-tournament m-series-analysis list-m-series-models benchmark-m-series benchmark-training-progression benchmark-comprehensive quick-benchmark benchmark-analysis human-vs-ai human-vs-m-series list-ai-types logged-game
+.PHONY: help venv install-pip test run clean train-ai evaluate-ai ai-game ai-game-ncurses ncurses logged profiles mass-games analyze cleanup jupyter jupyter-lab train-self-play train-integer-vs-float generate-profiles generate-profiles-cpu generate-profiles-gpu list-players play-trained tournament benchmark neural-tournament neural-analysis list-neural-models install-gpu train-level2 train-level2-fast train-level2-intensive evaluate-level2 train-level2-vs-traditional level2-tournament level2-analysis list-level2-models benchmark-level2 benchmark-training-progression benchmark-comprehensive quick-benchmark benchmark-analysis human-vs-ai human-vs-level2 list-ai-types logged-game
 
 help: ## Show this help message
 	@echo "Available commands:"
@@ -11,7 +11,7 @@ help: ## Show this help message
 venv: ## Create virtual environment
 	python3 -m venv venv
 
-install: venv ## Install dependencies (traditional method)
+install: venv/bin/euchre ## Install dependencies (traditional method)
 	venv/bin/pip install --upgrade pip
 	venv/bin/pip install -r requirements.txt
 
@@ -43,6 +43,16 @@ ai-game-ncurses: install ## Play AI vs AI game with ncurses interface
 
 ncurses: install ## Run AI vs AI euchre game with ncurses interface
 	venv/bin/python -m euchre.cli_main ncurses
+
+ncurses-human: install ## Run human vs AI euchre game with ncurses interface
+	@echo "🎮 Starting Human vs AI Ncurses Game..."
+	@echo "Usage: make ncurses-human POSITION=2"
+	@echo "Positions: 0=North, 1=East, 2=South (default), 3=West"
+	venv/bin/python -m euchre.cli_main ncurses-human-vs-ai --position $(or $(POSITION),2)
+
+demo-ncurses: install ## Run interactive demo of enhanced ncurses game
+	@echo "🎴 Starting Enhanced Ncurses Game Demo..."
+	venv/bin/python demo_ncurses_game.py
 
 logged: install ## Run AI vs AI euchre game with logging (no ncurses)
 	venv/bin/python -m euchre.cli_main logged-game
@@ -155,18 +165,18 @@ benchmark: install ## Run performance benchmark comparing float vs integer model
 	venv/bin/python -m euchre.cli_main benchmark --device cpu --save-results
 
 # =============================================================================
-# M-SERIES AI TRAINING TARGETS
+# LEVEL2 AI TRAINING TARGETS
 # =============================================================================
 
-install-gpu: install ## Install GPU dependencies for M-Series training
+install-gpu: install ## Install GPU dependencies for Level2 training
 	@echo "Installing GPU dependencies..."
 	@echo "Installing PyTorch with automatic backend detection..."
 	venv/bin/pip install torch torchvision torchaudio
 	@echo "GPU dependencies installed. Checking availability..."
 	venv/bin/python -c "import torch; print(f'PyTorch: {torch.__version__}'); print(f'CUDA/ROCm available: {torch.cuda.is_available()}'); print(f'Device count: {torch.cuda.device_count() if torch.cuda.is_available() else 0}')"
 
-train-m-series: install-gpu ## Train M-Series AI models using unified trainer (auto-detects best backend)
-	@echo "Starting M-Series AI training with unified trainer..."
+train-level2: install-gpu ## Train Level2 AI models using unified trainer (auto-detects best backend)
+	@echo "Starting Level2 AI training with unified trainer..."
 	@echo "This will automatically detect and use the best available backend (GPU/CPU)"
 	@echo "Training 20000 games over 1000 epochs..."
 	venv/bin/python unified_trainer.py \
@@ -177,8 +187,8 @@ train-m-series: install-gpu ## Train M-Series AI models using unified trainer (a
 		--device auto \
 		--max-gpus 2
 
-train-m-series-fast: install-gpu ## Quick M-Series training for smoke testing (<1000 games, few epochs)
-	@echo "🚀 Quick M-Series Training (Smoke Test)"
+train-level2-fast: install-gpu ## Quick Level2 training for smoke testing (<1000 games, few epochs)
+	@echo "🚀 Quick Level2 Training (Smoke Test)"
 	@echo "Training 500 games over 50 epochs for quick validation..."
 	venv/bin/python unified_trainer.py \
 		--epochs 50 \
@@ -188,8 +198,8 @@ train-m-series-fast: install-gpu ## Quick M-Series training for smoke testing (<
 		--device auto \
 		--max-gpus 1
 
-train-m-series-intensive: install-gpu ## Intensive M-Series training for production models
-	@echo "🔥 Intensive M-Series Training (Production)"
+train-level2-intensive: install-gpu ## Intensive Level2 training for production models
+	@echo "🔥 Intensive Level2 Training (Production)"
 	@echo "Training 50000 games over 2000 epochs for production models..."
 	venv/bin/python unified_trainer.py \
 		--epochs 2000 \
@@ -199,8 +209,8 @@ train-m-series-intensive: install-gpu ## Intensive M-Series training for product
 		--device auto \
 		--max-gpus 4
 
-evaluate-m-series: install-gpu ## Evaluate trained M-Series models
-	@echo "Evaluating M-Series AI models..."
+evaluate-level2: install-gpu ## Evaluate trained Level2 models
+	@echo "Evaluating Level2 AI models..."
 	@if [ -d "trained_models/unified_trained" ]; then \
 		ls -la trained_models/unified_trained/*.json 2>/dev/null | sed 's/.*\//  - /' || echo "  No trained models found"; \
 	else \
@@ -210,8 +220,8 @@ evaluate-m-series: install-gpu ## Evaluate trained M-Series models
 	@echo "To evaluate a specific model, run:"
 	@echo "  venv/bin/python -m euchre.ai_model.model_evaluator --model path/to/model.pth --games 100"
 
-train-m-series-vs-traditional: install-gpu ## Train M-Series models specifically to compete against traditional AI
-	@echo "Training M-Series models to compete against traditional AI..."
+train-level2-vs-traditional: install-gpu ## Train Level2 models specifically to compete against traditional AI
+	@echo "Training Level2 models to compete against traditional AI..."
 	@echo "This will focus on strategies that outperform traditional rule-based AI..."
 	venv/bin/python unified_trainer.py \
 		--epochs 1500 \
