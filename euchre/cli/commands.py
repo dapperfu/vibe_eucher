@@ -277,6 +277,11 @@ class GameCommands:
                     
                     click.echo(f"✅ Completed Round {game.round_number}")
                     
+                    # Display rolling scores after each round
+                    current_team1_score = game.game_state_manager.game_scores.get("Team 1", 0)
+                    current_team2_score = game.game_state_manager.game_scores.get("Team 2", 0)
+                    click.echo(f"📊 Rolling Score - Team 1 (Alice & Charlie): {current_team1_score}, Team 2 (Bob & David): {current_team2_score}")
+                    
                     # Add a small delay to make the game readable
                     import time
                     time.sleep(0.5)
@@ -290,7 +295,15 @@ class GameCommands:
                 click.echo(f"\n🏁 Maximum rounds ({max_rounds}) reached. Game ended.")
                 team1_score = game.game_state_manager.game_scores.get("Team 1", 0)
                 team2_score = game.game_state_manager.game_scores.get("Team 2", 0)
-                click.echo(f"Final Score - Team 1: {team1_score}, Team 2: {team2_score}")
+                click.echo(f"🏆 Final Score - Team 1 (Alice & Charlie): {team1_score}, Team 2 (Bob & David): {team2_score}")
+                
+                # Determine winner
+                if team1_score > team2_score:
+                    click.echo("🎉 Team 1 (Alice & Charlie) wins!")
+                elif team2_score > team1_score:
+                    click.echo("🎉 Team 2 (Bob & David) wins!")
+                else:
+                    click.echo("🤝 It's a tie!")
                 
         except KeyboardInterrupt:
             click.echo("\n🛑 Game interrupted by user (Ctrl+C)")
