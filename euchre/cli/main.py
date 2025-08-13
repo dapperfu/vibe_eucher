@@ -4,6 +4,7 @@
 import click
 import sys
 from pathlib import Path
+from typing import Optional
 
 # Add the euchre package to the path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -230,15 +231,15 @@ def jupyter_lab():
 @click.option("--partner-risk", default=0.5, help="Partner risk ratio (0.0-1.0)")
 @click.option("--opponent1-risk", default=0.5, help="First opponent risk ratio (0.0-1.0)")
 @click.option("--opponent2-risk", default=0.5, help="Second opponent risk ratio (0.0-1.0)")
-@click.option("--partner-model-path", help="Path to trained M-Series model for partner")
-@click.option("--opponent1-model-path", help="Path to trained M-Series model for opponent1")
-@click.option("--opponent2-model-path", help="Path to trained M-Series model for opponent2")
+@click.option("--partner-model-path", help="Path to trained Level 2 model for partner")
+@click.option("--opponent1-model-path", help="Path to trained Level 2 model for opponent1")
+@click.option("--opponent2-model-path", help="Path to trained Level 2 model for opponent2")
 def human_vs_ai(player_name: str, your_position: int, partner_ai_type: str, 
                 opponent1_ai_type: str, opponent2_ai_type: str,
                 partner_risk: float, opponent1_risk: float, opponent2_risk: float,
-                partner_model_path: str = None, opponent1_model_path: str = None, 
-                opponent2_model_path: str = None):
-    """Play as human vs AI with configurable AI types (including M-Series models)."""
+                partner_model_path: Optional[str] = None, opponent1_model_path: Optional[str] = None, 
+                opponent2_model_path: Optional[str] = None):
+    """Play as human vs AI with configurable AI types (including Level 2 models)."""
     click.echo(f"🎮 Human vs AI Game - {player_name} at position {your_position}")
     
     # Show available AI types
@@ -274,13 +275,11 @@ def human_vs_ai(player_name: str, your_position: int, partner_ai_type: str,
             risk = ai_risks[current_ai]
             model_path = model_paths[current_ai]
             
-            # Check if this is an M-Series model
-            if AIFactory.is_m_series_type(ai_type):
-                click.echo(f"🤖 Adding M-Series {ai_type} AI player: {player_names[i]}")
-                if model_path:
-                    click.echo(f"📁 Loading trained model from: {model_path}")
-                else:
-                    click.echo("⚠️  No model path provided - using untrained M-Series model")
+            # Check if this is a Level 2 model
+            if AIFactory.is_level2_type(ai_type):
+                click.echo(f"🤖 Adding Level 2 {ai_type} AI player: {player_names[i]}")
+                if not model_path:
+                    click.echo("⚠️  No model path provided - using untrained Level 2 model")
             else:
                 click.echo(f"🤖 Adding {ai_type} AI player: {player_names[i]}")
             
@@ -298,22 +297,19 @@ def human_vs_ai(player_name: str, your_position: int, partner_ai_type: str,
 @main.command()
 @click.argument("player_name", default="You")
 @click.option("--your-position", default=0, help="Your position (0-3)")
-@click.option("--m-series-model", default="magnus", 
-              type=click.Choice(["magnus", "maverick", "mentor", "mystic"]),
-              help="M-Series AI model to play against")
-@click.option("--model-path", help="Path to trained M-Series model file (.pth)")
+@click.option("--level2-model", default="level2_strategic",
+              help="Level 2 AI model to play against")
+@click.option("--model-path", help="Path to trained Level 2 model file (.pth)")
 @click.option("--ai-risk", default=0.5, help="AI risk ratio (0.0-1.0)")
-def human_vs_m_series(player_name: str, your_position: int, m_series_model: str, 
-                      model_path: str = None, ai_risk: float = 0.5):
-    """Play as human vs M-Series AI models specifically."""
-    click.echo(f"🧠 Human vs M-Series AI Game")
+def human_vs_level2(player_name: str, your_position: int, level2_model: str,
+                    model_path: Optional[str] = None, ai_risk: float = 0.5):
+    """Play as human vs Level 2 AI models specifically."""
+    click.echo(f"🧠 Human vs Level 2 AI Game")
     click.echo(f"👤 Player: {player_name} at position {your_position}")
-    click.echo(f"🤖 M-Series Model: {m_series_model}")
+    click.echo(f"🤖 Level 2 Model: {level2_model}")
     
-    if model_path:
-        click.echo(f"📁 Trained Model: {model_path}")
-    else:
-        click.echo("⚠️  Using untrained M-Series model")
+    if not model_path:
+        click.echo("⚠️  Using untrained Level 2 model")
     
     click.echo(f"🎯 AI Risk Level: {ai_risk}")
     
@@ -329,16 +325,16 @@ def human_vs_m_series(player_name: str, your_position: int, m_series_model: str,
             game.add_player(player_name, PlayerType.HUMAN)
             click.echo(f"👤 Added human player: {player_name} at position {i}")
         else:
-            # This is an M-Series AI player
+            # This is a Level 2 AI player
             ai_name = player_names[i]
-            game.add_ai_player(ai_name, m_series_model, ai_risk)
-            click.echo(f"🤖 Added M-Series {m_series_model} AI: {ai_name} at position {i}")
+            game.add_ai_player(ai_name, level2_model, ai_risk)
+            click.echo(f"🤖 Added Level 2 {level2_model} AI: {ai_name} at position {i}")
     
     # Start game
     try:
         click.echo("\n🎮 Starting game...")
         game.start_new_game()
-        click.echo("✅ Human vs M-Series AI game completed successfully!")
+        click.echo("✅ Human vs Level 2 AI game completed successfully!")
     except Exception as e:
         click.echo(f"❌ Game failed: {e}", err=True)
 
@@ -357,20 +353,20 @@ def list_ai_types():
     for ai_type in traditional_types:
         click.echo(f"  • {ai_type}")
     
-    # M-Series AI types
-    if AIFactory.M_SERIES_AVAILABLE:
-        click.echo("\n🧠 M-Series Neural AI Models:")
-        m_series_types = ["magnus", "maverick", "mentor", "mystic"]
-        for ai_type in m_series_types:
+    # Level 2 AI types
+    if AIFactory.LEVEL2_AVAILABLE:
+        click.echo("\n🧠 Level 2 Neural AI Models:")
+        level2_types = ["level2_strategic", "level2_aggressive", "level2_balanced", "level2_intuitive"]
+        for ai_type in level2_types:
             click.echo(f"  • {ai_type}")
-        click.echo("\n💡 M-Series models can be trained and loaded from .pth files")
+        click.echo("\n💡 Level 2 models can be trained and loaded from .pth files")
     else:
-        click.echo("\n❌ M-Series models not available")
-        click.echo("   Install PyTorch and M-Series dependencies to enable")
+        click.echo("\n❌ Level 2 models not available")
+        click.echo("   Install PyTorch and Level 2 dependencies to enable")
     
     click.echo("\n🎮 Usage Examples:")
-    click.echo("  • Play vs M-Series: euchre human-vs-m-series --m-series-model magnus")
-    click.echo("  • Play vs trained model: euchre human-vs-m-series --m-series-model magnus --model-path models/magnus_trained.pth")
+    click.echo("  • Play vs Level 2: euchre human-vs-level2 --level2-model level2_strategic")
+    click.echo("  • Play vs trained model: euchre human-vs-level2 --level2-model level2_strategic --model-path models/level2_strategic_trained.pth")
     click.echo("  • Mix AI types: euchre human-vs-ai --partner-ai-type magnus --opponent1-ai-type aggressive")
 
 
@@ -401,7 +397,7 @@ def list_neural_models():
                 click.echo(f"  📁 {model_dir}/{model_name}")
         else:
             click.echo("  No trained models found.")
-            click.echo("  Run 'make train-m-series' to train models.")
+            click.echo("  Run 'make train-level2' to train models.")
             
     except Exception as e:
         click.echo(f"❌ Error listing models: {e}", err=True)
@@ -435,7 +431,7 @@ def list_players():
                 click.echo(f"  📁 {model_dir}/{model_name}")
         else:
             click.echo("  No trained models found.")
-            click.echo("  Run 'make train-m-series' to train models.")
+            click.echo("  Run 'make train-level2' to train models.")
             
     except Exception as e:
         click.echo(f"❌ Error listing players: {e}", err=True)

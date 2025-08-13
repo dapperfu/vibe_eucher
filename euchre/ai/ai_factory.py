@@ -6,12 +6,12 @@ from .traditional_ai_impl import TraditionalAI
 from .ai_profiles import AggressiveAI, ConservativeAI, BalancedAI, OpportunisticAI
 from ..models import Player, PlayerType
 
-# Import M-Series models if available
+# Import Level 2 models if available
 try:
-    from .m_series_ai_impl import MSeriesAI
-    M_SERIES_AVAILABLE = True
+    from .level2_ai_impl import Level2AI
+    LEVEL2_AVAILABLE = True
 except ImportError:
-    M_SERIES_AVAILABLE = False
+    LEVEL2_AVAILABLE = False
 
 
 class AIFactory:
@@ -29,11 +29,11 @@ class AIFactory:
             The player's name
         ai_type : str
             Type of AI: "aggressive", "conservative", "balanced", "opportunistic",
-                       "magnus", "maverick", "mentor", "mystic"
+                       "level2_strategic", "level2_aggressive", "level2_balanced", "level2_intuitive"
         risk_ratio : float
             Risk tolerance (0.0 = conservative, 1.0 = aggressive)
         model_path : str, optional
-            Path to trained M-Series model file (.pth)
+            Path to trained Level 2 model file (.pth)
             
         Returns
         -------
@@ -42,12 +42,12 @@ class AIFactory:
         """
         ai_type = ai_type.lower()
         
-        # Check if this is an M-Series model type
-        if ai_type in ["magnus", "maverick", "mentor", "mystic"]:
-            if not M_SERIES_AVAILABLE:
-                raise ValueError(f"M-Series models not available. Install PyTorch and M-Series dependencies.")
+        # Check if this is a Level 2 model type
+        if ai_type in ["level2_strategic", "level2_aggressive", "level2_balanced", "level2_intuitive"]:
+            if not LEVEL2_AVAILABLE:
+                raise ValueError(f"Level 2 models not available. Install PyTorch and Level 2 dependencies.")
             
-            return MSeriesAI(name, ai_type, risk_ratio, model_path)
+            return Level2AI(name, ai_type, risk_ratio, model_path)
         
         # Check if this is a traditional AI type using the new interface
         if ai_type in ["aggressive", "conservative", "balanced", "opportunistic"]:
@@ -77,7 +77,7 @@ class AIFactory:
         risk_ratios : List[float], optional
             List of risk ratios for each player
         model_paths : List[str], optional
-            List of model paths for M-Series players
+            List of model paths for Level 2 players
             
         Returns
         -------
@@ -104,61 +104,57 @@ class AIFactory:
             model_paths.append(None)
         
         players = []
-        for name, ai_type, risk_ratio, model_path in zip(names, ai_types, risk_ratios, model_paths):
-            player = AIFactory.create_ai_player(name, ai_type, risk_ratio, model_path)
-            players.append(player)
+        for i, name in enumerate(names):
+            try:
+                player = AIFactory.create_ai_player(
+                    name, ai_types[i], risk_ratios[i], model_paths[i]
+                )
+                players.append(player)
+            except Exception as e:
+                print(f"Warning: Could not create AI player {name} with type {ai_types[i]}: {e}")
+                # Fallback to balanced AI
+                fallback_player = AIFactory.create_ai_player(name, "balanced", 0.5)
+                players.append(fallback_player)
         
         return players
     
     @staticmethod
-    def create_default_ai_players() -> List[Union[BaseAIInterface, Player]]:
-        """Create default AI players for a 4-player game.
+    def create_default_ai_players() -> List[BaseAIInterface]:
+        """Create default AI players with balanced profiles."""
+        names = ["Alice", "Bob", "Charlie", "David"]
+        ai_types = ["balanced", "balanced", "balanced", "balanced"]
+        risk_ratios = [0.5, 0.5, 0.5, 0.5]
         
-        Returns
-        -------
-        List[Union[BaseAIInterface, Player]]
-            List of 4 default AI players
-        """
-        default_names = ["Alice", "Bob", "Charlie", "David"]
-        default_types = ["balanced", "balanced", "balanced", "balanced"]
-        default_risks = [0.5, 0.5, 0.5, 0.5]
-        
-        return AIFactory.create_ai_players(default_names, default_types, default_risks)
+        return AIFactory.create_ai_players(names, ai_types, risk_ratios)
     
     @staticmethod
-    def create_mixed_ai_players() -> List[Union[BaseAIInterface, Player]]:
-        """Create AI players with mixed playing styles.
+    def create_mixed_ai_players() -> List[BaseAIInterface]:
+        """Create AI players with mixed strategies for variety."""
+        names = ["Alice", "Bob", "Charlie", "David"]
+        ai_types = ["aggressive", "conservative", "balanced", "opportunistic"]
+        risk_ratios = [0.8, 0.2, 0.5, 0.7]
         
-        Returns
-        -------
-        List[Union[BaseAIInterface, Player]]
-            List of 4 AI players with different styles
-        """
-        mixed_names = ["Alice", "Bob", "Charlie", "David"]
-        mixed_types = ["aggressive", "conservative", "balanced", "opportunistic"]
-        mixed_risks = [0.8, 0.2, 0.5, 0.7]
-        
-        return AIFactory.create_ai_players(mixed_names, mixed_types, mixed_risks)
+        return AIFactory.create_ai_players(names, ai_types, risk_ratios)
     
     @staticmethod
-    def create_m_series_players(model_type: str = "magnus", 
+    def create_level2_players(model_type: str = "level2_strategic", 
                                model_path: Optional[str] = None) -> List[BaseAIInterface]:
-        """Create M-Series AI players.
+        """Create Level 2 AI players.
         
         Parameters
         ----------
         model_type : str
-            M-Series model type: "magnus", "maverick", "mentor", "mystic"
+            Level 2 model type: "level2_strategic", "level2_aggressive", "level2_balanced", "level2_intuitive"
         model_path : str, optional
             Path to trained model file
             
         Returns
         -------
         List[BaseAIInterface]
-            List of 4 M-Series AI players
+            List of 4 Level 2 AI players
         """
-        if not M_SERIES_AVAILABLE:
-            raise ValueError("M-Series models not available. Install PyTorch and M-Series dependencies.")
+        if not LEVEL2_AVAILABLE:
+            raise ValueError("Level 2 models not available. Install PyTorch and Level 2 dependencies.")
         
         names = ["Alice", "Bob", "Charlie", "David"]
         ai_types = [model_type] * 4
@@ -177,15 +173,15 @@ class AIFactory:
         """
         traditional_types = ["aggressive", "conservative", "balanced", "opportunistic"]
         
-        if M_SERIES_AVAILABLE:
-            m_series_types = ["magnus", "maverick", "mentor", "mystic"]
-            return traditional_types + m_series_types
+        if LEVEL2_AVAILABLE:
+            level2_types = ["level2_strategic", "level2_aggressive", "level2_balanced", "level2_intuitive"]
+            return traditional_types + level2_types
         
         return traditional_types
     
     @staticmethod
-    def is_m_series_type(ai_type: str) -> bool:
-        """Check if an AI type is an M-Series model.
+    def is_level2_type(ai_type: str) -> bool:
+        """Check if an AI type is a Level 2 model.
         
         Parameters
         ----------
@@ -195,9 +191,9 @@ class AIFactory:
         Returns
         -------
         bool
-            True if it's an M-Series type, False otherwise
+            True if it's a Level 2 type, False otherwise
         """
-        return ai_type.lower() in ["magnus", "maverick", "mentor", "mystic"]
+        return ai_type.lower() in ["level2_strategic", "level2_aggressive", "level2_balanced", "level2_intuitive"]
     
     @staticmethod
     def is_new_interface_type(ai_type: str) -> bool:
@@ -214,7 +210,7 @@ class AIFactory:
             True if it uses the new interface, False if it's legacy
         """
         new_interface_types = ["aggressive", "conservative", "balanced", "opportunistic", 
-                              "magnus", "maverick", "mentor", "mystic"]
+                              "level2_strategic", "level2_aggressive", "level2_balanced", "level2_intuitive"]
         return ai_type.lower() in new_interface_types
     
     @staticmethod
