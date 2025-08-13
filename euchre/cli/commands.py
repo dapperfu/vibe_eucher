@@ -57,7 +57,8 @@ class GameCommands:
             
             # Start the game (human or AI)
             if player_name is not None:
-                game.run_interactive_game()
+                # Human game - use CLI-based interactive flow
+                GameCommands._play_interactive_round(game, player_name, 0)
             else:
                 # AI-only game - just run it
                 game.run_full_game()
@@ -1030,12 +1031,12 @@ class GameCommands:
             The chosen card
         """
         # Simple logic: play first card if leading, otherwise play highest card of lead suit
-        if not current_trick or not current_trick.cards_played:
+        if not current_trick or not current_trick.lead_suit:
             # Leading - play first card
             return player.hand[0]
         else:
             # Must follow suit if possible
-            lead_suit = current_trick.cards_played[0][1].suit
+            lead_suit = current_trick.lead_suit
             cards_of_suit = [card for card in player.hand if card.suit == lead_suit]
             if cards_of_suit:
                 return max(cards_of_suit, key=lambda c: c.rank.value)
