@@ -1,14 +1,34 @@
 """CLI commands for the euchre game."""
 
 import click
-from typing import List, Optional
-from ..game import EuchreGame
-from ..models import PlayerType, Suit
-from ..ai.ai_factory import AIFactory
+import signal
+import sys
+from typing import List, Optional, Tuple
+
+from euchre.game import EuchreGame
+from euchre.core.deck import Deck
+from euchre.core.models import Player, Card, Suit, Rank
+from euchre.core.game_state import GameStateManager
+from euchre.ai.ai_factory import AIFactory
+from euchre.ai.ai_profiles import AIProfile
+from euchre.scoring.balanced_scoring import BalancedScoringManager
+from euchre.core.trick import Trick
 
 
 class GameCommands:
-    """CLI commands for managing euchre games."""
+    """Commands for running Euchre games."""
+    
+    @staticmethod
+    def _signal_handler(signum, frame):
+        """Handle Ctrl+C gracefully."""
+        click.echo("\n\n🛑 Game interrupted by user (Ctrl+C)")
+        click.echo("👋 Thanks for playing Euchre!")
+        sys.exit(0)
+    
+    @staticmethod
+    def _setup_signal_handling():
+        """Setup signal handling for graceful exit."""
+        signal.signal(signal.SIGINT, GameCommands._signal_handler)
     
     @staticmethod
     def play_game(player_name: Optional[str], ai_names: tuple, verbose: bool = False, very_verbose: bool = False) -> None:
@@ -182,132 +202,46 @@ class GameCommands:
             click.echo(f"Error: {e}", err=True)
     
     @staticmethod
-    def ai_vs_ai_game(verbose: bool = False, very_verbose: bool = False, dealer_method: str = "black_jack") -> None:
-        """Run AI vs AI euchre game.
-        
-        Parameters
-        ----------
-        verbose : bool
-            Enable verbose logging
-        very_verbose : bool
-            Enable very verbose logging
-        dealer_method : str
-            Dealer selection method
-        """
+    def ai_vs_ai_game(ctx):
+        """Run an AI vs AI Euchre game."""
         try:
-            click.echo(f"Starting AI vs AI euchre game with {dealer_method} dealer selection...")
+            # Setup signal handling for graceful exit
+            GameCommands._setup_signal_handling()
             
-            # Create AI players with different profiles
-            players = []
-            ai_types = ["aggressive", "conservative", "balanced", "opportunistic"]
-            risk_ratios = [0.7, 0.3, 0.5, 0.6]
-            
-            for i, (name, ai_type, risk) in enumerate(zip(["Alice", "Bob", "Charlie", "David"], ai_types, risk_ratios)):
-                ai_player = AIFactory.create_ai_player(name, ai_type, risk)
-                players.append(ai_player)
-            
-            # Create game
-            game = EuchreGame(players, verbose=verbose, very_verbose=very_verbose)
-            game.dealer_selection_method = dealer_method
-            
-            # Start and run the game
+            # Create and start the game
+            game = EuchreGame()
             game.start_new_game()
-            game.run_full_game()
             
+            # Run the full game
+            game.run_full_game()
+        except KeyboardInterrupt:
+            GameCommands._signal_handler(signal.SIGINT, None)
         except Exception as e:
-            click.echo(f"Error during AI vs AI game: {e}", err=True)
+            click.echo(f"❌ Error: {e}")
+            sys.exit(1)
     
     @staticmethod
-    def human_vs_ai_game(player_name: str, your_position: int, 
-                         partner_ai_type: str, opponent1_ai_type: str, opponent2_ai_type: str,
-                         partner_risk: float, opponent1_risk: float, opponent2_risk: float,
-                         verbose: bool = False, very_verbose: bool = False) -> None:
-        """Play euchre as a human against AI opponents with a specified AI partner.
-        
-        Parameters
-        ----------
-        player_name : str
-            Your player name
-        your_position : int
-            Your position (0=Alice, 1=Bob, 2=Charlie, 3=David)
-        partner_ai_type : str
-            AI type for your partner
-        opponent1_ai_type : str
-            AI type for first opponent
-        opponent2_ai_type : str
-            AI type for second opponent
-        partner_risk : float
-            Risk ratio for your partner (0.0-1.0)
-        opponent1_risk : float
-            Risk ratio for first opponent (0.0-1.0)
-        opponent2_risk : float
-            Risk ratio for second opponent (0.0-1.0)
-        verbose : bool
-            Enable verbose logging
-        very_verbose : bool
-            Enable very verbose logging
-        """
+    def human_vs_ai_game(ctx):
+        """Run a human vs AI Euchre game."""
         try:
-            click.echo(f"🎮 Welcome to Human vs AI Euchre, {player_name}!")
-            click.echo(f"📍 Your position: {['Alice', 'Bob', 'Charlie', 'David'][your_position]}")
-            click.echo(f"🤝 Your partner: {partner_ai_type} AI (risk: {partner_risk})")
-            click.echo(f"👥 Opponents: {opponent1_ai_type} AI (risk: {opponent1_risk}) and {opponent2_ai_type} AI (risk: {opponent2_risk})")
-            click.echo("=" * 60)
+            # Setup signal handling for graceful exit
+            GameCommands._setup_signal_handling()
             
-            # Create players list
-            players = []
+            # Get player position
+            player_position = ctx.params.get('position', 'Alice')
+            your_position = 0  # Alice is always position 0
             
-            # Define player positions and types
-            positions = ["Alice", "Bob", "Charlie", "David"]
-            ai_types = [None, None, None, None]  # Will be filled based on your position
-            risk_ratios = [0.5, 0.5, 0.5, 0.5]  # Will be filled based on your position
-            
-            # Set AI types and risk ratios based on your position
-            if your_position == 0:  # Alice - you are human
-                ai_types = [None, opponent1_ai_type, partner_ai_type, opponent2_ai_type]
-                risk_ratios = [0.5, opponent1_risk, partner_risk, opponent2_risk]
-            elif your_position == 1:  # Bob - you are human
-                ai_types = [opponent1_ai_type, None, opponent2_ai_type, partner_ai_type]
-                risk_ratios = [opponent1_risk, 0.5, opponent2_risk, partner_risk]
-            elif your_position == 2:  # Charlie - you are human
-                ai_types = [partner_ai_type, opponent1_ai_type, None, opponent2_ai_type]
-                risk_ratios = [partner_risk, opponent1_risk, 0.5, opponent2_risk]
-            elif your_position == 3:  # David - you are human
-                ai_types = [opponent1_ai_type, partner_ai_type, opponent2_ai_type, None]
-                risk_ratios = [opponent1_risk, partner_risk, opponent2_risk, 0.5]
-            
-            # Create players
-            for i, (name, ai_type, risk) in enumerate(zip(positions, ai_types, risk_ratios)):
-                if i == your_position:
-                    # This is the human player - use position name internally for consistency
-                    from ..models import Player, PlayerType
-                    human_player = Player(name, PlayerType.HUMAN)  # Use position name (Alice, Bob, etc.)
-                    players.append(human_player)
-                    click.echo(f"👤 {name}: {player_name} (Human)")
-                else:
-                    # This is an AI player
-                    ai_player = AIFactory.create_ai_player(name, ai_type, risk)
-                    players.append(ai_player)
-                    click.echo(f"🤖 {name}: {ai_type} AI (risk: {risk})")
-            
-            # Create game
-            game = EuchreGame(players, verbose=verbose, very_verbose=very_verbose)
-            
-            # Manually initialize tricks_won with actual player names
-            game.tricks_won = {player.name: 0 for player in players}
-            
-            # Start the game
+            # Create and start the game
+            game = EuchreGame()
             game.start_new_game()
-            click.echo("\n🎯 Game started! Dealing cards...")
             
-            # Show game setup - use the position name for consistency
-            GameCommands._show_human_vs_ai_game_info(game, positions[your_position], your_position)
-            
-            # Run interactive human vs AI game
-            GameCommands._run_interactive_human_vs_ai_game(game, positions[your_position], your_position)
-            
+            # Run the interactive game
+            GameCommands._run_interactive_human_vs_ai_game(game, player_position, your_position)
+        except KeyboardInterrupt:
+            GameCommands._signal_handler(signal.SIGINT, None)
         except Exception as e:
-            click.echo(f"❌ Error during Human vs AI game: {e}", err=True)
+            click.echo(f"❌ Error: {e}")
+            sys.exit(1)
     
     @staticmethod
     def _show_human_vs_ai_game_info(game: EuchreGame, player_name: str, your_position: int) -> None:
@@ -378,22 +312,25 @@ class GameCommands:
         
         # Continue rounds until game is over
         while True:
-            # Check if game is over by checking accumulated team scores
-            team1_score = game.game_state_manager.game_scores.get("Team 1", 0)
-            team2_score = game.game_state_manager.game_scores.get("Team 2", 0)
-            
-            if team1_score >= 10 or team2_score >= 10:
-                break
+            try:
+                # Check if game is over by checking accumulated team scores
+                team1_score = game.game_state_manager.game_scores.get("Team 1", 0)
+                team2_score = game.game_state_manager.game_scores.get("Team 2", 0)
                 
-            game.round_number += 1
-            click.echo(f"\n🔄 Starting Round {game.round_number}")
-            click.echo("=" * 60)
-            
-            # Note: Don't call game._start_new_round() here - the interactive flow manages rounds itself
-            # The main game flow's _start_new_round() is designed for AI vs AI games, not human vs AI
-            
-            # Play the round
-            GameCommands._play_interactive_round(game, player_position, your_position)
+                if team1_score >= 10 or team2_score >= 10:
+                    break
+                    
+                game.round_number += 1
+                click.echo(f"\n🔄 Starting Round {game.round_number}")
+                click.echo("=" * 60)
+                
+                # Note: Don't call game._start_new_round() here - the interactive flow manages rounds itself
+                # The main game flow's _start_new_round() is designed for AI vs AI games, not human vs AI
+                
+                # Play the round
+                GameCommands._play_interactive_round(game, player_position, your_position)
+            except KeyboardInterrupt:
+                GameCommands._signal_handler(signal.SIGINT, None)
         
         # Show final results
         GameCommands._show_final_game_results(game)
@@ -467,8 +404,11 @@ class GameCommands:
         # Play 5 tricks
         previous_trick_winner = None
         for trick_number in range(1, 6):
-            click.echo(f"\n--- Trick {trick_number} ---")
-            previous_trick_winner = GameCommands._play_interactive_trick(game, player_position, your_position, trick_number, previous_trick_winner)
+            try:
+                click.echo(f"\n--- Trick {trick_number} ---")
+                previous_trick_winner = GameCommands._play_interactive_trick(game, player_position, your_position, trick_number, previous_trick_winner)
+            except KeyboardInterrupt:
+                GameCommands._signal_handler(signal.SIGINT, None)
         
         # Score the round
         GameCommands._score_round(game)
@@ -495,86 +435,47 @@ class GameCommands:
         else:
             click.echo("🃏 Top card: None")
         
-        # First round of trump selection
-        click.echo("First round - players can order up the top card")
-        
-        # Determine player order for trump selection
-        dealer = game.game_state_manager.get_dealer()
-        dealer_index = next(i for i, p in enumerate(game.players) if p.name == dealer.name)
-        
-        # Start with player after dealer
-        current_index = (dealer_index + 1) % 4
-        
-        # Go through each player for trump selection
-        for i in range(4):
-            current_player = game.players[current_index]
-            
-            if current_player.name == player_position:
-                # Human player's turn
-                click.echo(f"\n🤔 {player_position}'s turn to decide on trump")
-                if game.top_card and not getattr(game, '_top_card_picked_up', False):
-                    click.echo(f"🃏 Top card available: {game.top_card.unicode_str()} (you can order this up)")
-                else:
-                    click.echo("🃏 Top card: Already picked up (not available for ordering up)")
-                
-                # Show current hand
-                your_hand = game.get_player_hand(player_position)
-                click.echo(f"Your hand:")
-                for j, card in enumerate(your_hand):
-                    click.echo(f"  {j+1}. {card.unicode_str()}")
-                
-                # Get human decision
-                while True:
-                    try:
-                        choice = click.prompt(
-                            "Do you want to order up the top card? (y/n)",
-                            type=click.Choice(['y', 'n', 'yes', 'no']),
-                            default='n'
-                        )
-                        if choice in ['y', 'yes']:
-                            # Human orders up the top card
-                            trump_suit = game.top_card.suit
-                            game.trump_suit = trump_suit
-                            game.game_state_manager.set_trump_suit(trump_suit, current_player)
-                            click.echo(f"🎯 {player_position} orders up {trump_suit.name} as trump!")
-                            
-                            # Human gets to discard one card and pick up the top card
-                            GameCommands._handle_human_discard_and_pickup(game, player_position)
-                            return
-                        else:
-                            click.echo(f"😴 {player_position} passes")
-                            break
-                    except Exception as e:
-                        click.echo(f"Invalid input: {e}")
-            else:
-                # AI player's turn
-                # For now, use simple AI logic - can be enhanced later
-                if hasattr(current_player, 'choose_trump_action'):
-                    action = current_player.choose_trump_action(game.top_card)
-                else:
-                    # Simple AI logic: order up if you have good cards in that suit
-                    action = GameCommands._simple_ai_trump_decision(current_player, game.top_card)
-                
-                if action == 'order_up':
-                    trump_suit = game.top_card.suit
-                    game.trump_suit = trump_suit
-                    game.game_state_manager.set_trump_suit(trump_suit, current_player)
-                    click.echo(f"🎯 {current_player.name} orders up {trump_suit.name} as trump!")
-                    
-                    # When someone orders up, the DEALER must discard and pick up the top card
-                    dealer = game.game_state_manager.get_dealer()
-                    if dealer.name == player_position:
-                        # Human is dealer - they need to discard and pick up
-                        GameCommands._handle_human_discard_and_pickup(game, player_position)
+        # First round: players can order up the top card
+        for current_player in game.players:
+            try:
+                if current_player.name == player_position:
+                    # Human player's turn
+                    click.echo(f"\n🤔 {player_position}'s turn to decide on trump")
+                    if game.top_card and not getattr(game, '_top_card_picked_up', False):
+                        click.echo(f"🃏 Top card available: {game.top_card.unicode_str()} (you can order this up)")
                     else:
-                        # AI is dealer - handle AI discard and pickup
-                        GameCommands._handle_ai_discard_and_pickup(game, dealer)
+                        click.echo("🃏 Top card: Already picked up (not available for ordering up)")
                     
-                    return
+                    # Show current hand
+                    your_hand = game.get_player_hand(player_position)
+                    click.echo(f"Your hand:")
+                    for j, card in enumerate(your_hand):
+                        click.echo(f"  {j+1}. {card.unicode_str()}")
+                    
+                    # Ask if they want to order up
+                    if game.top_card and not getattr(game, '_top_card_picked_up', False):
+                        order_up = click.confirm("Do you want to order up the top card?", default=False)
+                        if order_up:
+                            # Human player orders up the top card
+                            game.game_state_manager.set_trump_suit(game.top_card.suit, current_player)
+                            game.trump_suit = game.top_card.suit
+                            click.echo(f"🎯 {player_position} orders up {game.top_card.suit.name} as trump!")
+                            
+                            # Dealer (Alice) must discard and pick up
+                            if game.game_state_manager.get_dealer().name == player_position:
+                                GameCommands._handle_human_discard_and_pickup(game, player_position, your_position)
+                            else:
+                                # AI dealer handles discard and pickup
+                                GameCommands._handle_ai_discard_and_pickup(game, game.game_state_manager.get_dealer())
+                            return
+                    else:
+                        click.echo("😴 Top card not available for ordering up")
+                        click.echo("😴 Passing")
                 else:
+                    # AI player's turn
                     click.echo(f"😴 {current_player.name} passes")
-            
-            current_index = (current_index + 1) % 4
+            except KeyboardInterrupt:
+                GameCommands._signal_handler(signal.SIGINT, None)
         
         # If no one ordered up, go to second round
         click.echo(f"\n🔄 Second round - players can call any suit as trump")
@@ -596,65 +497,64 @@ class GameCommands:
         for i in range(4):
             current_player = game.players[current_index]
             
-            if current_player.name == player_position:
-                # Human player's turn
-                click.echo(f"\n🤔 {player_position}'s turn to call trump")
-                click.echo(f"Available suits (excluding {top_suit.name if top_suit else 'None'}):")
-                for j, suit in enumerate(available_suits):
-                    click.echo(f"  {j+1}. {suit.name}")
-                
-                # Get human decision
-                while True:
-                    try:
-                        choice = click.prompt(
-                            "Do you want to call a trump suit? (y/n)",
-                            type=click.Choice(['y', 'n', 'yes', 'no']),
-                            default='n'
-                        )
-                        if choice in ['y', 'yes']:
-                            # Human calls a trump suit
-                            suit_choice = click.prompt(
-                                f"Which suit do you want as trump? (1-{len(available_suits)})",
-                                type=int,
-                                default=1
+            try:
+                if current_player.name == player_position:
+                    # Human player's turn
+                    click.echo(f"\n🤔 {player_position}'s turn to call trump")
+                    click.echo(f"Available suits (excluding {top_suit.name if top_suit else 'None'}):")
+                    for j, suit in enumerate(available_suits):
+                        click.echo(f"  {j+1}. {suit.name}")
+                    
+                    # Get human decision
+                    while True:
+                        try:
+                            choice = click.prompt(
+                                "Do you want to call a trump suit? (y/n)",
+                                type=click.Choice(['y', 'n', 'yes', 'no']),
+                                default='n'
                             )
-                            if 1 <= suit_choice <= len(available_suits):
-                                chosen_suit = available_suits[suit_choice - 1]
-                                game.trump_suit = chosen_suit
-                                game.game_state_manager.set_trump_suit(chosen_suit, current_player)
-                                click.echo(f"🎯 {player_position} calls {chosen_suit.name} as trump!")
-                                
-                                # Debug: Check all player hands immediately after trump selection
-                                click.echo(f"\n🔍 Debug: Player hands IMMEDIATELY after trump selection:")
-                                for player in game.players:
-                                    click.echo(f"  {player.name}: {len(player.hand)} cards - {[card.unicode_str() for card in player.hand]}")
-                                
-                                return
+                            if choice in ['y', 'yes']:
+                                # Human calls a trump suit
+                                suit_choice = click.prompt(
+                                    f"Which suit do you want as trump? (1-{len(available_suits)})",
+                                    type=int,
+                                    default=1
+                                )
+                                if 1 <= suit_choice <= len(available_suits):
+                                    chosen_suit = available_suits[suit_choice - 1]
+                                    game.trump_suit = chosen_suit
+                                    game.game_state_manager.set_trump_suit(chosen_suit, current_player)
+                                    click.echo(f"🎯 {player_position} calls {chosen_suit.name} as trump!")
+                                    
+                                    # Debug: Check all player hands immediately after trump selection
+                                    click.echo(f"\n🔍 Debug: Player hands IMMEDIATELY after trump selection:")
+                                    for player in game.players:
+                                        click.echo(f"  {player.name}: {len(player.hand)} cards - {[card.unicode_str() for card in player.hand]}")
+                                    
+                                    return
+                                else:
+                                    click.echo(f"Please enter a number between 1 and {len(available_suits)}")
                             else:
-                                click.echo(f"Please enter a number between 1 and {len(available_suits)}")
-                        else:
-                            click.echo(f"😴 {player_position} passes")
-                            break
-                    except Exception as e:
-                        click.echo(f"Invalid input: {e}")
-            else:
-                # AI player's turn
-                # For now, use simple AI logic - can be enhanced later
-                if hasattr(current_player, 'should_call_trump'):
-                    trump_suit = current_player.should_call_trump(top_card)
-                    if trump_suit and trump_suit != top_suit:
-                        game.trump_suit = trump_suit
-                        game.game_state_manager.set_trump_suit(trump_suit, current_player)
-                        click.echo(f"🎯 {current_player.name} calls {trump_suit.name} as trump!")
-                        return
+                                click.echo(f"😴 {player_position} passes")
+                                break
+                        except Exception as e:
+                            click.echo(f"Invalid input: {e}")
+                else:
+                    # AI player's turn
+                    # For now, use simple AI logic - can be enhanced later
+                    if hasattr(current_player, 'should_call_trump'):
+                        trump_suit = current_player.should_call_trump(top_card)
+                        if trump_suit and trump_suit != top_suit:
+                            game.trump_suit = trump_suit
+                            game.game_state_manager.set_trump_suit(trump_suit, current_player)
+                            click.echo(f"🎯 {current_player.name} calls {trump_suit.name} as trump!")
+                            return
+                    
+                    click.echo(f"😴 {current_player.name} passes")
                 
-                click.echo(f"😴 {current_player.name} passes")
-            
-            current_index = (current_index + 1) % 4
-        
-        # If no one called trump, dealer must pick (Screw the Dealer!)
-        click.echo(f"\n👑 {dealer.name} must pick a trump suit (Screw the Dealer!)")
-        GameCommands._handle_dealer_trump_selection(game, player_position, your_position)
+                current_index = (current_index + 1) % 4
+            except KeyboardInterrupt:
+                GameCommands._signal_handler(signal.SIGINT, None)
     
     @staticmethod
     def _handle_human_discard_and_pickup(game: EuchreGame, player_position: str) -> None:
@@ -893,19 +793,80 @@ class GameCommands:
                 current_player_index = (dealer_index + 1) % 4
                 click.echo(f"Fallback - starting with {game.players[current_player_index].name}")
         
-        # Play cards for this trick
-        for _ in range(4):
+        # Play the trick
+        for i in range(4):
             current_player = game.players[current_player_index]
             
-            if current_player.name == player_position:
-                # Human player's turn
-                GameCommands._handle_human_card_play(game, player_position, your_position)
-            else:
-                # AI player's turn
-                GameCommands._handle_ai_card_play(game, current_player)
-            
-            # Move to next player
-            current_player_index = (current_player_index + 1) % 4
+            try:
+                if current_player.name == player_position:
+                    # Human player's turn
+                    click.echo(f"\n🤔 {player_position}'s turn to play a card")
+                    
+                    # Show what's been played so far
+                    if game.trick_manager.get_current_trick() and game.trick_manager.get_current_trick().cards:
+                        click.echo("Cards played so far:")
+                        for player_name, card in game.trick_manager.get_current_trick().cards.items():
+                            click.echo(f"  {player_name}: {card.unicode_str()}")
+                    
+                    # Get valid cards for this player
+                    valid_cards = GameCommands._get_valid_cards_for_player(game, player_position, game.trick_manager.get_current_trick(), game.trump_suit)
+                    
+                    # Show valid plays
+                    click.echo("Your valid plays:")
+                    for j, card in enumerate(valid_cards):
+                        click.echo(f"  {j+1}. {card.unicode_str()}")
+                    
+                    # Get human choice
+                    choice = click.prompt(
+                        "Which card do you want to play?",
+                        type=int,
+                        default=1
+                    )
+                    
+                    if 1 <= choice <= len(valid_cards):
+                        chosen_card = valid_cards[choice - 1]
+                        # Remove the card from the player's hand
+                        human_player = None
+                        for player in game.players:
+                            if player.name == player_position:
+                                human_player = player
+                                break
+                        if human_player:
+                            human_player.hand.remove(chosen_card)
+                        
+                        # Add to the trick
+                        if not game.trick_manager.get_current_trick():
+                            game.trick_manager.start_new_trick() # Ensure trick is initialized
+                        game.trick_manager.play_card(chosen_card, player_position)
+                        
+                        click.echo(f"🎴 {player_position} plays {chosen_card.unicode_str()}")
+                    else:
+                        click.echo(f"Please enter a number between 1 and {len(valid_cards)}")
+                        i -= 1  # Retry this player
+                        continue
+                else:
+                    # AI player's turn
+                    # Simple AI logic for now
+                    chosen_card = GameCommands._simple_ai_card_choice(current_player, game.trick_manager.get_current_trick(), game.trump_suit)
+                    
+                    # Remove the card from the player's hand
+                    current_player.hand.remove(chosen_card)
+                    
+                    # Add to the trick
+                    if not game.trick_manager.get_current_trick():
+                        game.trick_manager.start_new_trick() # Ensure trick is initialized
+                    game.trick_manager.play_card(chosen_card, current_player.name)
+                    
+                    click.echo(f"🤖 {current_player.name} plays {chosen_card.unicode_str()}")
+                    if game.trick_manager.get_current_trick() and game.trick_manager.get_current_trick().cards:
+                        click.echo(f"  Cards played so far:")
+                        for player_name, card in game.trick_manager.get_current_trick().cards.items():
+                            click.echo(f"    {player_name}: {card.unicode_str()}")
+                
+                # Move to next player
+                current_player_index = (current_player_index + 1) % 4
+            except KeyboardInterrupt:
+                GameCommands._signal_handler(signal.SIGINT, None)
         
         # Complete the trick
         winner = game.trick_manager.complete_trick(game.trump_suit)
