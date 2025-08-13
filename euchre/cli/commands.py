@@ -382,8 +382,8 @@ class GameCommands:
             click.echo(f"\n🔄 Starting Round {game.round_number}")
             click.echo("=" * 60)
             
-            # Start new round
-            game._start_new_round()
+            # Note: Don't call game._start_new_round() here - the interactive flow manages rounds itself
+            # The main game flow's _start_new_round() is designed for AI vs AI games, not human vs AI
             
             # Play the round
             GameCommands._play_interactive_round(game, player_position, your_position)
@@ -406,6 +406,28 @@ class GameCommands:
         """
         click.echo(f"\n🎴 Round {game.round_number}")
         click.echo(f"Dealer: {game.game_state_manager.get_dealer().name}")
+        
+        # Handle new rounds (except the first round which was already dealt)
+        if game.round_number > 1:
+            # Rotate dealer for new rounds
+            current_dealer = game.game_state_manager.get_dealer()
+            dealer_index = next(i for i, p in enumerate(game.players) if p.name == current_dealer.name)
+            next_dealer_index = (dealer_index + 1) % 4
+            next_dealer = game.players[next_dealer_index]
+            game.game_state_manager.set_dealer(next_dealer)
+            
+            # Reset round state
+            game.current_trick = None
+            game.tricks_won = {player.name: 0 for player in game.players}
+            game.trump_suit = None
+            game._top_card_picked_up = False
+            
+            # Deal new cards for this round
+            game.deck.reset_and_shuffle()
+            game._deal_cards()
+            
+            click.echo(f"🔄 New dealer: {next_dealer.name}")
+            click.echo(f"🎴 New cards dealt for Round {game.round_number}")
         
         # Debug: Show all player hands at the beginning of the round
         click.echo(f"\n🔍 Debug: Player hands at start of round:")
