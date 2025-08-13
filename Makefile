@@ -1,8 +1,12 @@
-.PHONY: help venv install install-pip test run clean train-ai evaluate-ai ai-game ai-game-ncurses ncurses logged profiles mass-games analyze cleanup jupyter jupyter-lab train-self-play train-integer-vs-float generate-profiles generate-profiles-cpu generate-profiles-gpu list-players play-trained tournament benchmark neural-tournament neural-analysis list-neural-models install-gpu train-m-series train-m-series-fast train-m-series-intensive evaluate-m-series train-m-series-vs-traditional m-series-tournament m-series-analysis list-m-series-models benchmark-m-series benchmark-training-progression benchmark-comprehensive quick-benchmark benchmark-analysis
+.PHONY: help venv install install-pip test run clean train-ai evaluate-ai ai-game ai-game-ncurses ncurses logged profiles mass-games analyze cleanup jupyter jupyter-lab train-self-play train-integer-vs-float generate-profiles generate-profiles-cpu generate-profiles-gpu list-players play-trained tournament benchmark neural-tournament neural-analysis list-neural-models install-gpu train-m-series train-m-series-fast train-m-series-intensive evaluate-m-series train-m-series-vs-traditional m-series-tournament m-series-analysis list-m-series-models benchmark-m-series benchmark-training-progression benchmark-comprehensive quick-benchmark benchmark-analysis human-vs-ai human-vs-m-series list-ai-types logged-game
 
 help: ## Show this help message
 	@echo "Available commands:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+
+# =============================================================================
+# ENVIRONMENT SETUP
+# =============================================================================
 
 venv: ## Create virtual environment
 	python3 -m venv venv
@@ -15,17 +19,27 @@ install-pip: venv ## Install package with pip (editable mode)
 	venv/bin/pip install --upgrade pip
 	venv/bin/pip install -e .
 
+# =============================================================================
+# TESTING
+# =============================================================================
+
 test: install ## Run tests
 	venv/bin/pytest tests/ -v
+
+# =============================================================================
+# BASIC GAME MODES
+# =============================================================================
 
 run: install ## Run the euchre game
 	venv/bin/python -m euchre.cli_main play
 
-ai-game: install ## Run AI vs AI euchre game with full verbosity
+ai-game: install ## Play AI vs AI game with full verbosity
+	@echo "🤖 Starting AI vs AI Game with full verbosity..."
 	venv/bin/python -m euchre.cli_main --very-verbose ai-vs-ai
 
-ai-game-ncurses: install ## Run AI vs AI euchre game with ncurses interface
-	venv/bin/python -m euchre.cli_main ai-vs-ai
+ai-game-ncurses: install ## Play AI vs AI game with ncurses interface
+	@echo "🖥️  Starting ncurses interface..."
+	venv/bin/python -m euchre.cli_main ncurses
 
 ncurses: install ## Run AI vs AI euchre game with ncurses interface
 	venv/bin/python -m euchre.cli_main ncurses
@@ -33,11 +47,37 @@ ncurses: install ## Run AI vs AI euchre game with ncurses interface
 logged: install ## Run AI vs AI euchre game with logging (no ncurses)
 	venv/bin/python -m euchre.cli_main logged-game
 
+logged-game: install ## Play AI vs AI game with logging
+	@echo "📝 Starting logged game..."
+	venv/bin/python -m euchre.cli_main logged-game
+
+# =============================================================================
+# ADVANCED GAME MODES
+# =============================================================================
+
 profiles: install ## Run AI vs AI game with custom profiles and risk ratios
 	venv/bin/python -m euchre.cli_main ai-profiles
 
 mass-games: install ## Run thousands of games in parallel
 	venv/bin/python -m euchre.cli_main run-mass-games
+
+human-vs-ai: install ## Play human vs AI game with configurable AI types
+	@echo "🎮 Starting Human vs AI Game..."
+	@echo "Usage: make human-vs-ai PLAYER_NAME=YourName POSITION=0 PARTNER_AI=balanced OPP1_AI=aggressive OPP2_AI=conservative"
+	@echo "Available AI types: aggressive, conservative, balanced, opportunistic, magnus, maverick, mentor, mystic"
+	@echo "Example: make human-vs-ai PLAYER_NAME=Alice POSITION=0 PARTNER_AI=magnus OPP1_AI=aggressive OPP2_AI=balanced"
+	venv/bin/python -m euchre.cli_main human-vs-ai $(PLAYER_NAME) --your-position $(POSITION) --partner-ai-type $(PARTNER_AI) --opponent1-ai-type $(OPP1_AI) --opponent2-ai-type $(OPP2_AI)
+
+human-vs-m-series: install ## Play human vs M-Series AI specifically
+	@echo "🧠 Starting Human vs M-Series AI Game..."
+	@echo "Usage: make human-vs-m-series PLAYER_NAME=YourName POSITION=0 MODEL=magnus MODEL_PATH=path/to/model.pth"
+	@echo "Available M-Series models: magnus, maverick, mentor, mystic"
+	@echo "Example: make human-vs-m-series PLAYER_NAME=Alice POSITION=0 MODEL=magnus MODEL_PATH=models/magnus_trained.pth"
+	venv/bin/python -m euchre.cli_main human-vs-m-series $(PLAYER_NAME) --your-position $(POSITION) --m-series-model $(MODEL) --model-path $(MODEL_PATH)
+
+# =============================================================================
+# ANALYSIS AND UTILITIES
+# =============================================================================
 
 analyze: install ## Analyze game results and generate statistics
 	venv/bin/python -m euchre.cli_main analyze-games
@@ -51,10 +91,25 @@ jupyter: install ## Start Jupyter Notebook
 jupyter-lab: install ## Start Jupyter Lab
 	venv/bin/python -m euchre.cli_main jupyter-lab
 
+list-ai-types: install ## List all available AI types including M-Series models
+	@echo "🤖 Listing Available AI Types..."
+	venv/bin/python -m euchre.cli_main list-ai-types
+
+list-players: install ## List available trained AI players
+	venv/bin/python -m euchre.cli_main list-players
+
+# =============================================================================
+# CLEANUP
+# =============================================================================
+
 clean: ## Clean up generated files
 	rm -rf venv/
 	find . -type f -name "*.pyc" -delete
-	find . -type d -name "__pycache__" -delete 
+	find . -type d -name "__pycache__" -delete
+
+# =============================================================================
+# TRADITIONAL AI TRAINING
+# =============================================================================
 
 train-ai: install ## Train the euchre AI model
 	venv/bin/python train_euchre_ai.py --data-dir data/games --generate-data --evaluate
@@ -77,17 +132,15 @@ generate-profiles-cpu: install ## Generate AI player profiles using CPU only
 generate-profiles-gpu: install ## Generate AI player profiles with GPU acceleration
 	venv/bin/python -m euchre.cli_main generate-player-profiles --num-games 15000 --output-dir trained_models --device cuda --enable-amp --gpu-memory-fraction 0.9
 
-list-players: install ## List available trained AI players
-	venv/bin/python -m euchre.cli_main list-players
-
 play-trained: install ## Play a game with trained AI players
 	venv/bin/python -m euchre.cli_main play-trained-players --player1 Alice --player2 Bob --player3 Charlie --player4 David
 
 tournament: install ## Run a tournament between trained players
 	venv/bin/python -m euchre.cli_main tournament --num-games 100
 
-benchmark: install ## Run performance benchmark comparing float vs integer models
-	venv/bin/python -m euchre.cli_main benchmark --device cpu --save-results
+# =============================================================================
+# NEURAL NETWORK MODELS
+# =============================================================================
 
 neural-tournament: install ## Run neural network tournament (Alice vs Bob, 1000 games)
 	venv/bin/python -m euchre.cli_main run-neural-games -m1 Alice -m2 Bob -n 1000
@@ -97,6 +150,9 @@ neural-analysis: install ## Analyze neural network tournament results
 
 list-neural-models: install ## List available neural network models
 	venv/bin/python -m euchre.cli_main list-neural-models
+
+benchmark: install ## Run performance benchmark comparing float vs integer models
+	venv/bin/python -m euchre.cli_main benchmark --device cpu --save-results
 
 # =============================================================================
 # M-SERIES AI TRAINING TARGETS
@@ -122,65 +178,70 @@ train-m-series: install-gpu ## Train M-Series AI models using unified trainer (a
 		--max-gpus 2
 
 train-m-series-fast: install-gpu ## Quick M-Series training for smoke testing (<1000 games, few epochs)
-	@echo "Starting fast M-Series AI training for smoke testing..."
-	@echo "Training 500 games over 10 epochs to verify the process works..."
+	@echo "🚀 Quick M-Series Training (Smoke Test)"
+	@echo "Training 500 games over 50 epochs for quick validation..."
 	venv/bin/python unified_trainer.py \
-		--epochs 10 \
+		--epochs 50 \
 		--total-games 500 \
 		--batch-size 32 \
 		--learning-rate 0.001 \
 		--device auto \
-		--max-gpus 2
+		--max-gpus 1
 
 train-m-series-intensive: install-gpu ## Intensive M-Series training for production models
-	@echo "Starting intensive M-Series AI training for production..."
-	@echo "Training 50000 games over 2000 epochs with optimized parameters..."
+	@echo "🔥 Intensive M-Series Training (Production)"
+	@echo "Training 50000 games over 2000 epochs for production models..."
 	venv/bin/python unified_trainer.py \
 		--epochs 2000 \
 		--total-games 50000 \
 		--batch-size 128 \
 		--learning-rate 0.0005 \
 		--device auto \
-		--max-gpus 2
+		--max-gpus 4
 
 evaluate-m-series: install-gpu ## Evaluate trained M-Series models
-	@echo "Evaluating trained M-Series models..."
-	venv/bin/python -c " \
-import json; \
-import os; \
-model_dir = 'trained_models/unified_trained'; \
-if os.path.exists(model_dir): \
-    models = [f for f in os.listdir(model_dir) if f.endswith('.json')]; \
-    print(f'Found {len(models)} M-Series models:'); \
-    for model in models: \
-        print(f'  - {model}'); \
-else: \
-    print('No trained M-Series models found. Run train-m-series first.') \
-"
-
-# =============================================================================
-# M-SERIES VS TRADITIONAL AI COMPETITION
-# =============================================================================
-
-benchmark-m-series: install ## Run comprehensive M-Series vs Traditional AI benchmark
-	@echo "🏆 Running M-Series vs Traditional AI Benchmark..."
-	@echo "This will compare M-Series models against traditional AI in head-to-head matches"
-	venv/bin/python m_series_benchmark.py --mode tournament --games 200
-
-benchmark-training-progression: install ## Run training progression benchmark to show improvement
-	@echo "📈 Running Training Progression Benchmark..."
-	@echo "This will demonstrate how M-Series performance improves with more training data"
-	venv/bin/python training_progression_benchmark.py
-
-benchmark-comprehensive: install ## Run both tournament and progression benchmarks
-	@echo "🚀 Running Comprehensive Benchmark Suite..."
-	@echo "This includes both head-to-head tournament and training progression analysis"
-	venv/bin/python m_series_benchmark.py --mode both --games 300
+	@echo "Evaluating M-Series AI models..."
+	@if [ -d "trained_models/unified_trained" ]; then \
+		ls -la trained_models/unified_trained/*.json 2>/dev/null | sed 's/.*\//  - /' || echo "  No trained models found"; \
+	else \
+		echo "  No trained models directory found"; \
+	fi
 	@echo ""
-	@echo "📊 Running Training Progression Analysis..."
-	venv/bin/python training_progression_benchmark.py
+	@echo "To evaluate a specific model, run:"
+	@echo "  venv/bin/python -m euchre.ai_model.model_evaluator --model path/to/model.pth --games 100"
 
-quick-benchmark: install ## Run quick benchmark (50 games per matchup)
+train-m-series-vs-traditional: install-gpu ## Train M-Series models specifically to compete against traditional AI
+	@echo "Training M-Series models to compete against traditional AI..."
+	@echo "This will focus on strategies that outperform traditional rule-based AI..."
+	venv/bin/python unified_trainer.py \
+		--epochs 1500 \
+		--total-games 30000 \
+		--batch-size 64 \
+		--learning-rate 0.001 \
+		--device auto \
+		--max-gpus 2
+
+# =============================================================================
+# M-SERIES BENCHMARKING AND TOURNAMENTS
+# =============================================================================
+
+benchmark-m-series: install-gpu ## Run comprehensive M-Series vs Traditional AI benchmark
+	@echo "🏆 M-Series vs Traditional AI Benchmark"
+	@echo "Running comprehensive benchmark comparing M-Series AI against traditional AI..."
+	venv/bin/python m_series_benchmark.py --mode comprehensive --games 200
+
+benchmark-training-progression: install-gpu ## Run training progression benchmark to show improvement
+	@echo "📈 Training Progression Benchmark"
+	@echo "Running benchmark to show how M-Series AI improves during training..."
+	venv/bin/python m_series_benchmark.py --mode progression --games 100
+
+benchmark-comprehensive: install-gpu ## Run both tournament and progression benchmarks
+	@echo "🔍 Comprehensive Benchmark Suite"
+	@echo "Running both tournament and progression benchmarks..."
+	$(MAKE) benchmark-m-series
+	$(MAKE) benchmark-training-progression
+
+quick-benchmark: install-gpu ## Run quick benchmark (50 games per matchup)
 	@echo "⚡ Running Quick Benchmark (50 games per matchup)..."
 	venv/bin/python m_series_benchmark.py --mode tournament --games 50
 
@@ -194,17 +255,6 @@ benchmark-analysis: install ## Analyze benchmark results and generate reports
 	else \
 		echo "No benchmark results found. Run benchmark-m-series first."; \
 	fi
-
-train-m-series-vs-traditional: install-gpu ## Train M-Series models specifically to compete against traditional AI
-	@echo "Training M-Series models to compete against traditional AI..."
-	@echo "This will focus on strategies that outperform traditional rule-based AI..."
-	venv/bin/python unified_trainer.py \
-		--epochs 1500 \
-		--total-games 30000 \
-		--batch-size 64 \
-		--learning-rate 0.001 \
-		--device auto \
-		--max-gpus 2
 
 m-series-tournament: install-gpu ## Run tournament: M-Series AI vs Traditional AI
 	@echo "🏆 M-Series AI vs Traditional AI Tournament"
@@ -242,42 +292,4 @@ list-m-series-models: install-gpu ## List available M-Series models
 		ls -la trained_models/unified_trained/*.json 2>/dev/null | sed 's/.*\//  - /' || echo "  No trained models found"; \
 	else \
 		echo "  No trained models directory found"; \
-	fi
-
-# =============================================================================
-# HUMAN VS AI GAMES
-# =============================================================================
-
-human-vs-ai: install ## Play human vs AI game with configurable AI types
-	@echo "🎮 Starting Human vs AI Game..."
-	@echo "Usage: make human-vs-ai PLAYER_NAME=YourName POSITION=0 PARTNER_AI=balanced OPP1_AI=aggressive OPP2_AI=conservative"
-	@echo "Available AI types: aggressive, conservative, balanced, opportunistic, magnus, maverick, mentor, mystic"
-	@echo "Example: make human-vs-ai PLAYER_NAME=Alice POSITION=0 PARTNER_AI=magnus OPP1_AI=aggressive OPP2_AI=balanced"
-	venv/bin/python -m euchre.cli_main human-vs-ai $(PLAYER_NAME) --your-position $(POSITION) --partner-ai-type $(PARTNER_AI) --opponent1-ai-type $(OPP1_AI) --opponent2-ai-type $(OPP2_AI)
-
-human-vs-m-series: install ## Play human vs M-Series AI specifically
-	@echo "🧠 Starting Human vs M-Series AI Game..."
-	@echo "Usage: make human-vs-m-series PLAYER_NAME=YourName POSITION=0 MODEL=magnus MODEL_PATH=path/to/model.pth"
-	@echo "Available M-Series models: magnus, maverick, mentor, mystic"
-	@echo "Example: make human-vs-m-series PLAYER_NAME=Alice POSITION=0 MODEL=magnus MODEL_PATH=models/magnus_trained.pth"
-	venv/bin/python -m euchre.cli_main human-vs-m-series $(PLAYER_NAME) --your-position $(POSITION) --m-series-model $(MODEL) --model-path $(MODEL_PATH)
-
-list-ai-types: install ## List all available AI types including M-Series models
-	@echo "🤖 Listing Available AI Types..."
-	venv/bin/python -m euchre.cli_main list-ai-types
-
-# =============================================================================
-# GAME MODES
-# =============================================================================
-
-ai-game: install ## Play AI vs AI game
-	@echo "🤖 Starting AI vs AI Game..."
-	venv/bin/python -m euchre.cli_main ai-vs-ai
-
-ai-game-ncurses: install ## Play AI vs AI game with ncurses interface
-	@echo "🖥️  Starting ncurses interface..."
-	venv/bin/python -m euchre.cli_main ncurses
-
-logged-game: install ## Play AI vs AI game with logging
-	@echo "📝 Starting logged game..."
-	venv/bin/python -m euchre.cli_main logged-game 
+	fi 
