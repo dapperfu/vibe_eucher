@@ -193,11 +193,44 @@ class NcursesGame:
         if not self.game.game_state_manager:
             return
             
-        # Play the round
-        self.game.play_round()
+        # Get current player
+        current_player = self.game.game_state_manager.get_current_player()
         
-        # Show results
-        self._display_round_results()
+        # If it's an AI player, play their card
+        if current_player.player_type == PlayerType.AI:
+            # Start new trick if needed
+            if not self.game.trick_manager.get_current_trick():
+                self.game.trick_manager.start_new_trick()
+            
+            # Get AI card choice (simplified - just pick first valid card)
+            if current_player.hand:
+                card = current_player.hand[0]  # Simple AI: just pick first card
+                
+                # Play the card
+                self.game.trick_manager.play_card(current_player, card)
+                current_player.hand.remove(card)
+                
+                # Move to next player
+                self.game.game_state_manager.next_player()
+                
+                # Check if trick is complete
+                current_trick = self.game.trick_manager.get_current_trick()
+                if current_trick and current_trick.is_complete():
+                    # Complete the trick
+                    winner = self.game.trick_manager.complete_trick(self.game.trump_suit)
+                    # Update trick count
+                    if hasattr(winner, 'tricks_won'):
+                        winner.tricks_won += 1
+                    
+                    # Show results
+                    self._display_round_results()
+                    
+                    # Check if round is complete (5 tricks)
+                    if len(self.game.trick_manager.tricks_this_round) >= 5:
+                        # Round is complete, start new round
+                        self.game.game_state_manager.start_new_round()
+                        # Reset trick manager for new round
+                        self.game.trick_manager.reset()
         
     def _display_game(self) -> None:
         """Display the current game state."""

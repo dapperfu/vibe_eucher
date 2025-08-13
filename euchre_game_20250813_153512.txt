@@ -1,0 +1,30 @@
+2025-08-13 15:35:12 - euchre.game - INFO - Starting new game
+2025-08-13 15:35:12 - euchre.game - INFO - Number of players: 4
+2025-08-13 15:35:12 - euchre.game - INFO - 🎲 Traditional dealer selection completed:
+2025-08-13 15:35:12 - euchre.game - INFO -   You received: K♦️
+2025-08-13 15:35:12 - euchre.game - INFO -   Alice received: 9♣️
+2025-08-13 15:35:12 - euchre.game - INFO -   Bob received: 10♣️
+2025-08-13 15:35:12 - euchre.game - INFO -   David received: A♣️
+2025-08-13 15:35:12 - euchre.game - INFO -   You received: J♠️
+2025-08-13 15:35:12 - euchre.game - INFO - 👑 You selected as first dealer!
+2025-08-13 15:35:12 - euchre.game - INFO - 🎴 Dealing cards using traditional Euchre pattern...
+2025-08-13 15:35:12 - euchre.game - INFO -    First round: Deal 2 cards to each player
+2025-08-13 15:35:12 - euchre.game - INFO -    Second round: Deal 3 cards to each player
+2025-08-13 15:35:12 - euchre.game - INFO - Kitty: 3 cards remaining
+2025-08-13 15:35:12 - euchre.game - INFO - Dealer: You
+2025-08-13 15:35:12 - euchre.game - INFO - Initial hands:
+2025-08-13 15:35:12 - euchre.game - INFO - You: ['J♥️', '10♥️', '10♣️', 'Q♦️', 'A♠️']
+2025-08-13 15:35:12 - euchre.game - INFO - Alice: ['J♣️', 'K♥️', 'Q♣️', 'A♦️', '10♠️']
+2025-08-13 15:35:12 - euchre.game - INFO - Bob: ['K♣️', 'Q♥️', '9♠️', 'A♥️', '9♣️']
+2025-08-13 15:35:12 - euchre.game - INFO - David: ['K♦️', 'J♠️', '10♦️', 'A♣️', '9♥️']
+2025-08-13 15:35:12 - euchre.game - INFO - Game started with players: You, Alice, Bob, David
+2025-08-13 15:35:12 - euchre.game - INFO - Dealer: You
+Dealer: You
+================================================================================
+EUCHRE GAME LOG
+================================================================================
+Game started: 2025-08-13 15:35:12
+Players: You, Alice, Bob, David
+Dealer: You
+================================================================================
+
