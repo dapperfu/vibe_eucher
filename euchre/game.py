@@ -448,7 +448,12 @@ class EuchreGame:
         
         # Display trick result
         self.logger.info(f"Trick won by {winner.name}!")
-        self.logger.info(f"Tricks won so far: Alice: {self.tricks_won['Alice']}, Bob: {self.tricks_won['Bob']}, Charlie: {self.tricks_won['Charlie']}, David: {self.tricks_won['David']}")
+        
+        # Show tricks won for all players in the game
+        tricks_summary = []
+        for player in self.players:
+            tricks_summary.append(f"{player.name}: {self.tricks_won.get(player.name, 0)}")
+        self.logger.info(f"Tricks won so far: {', '.join(tricks_summary)}")
         
         # Log trick completion to file
         winning_card = self.current_trick.cards_played[-1][1] if self.current_trick and self.current_trick.cards_played else None
