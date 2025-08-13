@@ -222,19 +222,36 @@ def jupyter_lab():
 
 
 @main.command()
-@click.option("--player-name", default="Player", help="Your player name")
-@click.option("--your-position", default=0, help="Your position (0=Alice, 1=Bob, 2=Charlie, 3=David)")
+@click.argument("player_name", default="You")
+@click.option("--your-position", default=0, help="Your position (0-3)")
 @click.option("--partner-ai-type", default="balanced", help="Partner AI type")
 @click.option("--opponent1-ai-type", default="balanced", help="First opponent AI type")
 @click.option("--opponent2-ai-type", default="balanced", help="Second opponent AI type")
 @click.option("--partner-risk", default=0.5, help="Partner risk ratio (0.0-1.0)")
 @click.option("--opponent1-risk", default=0.5, help="First opponent risk ratio (0.0-1.0)")
 @click.option("--opponent2-risk", default=0.5, help="Second opponent risk ratio (0.0-1.0)")
+@click.option("--partner-model-path", help="Path to trained M-Series model for partner")
+@click.option("--opponent1-model-path", help="Path to trained M-Series model for opponent1")
+@click.option("--opponent2-model-path", help="Path to trained M-Series model for opponent2")
 def human_vs_ai(player_name: str, your_position: int, partner_ai_type: str, 
                 opponent1_ai_type: str, opponent2_ai_type: str,
-                partner_risk: float, opponent1_risk: float, opponent2_risk: float):
-    """Play as human vs AI with configurable AI types."""
+                partner_risk: float, opponent1_risk: float, opponent2_risk: float,
+                partner_model_path: str = None, opponent1_model_path: str = None, 
+                opponent2_model_path: str = None):
+    """Play as human vs AI with configurable AI types (including M-Series models)."""
     click.echo(f"🎮 Human vs AI Game - {player_name} at position {your_position}")
+    
+    # Show available AI types
+    from euchre.ai.ai_factory import AIFactory
+    available_types = AIFactory.get_available_ai_types()
+    click.echo(f"Available AI types: {', '.join(available_types)}")
+    
+    # Validate AI types
+    for ai_type in [partner_ai_type, opponent1_ai_type, opponent2_ai_type]:
+        if ai_type.lower() not in available_types:
+            click.echo(f"❌ Unknown AI type: {ai_type}")
+            click.echo(f"Available types: {', '.join(available_types)}")
+            return
     
     # Create game
     game = EuchreGame(verbose=True)
@@ -242,6 +259,7 @@ def human_vs_ai(player_name: str, your_position: int, partner_ai_type: str,
     # Add AI players based on position
     ai_types = [partner_ai_type, opponent1_ai_type, opponent2_ai_type]
     ai_risks = [partner_risk, opponent1_risk, opponent2_risk]
+    model_paths = [partner_model_path, opponent1_model_path, opponent2_model_path]
     
     player_names = ["Alice", "Bob", "Charlie", "David"]
     current_ai = 0
@@ -252,7 +270,21 @@ def human_vs_ai(player_name: str, your_position: int, partner_ai_type: str,
             game.add_player(player_name, PlayerType.HUMAN)
         else:
             # This is an AI player
-            game.add_ai_player(player_names[i], ai_types[current_ai], ai_risks[current_ai])
+            ai_type = ai_types[current_ai]
+            risk = ai_risks[current_ai]
+            model_path = model_paths[current_ai]
+            
+            # Check if this is an M-Series model
+            if AIFactory.is_m_series_type(ai_type):
+                click.echo(f"🤖 Adding M-Series {ai_type} AI player: {player_names[i]}")
+                if model_path:
+                    click.echo(f"📁 Loading trained model from: {model_path}")
+                else:
+                    click.echo("⚠️  No model path provided - using untrained M-Series model")
+            else:
+                click.echo(f"🤖 Adding {ai_type} AI player: {player_names[i]}")
+            
+            game.add_ai_player(player_names[i], ai_type, risk)
             current_ai += 1
     
     # Start game
@@ -264,138 +296,82 @@ def human_vs_ai(player_name: str, your_position: int, partner_ai_type: str,
 
 
 @main.command()
-@click.option("--num-games", default=100, help="Number of games to play")
-@click.option("--player1", default="Alice", help="First player name")
-@click.option("--player2", default="Bob", help="Second player name")
-@click.option("--player3", default="Charlie", help="Third player name")
-@click.option("--player4", default="David", help="Fourth player name")
-def play_trained_players(num_games: int, player1: str, player2: str, player3: str, player4: str):
-    """Play a game with trained AI players."""
-    click.echo(f"🎯 Playing {num_games} games with trained players...")
+@click.argument("player_name", default="You")
+@click.option("--your-position", default=0, help="Your position (0-3)")
+@click.option("--m-series-model", default="magnus", 
+              type=click.Choice(["magnus", "maverick", "mentor", "mystic"]),
+              help="M-Series AI model to play against")
+@click.option("--model-path", help="Path to trained M-Series model file (.pth)")
+@click.option("--ai-risk", default=0.5, help="AI risk ratio (0.0-1.0)")
+def human_vs_m_series(player_name: str, your_position: int, m_series_model: str, 
+                      model_path: str = None, ai_risk: float = 0.5):
+    """Play as human vs M-Series AI models specifically."""
+    click.echo(f"🧠 Human vs M-Series AI Game")
+    click.echo(f"👤 Player: {player_name} at position {your_position}")
+    click.echo(f"🤖 M-Series Model: {m_series_model}")
+    
+    if model_path:
+        click.echo(f"📁 Trained Model: {model_path}")
+    else:
+        click.echo("⚠️  Using untrained M-Series model")
+    
+    click.echo(f"🎯 AI Risk Level: {ai_risk}")
     
     # Create game
-    game = EuchreGame(verbose=False)
+    game = EuchreGame(verbose=True)
     
-    # Add AI players
-    game.add_ai_player(player1, "balanced", 0.5)
-    game.add_ai_player(player2, "balanced", 0.5)
-    game.add_ai_player(player3, "balanced", 0.5)
-    game.add_ai_player(player4, "balanced", 0.5)
+    # Add players
+    player_names = ["Alice", "Bob", "Charlie", "David"]
     
-    # Play multiple games
+    for i in range(4):
+        if i == your_position:
+            # This is the human player
+            game.add_player(player_name, PlayerType.HUMAN)
+            click.echo(f"👤 Added human player: {player_name} at position {i}")
+        else:
+            # This is an M-Series AI player
+            ai_name = player_names[i]
+            game.add_ai_player(ai_name, m_series_model, ai_risk)
+            click.echo(f"🤖 Added M-Series {m_series_model} AI: {ai_name} at position {i}")
+    
+    # Start game
     try:
-        for i in range(num_games):
-            if i % 10 == 0:
-                click.echo(f"Playing game {i+1}/{num_games}...")
-            game.start_new_game()
-        
-        click.echo(f"✅ Completed {num_games} games successfully!")
+        click.echo("\n🎮 Starting game...")
+        game.start_new_game()
+        click.echo("✅ Human vs M-Series AI game completed successfully!")
     except Exception as e:
-        click.echo(f"❌ Games failed: {e}", err=True)
+        click.echo(f"❌ Game failed: {e}", err=True)
 
 
 @main.command()
-@click.option("--num-games", default=1000, help="Number of games to run")
-def tournament(num_games: int):
-    """Run a tournament between trained players."""
-    click.echo(f"🏆 Starting tournament with {num_games} games...")
+def list_ai_types():
+    """List all available AI types including M-Series models."""
+    from euchre.ai.ai_factory import AIFactory
     
-    # Create game
-    game = EuchreGame(verbose=False)
+    click.echo("🤖 Available AI Types:")
+    click.echo("=" * 40)
     
-    # Add AI players with different styles
-    game.add_ai_player("Alice", "aggressive", 0.8)
-    game.add_ai_player("Bob", "conservative", 0.2)
-    game.add_ai_player("Charlie", "balanced", 0.5)
-    game.add_ai_player("David", "opportunistic", 0.7)
+    # Traditional AI types
+    click.echo("📚 Traditional Rule-Based AI:")
+    traditional_types = ["aggressive", "conservative", "balanced", "opportunistic"]
+    for ai_type in traditional_types:
+        click.echo(f"  • {ai_type}")
     
-    # Play tournament games
-    try:
-        for i in range(num_games):
-            if i % 100 == 0:
-                click.echo(f"Tournament game {i+1}/{num_games}...")
-            game.start_new_game()
-        
-        click.echo(f"🏆 Tournament completed! {num_games} games played.")
-    except Exception as e:
-        click.echo(f"❌ Tournament failed: {e}", err=True)
-
-
-@main.command()
-@click.option("--device", default="cpu", help="Device to use (cpu/cuda)")
-@click.option("--save-results", is_flag=True, help="Save benchmark results")
-def benchmark(device: str, save_results: bool):
-    """Run performance benchmark comparing float vs integer models."""
-    click.echo(f"⚡ Running benchmark on {device}...")
+    # M-Series AI types
+    if AIFactory.M_SERIES_AVAILABLE:
+        click.echo("\n🧠 M-Series Neural AI Models:")
+        m_series_types = ["magnus", "maverick", "mentor", "mystic"]
+        for ai_type in m_series_types:
+            click.echo(f"  • {ai_type}")
+        click.echo("\n💡 M-Series models can be trained and loaded from .pth files")
+    else:
+        click.echo("\n❌ M-Series models not available")
+        click.echo("   Install PyTorch and M-Series dependencies to enable")
     
-    try:
-        # Simple benchmark - just run some games
-        game = EuchreGame(verbose=False)
-        game.add_ai_player("Alice", "balanced", 0.5)
-        game.add_ai_player("Bob", "balanced", 0.5)
-        game.add_ai_player("Charlie", "balanced", 0.5)
-        game.add_ai_player("David", "balanced", 0.5)
-        
-        import time
-        start_time = time.time()
-        
-        # Run 100 games for benchmark
-        for i in range(100):
-            game.start_new_game()
-        
-        end_time = time.time()
-        total_time = end_time - start_time
-        
-        click.echo(f"✅ Benchmark completed!")
-        click.echo(f"   100 games in {total_time:.2f} seconds")
-        click.echo(f"   Average: {total_time/100:.3f} seconds per game")
-        
-        if save_results:
-            import json
-            results = {
-                "device": device,
-                "games": 100,
-                "total_time": total_time,
-                "avg_time_per_game": total_time/100,
-                "timestamp": time.time()
-            }
-            
-            with open("benchmark_results.json", "w") as f:
-                json.dump(results, f, indent=2)
-            click.echo("   Results saved to benchmark_results.json")
-            
-    except Exception as e:
-        click.echo(f"❌ Benchmark failed: {e}", err=True)
-
-
-@main.command()
-@click.option("--m1", default="Alice", help="First model name")
-@click.option("--m2", default="Bob", help="Second model name")
-@click.option("--n", default=1000, help="Number of games")
-def run_neural_games(m1: str, m2: str, n: int):
-    """Run neural network tournament (Alice vs Bob, 1000 games)."""
-    click.echo(f"🧠 Neural tournament: {m1} vs {m2} ({n} games)")
-    
-    try:
-        # Create game
-        game = EuchreGame(verbose=False)
-        
-        # Add AI players
-        game.add_ai_player(m1, "balanced", 0.5)
-        game.add_ai_player(m2, "balanced", 0.5)
-        game.add_ai_player("Charlie", "balanced", 0.5)
-        game.add_ai_player("David", "balanced", 0.5)
-        
-        # Play games
-        for i in range(n):
-            if i % 100 == 0:
-                click.echo(f"Neural game {i+1}/{n}...")
-            game.start_new_game()
-        
-        click.echo(f"🧠 Neural tournament completed! {n} games played.")
-        
-    except Exception as e:
-        click.echo(f"❌ Neural tournament failed: {e}", err=True)
+    click.echo("\n🎮 Usage Examples:")
+    click.echo("  • Play vs M-Series: euchre human-vs-m-series --m-series-model magnus")
+    click.echo("  • Play vs trained model: euchre human-vs-m-series --m-series-model magnus --model-path models/magnus_trained.pth")
+    click.echo("  • Mix AI types: euchre human-vs-ai --partner-ai-type magnus --opponent1-ai-type aggressive")
 
 
 @main.command()
