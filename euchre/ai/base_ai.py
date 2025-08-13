@@ -163,6 +163,39 @@ class BaseAI(Player):
         hand_strength = self._evaluate_hand_for_trump(top_card.suit, top_card, is_partner_dealing)
         return hand_strength >= 12.0
     
+    def choose_trump_suit(self, top_card: Card) -> Suit:
+        """Choose a trump suit when the top card is rejected.
+        
+        This method is called during the second round of trump selection
+        when no one ordered up the top card. The dealer must pick a suit
+        that is NOT the same as the turned down top card.
+        
+        Parameters
+        ----------
+        top_card : Card
+            The top card that was rejected (cannot be selected as trump)
+            
+        Returns
+        -------
+        Suit
+            The chosen trump suit (never the same as top_card.suit)
+        """
+        # Get available suits (excluding the turned down suit)
+        available_suits = [suit for suit in Suit if suit != top_card.suit]
+        
+        # Count cards by available suit
+        suit_counts = {}
+        for suit in available_suits:
+            suit_counts[suit] = len([card for card in self.hand if card.suit == suit])
+        
+        # Choose suit with most cards, or highest cards if tied
+        best_suit = max(suit_counts.keys(), key=lambda s: (
+            suit_counts[s], 
+            max([card.rank.value for card in self.hand if card.suit == s] or [0])
+        ))
+        
+        return best_suit
+    
     def choose_card_to_play(self, lead_suit: Optional[Suit], trump_suit: Optional[Suit]) -> Card:
         """Choose which card to play.
         

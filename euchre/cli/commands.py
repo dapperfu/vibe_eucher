@@ -269,9 +269,6 @@ class GameCommands:
                     game.round_number += 1
                     click.echo(f"\n🔄 Starting Round {game.round_number}")
                     
-                    # Start new round
-                    game._start_new_round()
-                    
                     # Print AI player hands at the start of each round
                     click.echo(f"\n🎴 AI Player Hands for Round {game.round_number}:")
                     for player in game.players:
@@ -300,6 +297,10 @@ class GameCommands:
                     if current_team1_score >= 10 or current_team2_score >= 10:
                         click.echo(f"\n🎉 Game Over! Team 1: {current_team1_score}, Team 2: {current_team2_score}")
                         break
+                    
+                    # Start new round AFTER scoring (this preserves trick counts for scoring)
+                    if game.round_number < max_rounds:
+                        game._start_new_round()
                     
                     # Add a small delay to make the game readable
                     import time
@@ -724,9 +725,9 @@ class GameCommands:
                             click.echo(f"Invalid input: {e}")
                 else:
                     # AI player's turn
-                    # For now, use simple AI logic - can be enhanced later
-                    if hasattr(current_player, 'should_call_trump'):
-                        trump_suit = current_player.should_call_trump(top_card)
+                    # Use the new choose_trump_suit method that respects the turned down suit rule
+                    if hasattr(current_player, 'choose_trump_suit'):
+                        trump_suit = current_player.choose_trump_suit(top_card)
                         if trump_suit and trump_suit != top_suit:
                             game.trump_suit = trump_suit
                             game.game_state_manager.set_trump_suit(trump_suit, current_player)
