@@ -106,10 +106,11 @@ class EuchreGame:
         # Reset the deck after dealer selection
         self.dealer_selection.reset_deck()
         
-        self.logger.debug("After resetting components")
-        self.logger.debug("Player hands after reset:")
-        for player in self.players:
-            self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
+        # Only show hands in very verbose mode to avoid redundancy
+        if self.very_verbose:
+            self.logger.debug("Player hands after reset:")
+            for player in self.players:
+                self.logger.debug(f"{player.name}: {[card.unicode_str() for card in player.hand]}")
         
         # Deal cards
         self._deal_cards()
@@ -121,10 +122,7 @@ class EuchreGame:
         for player in self.players:
             self.logger.info(f"{player.name}: {[card.unicode_str() for card in player.hand]}")
         
-        self.logger.debug("After dealing cards")
-        self.logger.debug("Player hands after dealing:")
-        for player in self.players:
-            self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
+        # Hands already shown above in info level, no need to repeat in debug
         
         # Reset round number
         self.round_number = 1
@@ -142,22 +140,23 @@ class EuchreGame:
         
         hands = self.deck.deal_cards(len(self.players))
         
-        # Debug: Print player objects and their hands
-        self.logger.debug(f"Number of players: {len(self.players)}")
-        self.logger.debug(f"Number of hands: {len(hands)}")
+        # Deal cards to players
         for i, (player, hand) in enumerate(zip(self.players, hands)):
-            self.logger.debug(f"Player {i}: {player.name} (id: {id(player)}) got {len(hand)} cards: {[card.unicode_str() for card in hand]}")
             player.hand = hand
-            self.logger.debug(f"After assignment: {player.name} (id: {id(player)}) has {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
         
         # Set the top card
         self.top_card = self.deck.draw_top_card()
-        self.logger.debug(f"Top card: {self.top_card}")
         
-        # Debug: Verify all players have cards after dealing
-        self.logger.debug("Final hand verification after dealing:")
-        for player in self.players:
-            self.logger.debug(f"{player.name} (id: {id(player)}) final hand: {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
+        # Only show detailed dealing info in very verbose mode
+        if self.very_verbose:
+            self.logger.debug(f"Number of players: {len(self.players)}")
+            self.logger.debug(f"Number of hands: {len(hands)}")
+            for i, (player, hand) in enumerate(zip(self.players, hands)):
+                self.logger.debug(f"Player {i}: {player.name} got {len(hand)} cards: {[card.unicode_str() for card in hand]}")
+            self.logger.debug(f"Top card: {self.top_card}")
+            self.logger.debug("Final hand verification after dealing:")
+            for player in self.players:
+                self.logger.debug(f"{player.name}: {[card.unicode_str() for card in player.hand]}")
         
         # Show kitty size
         self.logger.info(f"Kitty: {self.deck.size} cards remaining")
@@ -200,11 +199,18 @@ class EuchreGame:
         else:
             self.logger.info("Top Card: Picked up by player")
         
+        # Trump selection phase
+        if self.verbose:
+            self.logger.info("🎯 ===== TRUMP SELECTION PHASE =====")
+        
         trump_suit, caller = self.trump_selection_manager.select_trump_suit(
             self.players, 
             self.top_card, 
             self.game_state_manager.get_dealer()
         )
+        
+        if self.verbose:
+            self.logger.info("🎯 ===== END TRUMP SELECTION =====")
         
         # Set the trump suit in the game state
         if trump_suit:
@@ -222,10 +228,11 @@ class EuchreGame:
             self.game_state_manager.set_trump_suit(trump_suit, dealer)
             # Note: The detailed logging is now handled in the TrumpSelectionManager
         
-        # Debug: Check hands after trump selection
-        self.logger.debug("Player hands after trump selection:")
-        for player in self.players:
-            self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
+        # Show final hands after trump selection (only in very verbose mode)
+        if self.very_verbose:
+            self.logger.debug("Final hands after trump selection:")
+            for player in self.players:
+                self.logger.debug(f"{player.name}: {[card.unicode_str() for card in player.hand]}")
         
         # Log round start to file
         hands_dict = {player.name: player.hand for player in self.players}
@@ -259,26 +266,26 @@ class EuchreGame:
         # Start new game
         self.start_new_game()
         
-        self.logger.debug("After start_new_game")
-        self.logger.debug("Player hands:")
-        for player in self.players:
-            self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
+        # Only show hands in very verbose mode to avoid redundancy
+        if self.very_verbose:
+            self.logger.debug("Initial hands after game setup:")
+            for player in self.players:
+                self.logger.debug(f"{player.name}: {[card.unicode_str() for card in player.hand]}")
         
         # Start the first round
         self._start_new_round()
         
-        self.logger.debug("After _start_new_round")
-        self.logger.debug("Player hands:")
-        for player in self.players:
-            self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
+        # Hands already shown in _start_new_round, no need to repeat
         
         # Continue rounds until game is over
         while not self.scoring_manager.is_game_over(self.players):
             self.round_number += 1
             self.logger.info(f"Starting round {self.round_number}")
-            self.logger.debug("Player hands before new round:")
-            for player in self.players:
-                self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
+            # Only show hands in very verbose mode to avoid redundancy
+            if self.very_verbose:
+                self.logger.debug("Hands before new round:")
+                for player in self.players:
+                    self.logger.debug(f"{player.name}: {[card.unicode_str() for card in player.hand]}")
             
             # Start new round
             self._start_new_round()
@@ -287,9 +294,11 @@ class EuchreGame:
             self._play_round()
             
             self.logger.info(f"Completed round {self.round_number}")
-            self.logger.debug("Player hands after round:")
-            for player in self.players:
-                self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
+            # Only show hands in very verbose mode to avoid redundancy
+            if self.very_verbose:
+                self.logger.debug("Hands after round:")
+                for player in self.players:
+                    self.logger.debug(f"{player.name}: {[card.unicode_str() for card in player.hand]}")
         
         # Game is over
         self.logger.info("Game over")

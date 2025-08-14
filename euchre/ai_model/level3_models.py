@@ -16,7 +16,7 @@ Designed for 24GB NVIDIA GPU training with massive parameter counts.
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Tuple, Any, Union
 from dataclasses import dataclass
 from enum import Enum
 import math
@@ -971,19 +971,58 @@ def create_level3_model(model_config: Dict[str, Any]) -> Level3NeuralModel:
         )
 
 
-def create_level3_risk_profile(profile_name: str) -> Level3RiskProfile:
-    """Create predefined Level 3 risk profiles.
+def create_level3_risk_profile(profile_name_or_risk: Union[str, float]) -> Level3RiskProfile:
+    """Create predefined Level 3 risk profiles or generate from numeric risk value.
     
     Parameters
     ----------
-    profile_name : str
-        Name of the risk profile
+    profile_name_or_risk : Union[str, float]
+        Name of the risk profile or numeric risk value (0.0 to 1.0)
         
     Returns
     -------
     Level3RiskProfile
         Configured risk profile
     """
+    # Check if input is a numeric risk value
+    if isinstance(profile_name_or_risk, (int, float)):
+        risk_value = float(profile_name_or_risk)
+        # Clamp to valid range
+        risk_value = max(0.0, min(1.0, risk_value))
+        
+        # Generate profile from numeric risk value
+        profile = Level3RiskProfile()
+        
+        # Map risk value to profile parameters
+        profile.trump_calling_aggression = risk_value
+        profile.card_play_aggression = risk_value
+        profile.set_avoidance = 1.0 - risk_value  # Inverse relationship
+        profile.conservative_play = 1.0 - risk_value  # Inverse relationship
+        profile.bluffing_tendency = risk_value
+        profile.off_suit_aggression = risk_value
+        
+        # Adjust other parameters based on risk
+        if risk_value < 0.3:
+            # Conservative
+            profile.long_term_planning = 0.8
+            profile.partner_coordination = 0.9
+            profile.set_avoidance = 0.9
+        elif risk_value > 0.7:
+            # Aggressive
+            profile.long_term_planning = 0.6
+            profile.adaptation_speed = 0.9
+            profile.bluffing_tendency = 0.9
+        else:
+            # Balanced
+            profile.long_term_planning = 0.7
+            profile.partner_coordination = 0.7
+            profile.adaptation_speed = 0.7
+        
+        return profile
+    
+    # Handle string profile names
+    profile_name = str(profile_name_or_risk)
+    
     profiles = {
         'ultra_conservative': Level3RiskProfile(),
         'conservative': Level3RiskProfile(),

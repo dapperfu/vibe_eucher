@@ -35,15 +35,23 @@ class TrumpSelectionManager:
         Tuple[Optional[Suit], Optional[Player]]
             The selected trump suit and the player who called it
         """
+        if self.logger:
+            self.logger.info(f"🎯 Trump Selection Process Begins")
+            self.logger.info(f"   Top card: {top_card.unicode_str()}")
+            self.logger.info(f"   Dealer: {dealer.name}")
+            self.logger.info(f"   Starting with player to dealer's left...")
+        
         # First round: players can order up the top card
         trump_suit, caller = self._first_round_selection(players, top_card, dealer)
         
         if trump_suit:
+            if self.logger:
+                self.logger.info(f"✅ First round trump selection successful!")
             return trump_suit, caller
         
         # Second round: dealer picks suit if no one ordered up
         if self.logger:
-            self.logger.info("No one ordered up. Second round begins.")
+            self.logger.info("🔄 No one ordered up. Second round begins.")
         trump_suit = self._second_round_selection(players, dealer, top_card)
         return trump_suit, dealer
     
@@ -72,18 +80,21 @@ class TrumpSelectionManager:
             player_index = (start_index + i) % 4
             player = players[player_index]
             
+            if self.logger:
+                self.logger.info(f"   {player.name} considering...")
+            
             if player.player_type.name == "AI":
                 if self._ai_should_order_up(player, top_card, player_index == dealer_index):
                     if self.logger:
-                        self.logger.info(f"{player.name} orders it picked up.")
+                        self.logger.info(f"   🎯 {player.name} ORDERS IT UP!")
                     return top_card.suit, player
                 else:
                     if self.logger:
-                        self.logger.info(f"{player.name} passes")
+                        self.logger.info(f"   ❌ {player.name} passes")
             else:
                 # Human player - would prompt here
                 if self.logger:
-                    self.logger.info(f"{player.name} passes")
+                    self.logger.info(f"   ❌ {player.name} passes")
         
         return None, None
     
@@ -112,29 +123,32 @@ class TrumpSelectionManager:
             player_index = (start_index + i) % 4
             player = players[player_index]
             
+            if self.logger:
+                self.logger.info(f"   {player.name} considering second round...")
+            
             if player.player_type.name == "AI":
                 # AI players can call any suit as trump (excluding the turned down suit)
                 if hasattr(player, 'choose_trump_suit'):
                     trump_suit = player.choose_trump_suit(top_card)
                     if trump_suit and trump_suit != top_card.suit:
                         if self.logger:
-                            self.logger.info(f"{player.name} orders {trump_suit.name}.")
+                            self.logger.info(f"   🎯 {player.name} calls {trump_suit.name} as trump!")
                         return trump_suit
                 
                 # Fallback: pass
                 if self.logger:
-                    self.logger.info(f"{player.name} passes")
+                    self.logger.info(f"   ❌ {player.name} passes")
             else:
                 # Human player - would prompt here
                 if self.logger:
-                    self.logger.info(f"{player.name} passes")
+                    self.logger.info(f"   ❌ {player.name} passes")
         
         # If no one calls, dealer must pick
         if self.logger:
-            self.logger.info(f"{dealer.name} must pick a suit.")
+            self.logger.info(f"   🎲 {dealer.name} must pick a suit (dealer's choice).")
         trump_suit = self._dealer_suit_selection(dealer, top_card)
         if self.logger:
-            self.logger.info(f"{dealer.name} picks {trump_suit.name}.")
+            self.logger.info(f"   👑 {dealer.name} picks {trump_suit.name} as trump.")
         return trump_suit
     
     def _ai_should_order_up(self, player: Player, top_card: Card, is_dealer: bool) -> bool:
