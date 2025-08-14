@@ -82,13 +82,13 @@ class Level2AI(Player, BaseAIInterface):
     def _create_model(self):
         """Create the appropriate Level 2 model."""
         if self.model_type == "level2_strategic":
-            return StrategicModel(risk_profile=self.risk_profile_obj)
+            return StrategicModel()
         elif self.model_type == "level2_aggressive":
-            return AggressiveModel(risk_profile=self.risk_profile_obj)
+            return AggressiveModel()
         elif self.model_type == "level2_balanced":
-            return BalancedModel(risk_profile=self.risk_profile_obj)
+            return BalancedModel()
         elif self.model_type == "level2_intuitive":
-            return IntuitiveModel(risk_profile=self.risk_profile_obj)
+            return IntuitiveModel()
         else:
             raise ValueError(f"Unknown Level 2 model type: {self.model_type}")
     
@@ -275,6 +275,48 @@ class Level2AI(Player, BaseAIInterface):
                 card=fallback_card
             )
     
+    def play_card(self, context: GameContext) -> DecisionResult:
+        """Decide which card to play in the current trick."""
+        try:
+            # Prepare input tensor for the model
+            input_tensor = self._prepare_input_tensor(context)
+            
+            # Get model prediction
+            with torch.no_grad():
+                outputs = self.model(input_tensor, self.risk_profile_obj)
+                card_probs = torch.softmax(outputs['card_selection'], dim=-1)
+                chosen_card_idx = torch.argmax(card_probs).item()
+                confidence = card_probs[chosen_card_idx].item()
+            
+            # Get the chosen card
+            if 0 <= chosen_card_idx < len(context.hand):
+                chosen_card = context.hand[chosen_card_idx]
+            else:
+                # Fallback to first card if index is invalid
+                chosen_card = context.hand[0]
+                confidence = 0.5
+            
+            # Generate reasoning
+            reasoning = f"Level 2 AI {self.name} plays {chosen_card} with {confidence:.2%} confidence"
+            
+            return DecisionResult(
+                decision_type=DecisionType.PLAY_CARD,
+                confidence=confidence,
+                reasoning=reasoning,
+                metadata={'selected_card': str(chosen_card)}
+            )
+            
+        except Exception as e:
+            print(f"Error in Level 2 AI card selection: {e}")
+            # Fallback to first card
+            fallback_card = context.hand[0] if context.hand else None
+            return DecisionResult(
+                decision_type=DecisionType.PLAY_CARD,
+                confidence=0.3,
+                reasoning=f"Level 2 AI {self.name} encountered error, defaulting to first card",
+                metadata={'selected_card': str(fallback_card)}
+            )
+    
     def _prepare_input_tensor(self, context: GameContext) -> torch.Tensor:
         """
         Prepare input tensor for the neural network.
@@ -324,4 +366,85 @@ class Level2AI(Player, BaseAIInterface):
         except Exception as e:
             print(f"Error preparing input tensor: {e}")
             # Return zero tensor as fallback
-            return torch.zeros(1, 256, dtype=torch.float32) 
+            return torch.zeros(1, 256, dtype=torch.float32)
+    
+    def select_trump_suit(self, context: GameContext) -> DecisionResult:
+        """Select which suit to call as trump."""
+        try:
+            # Prepare input tensor for the model
+            input_tensor = self._prepare_input_tensor(context)
+            
+            # Get model prediction
+            with torch.no_grad():
+                outputs = self.model(input_tensor, self.risk_profile_obj)
+                suit_probs = torch.softmax(outputs['suit_selection'], dim=-1)
+                chosen_suit_idx = torch.argmax(suit_probs).item()
+                confidence = suit_probs[chosen_suit_idx].item()
+            
+            # Map index to suit
+            suit_map = [Suit.HEARTS, Suit.DIAMONDS, Suit.CLUBS, Suit.SPADES]
+            selected_suit = suit_map[chosen_suit_idx] if chosen_suit_idx < len(suit_map) else Suit.HEARTS
+            
+            reasoning = f"Level 2 AI {self.name} selected {selected_suit.name} as trump with {confidence:.2%} confidence"
+            
+            return DecisionResult(
+                decision_type=DecisionType.CALL_TRUMP,
+                confidence=confidence,
+                reasoning=reasoning,
+                metadata={'selected_suit': selected_suit.name}
+            )
+            
+        except Exception as e:
+            print(f"Error in Level 2 AI suit selection: {e}")
+            # Fallback to hearts
+            return DecisionResult(
+                decision_type=DecisionType.CALL_TRUMP,
+                confidence=0.3,
+                reasoning=f"Level 2 AI {self.name} encountered error, defaulting to hearts",
+                metadata={'selected_suit': 'HEARTS'}
+            )
+    
+    def discard_card(self, context: GameContext) -> DecisionResult:
+        """Decide which card to discard when partner calls trump."""
+        try:
+            # Prepare input tensor for the model
+            input_tensor = self._prepare_input_tensor(context)
+            
+            # Get model prediction
+            with torch.no_grad():
+                outputs = self.model(input_tensor, self.risk_profile_obj)
+                card_probs = torch.softmax(outputs['card_selection'], dim=-1)
+                
+                # For discarding, we want the card with lowest strategic value
+                # Invert the probabilities to favor lower-value cards
+                discard_probs = 1.0 - card_probs[0]
+                chosen_card_idx = torch.argmax(discard_probs).item()
+                confidence = discard_probs[chosen_card_idx].item()
+            
+            # Get the chosen card
+            if 0 <= chosen_card_idx < len(context.hand):
+                chosen_card = context.hand[chosen_card_idx]
+            else:
+                # Fallback to first card if index is invalid
+                chosen_card = context.hand[0]
+                confidence = 0.5
+            
+            reasoning = f"Level 2 AI {self.name} discards {chosen_card} with {confidence:.2%} confidence"
+            
+            return DecisionResult(
+                decision_type=DecisionType.DISCARD,
+                confidence=confidence,
+                reasoning=reasoning,
+                metadata={'discarded_card': str(chosen_card)}
+            )
+            
+        except Exception as e:
+            print(f"Error in Level 2 AI discard: {e}")
+            # Fallback to first card
+            fallback_card = context.hand[0] if context.hand else None
+            return DecisionResult(
+                decision_type=DecisionType.DISCARD,
+                confidence=0.3,
+                reasoning=f"Level 2 AI {self.name} encountered error, defaulting to first card",
+                metadata={'discarded_card': str(fallback_card)}
+            ) 
