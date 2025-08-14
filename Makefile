@@ -123,6 +123,7 @@ clean: ## Clean up generated files
 	rm -rf venv/
 	find . -type f -name "*.pyc" -delete
 	find . -type d -name "__pycache__" -delete
+	find . -type f -name "euchre_game_*.txt" -delete
 
 # =============================================================================
 # TRADITIONAL AI TRAINING
