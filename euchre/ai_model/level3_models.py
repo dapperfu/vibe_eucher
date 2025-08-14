@@ -57,9 +57,20 @@ class Level3RiskProfile:
         self.team_strategy_risk = 0.5
         self.communication_risk = 0.5
         
-    def get_risk_vector(self) -> torch.Tensor:
-        """Get the complete risk vector."""
-        return torch.tensor([
+    def get_risk_vector(self, device: Optional[torch.device] = None) -> torch.Tensor:
+        """Get the complete risk vector.
+        
+        Parameters
+        ----------
+        device : Optional[torch.device], optional
+            Device to place the tensor on. If None, uses CPU.
+            
+        Returns
+        -------
+        torch.Tensor
+            Risk vector tensor on the specified device
+        """
+        tensor = torch.tensor([
             self.trump_calling_aggression,
             self.card_play_aggression,
             self.set_avoidance,
@@ -80,6 +91,11 @@ class Level3RiskProfile:
             self.team_strategy_risk,
             self.communication_risk
         ], dtype=torch.float32)
+        
+        if device is not None:
+            tensor = tensor.to(device)
+            
+        return tensor
 
 
 class Level3GameStateEncoder:
@@ -725,7 +741,7 @@ class Level3NeuralModel(nn.Module):
         batch_size = x.size(0)
         
         # Get risk embedding
-        risk_vector = risk_params.get_risk_vector().unsqueeze(0).expand(batch_size, -1)
+        risk_vector = risk_params.get_risk_vector(device=x.device).unsqueeze(0).expand(batch_size, -1)
         risk_embedded = self.risk_embedding(risk_vector)
         
         # Combine input with risk embedding
@@ -876,7 +892,7 @@ class Level3RiskAwareModel(Level3NeuralModel):
             updated_risk = Level3RiskProfile()
             
             # Update each risk parameter
-            risk_vector = current_risk.get_risk_vector()
+            risk_vector = current_risk.get_risk_vector(device=hidden_features.device)
             adjusted_vector = torch.clamp(risk_vector + risk_adjustments[0], 0.0, 1.0)
             
             # Apply the adjusted values (this would need proper attribute setting)
