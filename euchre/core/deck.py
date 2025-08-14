@@ -77,6 +77,7 @@ class Deck:
         """Deal cards to players using traditional Euchre pattern.
         
         Traditional Euchre dealing: Deal 2 cards to each player, then 3 cards to each player.
+        This gives each player 5 cards and leaves 3 cards in the kitty.
         
         Parameters
         ----------
@@ -95,9 +96,9 @@ class Deck:
         
         hands = [[] for _ in range(num_players)]
         
-        # Traditional Euchre dealing: 2 cards first, then 3 cards
+        # Traditional Euchre dealing: 2, 3, 2, 3, 3, 2, 3, 2 pattern
         if cards_per_player == 5:
-            # First round: Deal 2 cards to each player
+            # Traditional Euchre dealing: Deal 2 cards to each player
             for i in range(2):
                 for j in range(num_players):
                     if self._cards:
