@@ -14,13 +14,13 @@ venv: ## Create virtual environment
 install: venv ## Install dependencies (traditional method)
 	venv/bin/pip install --upgrade pip
 	venv/bin/pip install uv
-	venv/bin/uv pip install -r requirements.txt
+	venv/bin/uv pip install --python venv/bin/python -r requirements.txt
 
 install-pip: venv/lib/python3.12/site-packages/euchre.egg-link ## Install package with pip (editable mode)
 	@echo "Package already installed in editable mode"
 
 venv/lib/python3.12/site-packages/euchre.egg-link: venv
-	venv/bin/uv pip install -e .
+	venv/bin/uv pip install --python venv/bin/python -e .
 	touch $@
 
 # =============================================================================
@@ -186,7 +186,7 @@ install-gpu: venv/lib/python3.12/site-packages/torch ## Install GPU dependencies
 	venv/bin/python -c "import torch; print(f'PyTorch: {torch.__version__}'); print(f'CUDA/ROCm available: {torch.cuda.is_available()}'); print(f'Device count: {torch.cuda.device_count() if torch.cuda.is_available() else 0}')"
 
 venv/lib/python3.12/site-packages/torch: install
-	venv/bin/uv pip install torch torchvision torchaudio
+	venv/bin/uv pip install --python venv/bin/python torch torchvision torchaudio
 
 train-level2: install-gpu ## Train Level2 AI models using unified trainer
 	@echo "Starting Level2 AI training with unified trainer..."
