@@ -76,8 +76,10 @@ class Deck:
     def deal_cards(self, num_players: int, cards_per_player: int = 5) -> List[List[Card]]:
         """Deal cards to players using traditional Euchre pattern.
         
-        Traditional Euchre dealing: Deal 2 cards to each player, then 3 cards to each player.
-        This gives each player 5 cards and leaves 3 cards in the kitty.
+        Traditional Euchre dealing: Each player gets cards individually in sequence.
+        Round 1: Player 1 gets 2, Player 2 gets 3, Player 3 gets 2, Player 4 gets 3
+        Round 2: Player 1 gets 3, Player 2 gets 2, Player 3 gets 3, Player 4 gets 2
+        This gives each player exactly 5 cards and leaves 3 cards in the kitty.
         
         Parameters
         ----------
@@ -96,19 +98,26 @@ class Deck:
         
         hands = [[] for _ in range(num_players)]
         
-        # Traditional Euchre dealing: 2, 3, 2, 3, 3, 2, 3, 2 pattern
+        # Traditional Euchre dealing: Each player gets cards individually in sequence
         if cards_per_player == 5:
-            # Traditional Euchre dealing: Deal 2 cards to each player
-            for i in range(2):
-                for j in range(num_players):
-                    if self._cards:
-                        hands[j].append(self._cards.pop())
+            # Traditional Euchre dealing: Each player gets cards individually in sequence
+            # Round 1: Player 1 gets 2, Player 2 gets 3, Player 3 gets 2, Player 4 gets 3
+            # Round 2: Player 1 gets 3, Player 2 gets 2, Player 3 gets 3, Player 4 gets 2
+            # This gives each player exactly 5 cards
             
-            # Second round: Deal 3 cards to each player
-            for i in range(3):
-                for j in range(num_players):
+            # First round: Deal 2, 3, 2, 3
+            deal_pattern_round1 = [2, 3, 2, 3]
+            for i, cards_to_deal in enumerate(deal_pattern_round1):
+                for j in range(cards_to_deal):
                     if self._cards:
-                        hands[j].append(self._cards.pop())
+                        hands[i].append(self._cards.pop())
+            
+            # Second round: Deal 3, 2, 3, 2
+            deal_pattern_round2 = [3, 2, 3, 2]
+            for i, cards_to_deal in enumerate(deal_pattern_round2):
+                for j in range(cards_to_deal):
+                    if self._cards:
+                        hands[i].append(self._cards.pop())
         else:
             # Fallback to round-robin for non-standard card counts
             for i in range(cards_per_player):

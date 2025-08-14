@@ -142,7 +142,7 @@ class EuchreGame:
     def _deal_cards(self):
         """Deal 5 cards to each player and set the top card."""
         self.logger.info("🎴 Dealing cards using traditional Euchre pattern...")
-        self.logger.info("   Deal pattern: 2 cards to each player, then 3 cards to each player (5 cards per player)")
+        self.logger.info("   Deal pattern: Round 1: P1(2), P2(3), P3(2), P4(3); Round 2: P1(3), P2(2), P3(3), P4(2)")
         self.logger.info("   Kitty: 3 cards remaining")
         
         hands = self.deck.deal_cards(len(self.players))
