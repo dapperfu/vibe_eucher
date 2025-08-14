@@ -590,6 +590,9 @@ class Level3NeuralModel(nn.Module):
                 batch_first=True,
                 dropout=0.1
             )
+            
+            # Projection layer to reduce concatenated memory features back to hidden_size
+            self.memory_projection = nn.Linear(hidden_size * 3, hidden_size)
         
         # Transformer layers
         if use_transformer:
@@ -622,7 +625,7 @@ class Level3NeuralModel(nn.Module):
         
         # Feature fusion layers
         self.feature_fusion = nn.Sequential(
-            nn.Linear(hidden_size * 2, hidden_size),
+            nn.Linear(hidden_size, hidden_size),  # hidden_size * 4 / 4 = hidden_size
             nn.GELU(),
             nn.BatchNorm1d(hidden_size),
             nn.Dropout(0.2)
@@ -770,6 +773,7 @@ class Level3NeuralModel(nn.Module):
             
             # Combine memory outputs
             h = torch.cat([h, lstm_out, attn_out], dim=1)
+            h = self.memory_projection(h) # Apply projection
             h = self.layer_norm3(h)
         
         # Transformer processing

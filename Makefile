@@ -11,13 +11,14 @@ help: ## Show this help message
 venv: ## Create virtual environment
 	python3 -m venv venv
 
-install: venv/lib/python3.12/site-packages/pytest ## Install dependencies (traditional method)
+install: venv ## Install dependencies (traditional method)
 	venv/bin/pip install --upgrade pip
-	venv/bin/pip install -r requirements.txt
+	venv/bin/pip install uv
+	venv/bin/uv pip install -r requirements.txt
 
 install-pip: venv ## Install package with pip (editable mode)
 	venv/bin/pip install --upgrade pip
-	venv/bin/pip install -e .
+	venv/bin/uv pip install -e .
 
 # =============================================================================
 # TESTING
@@ -179,7 +180,7 @@ benchmark: install ## Run performance benchmark comparing float vs integer model
 install-gpu: install ## Install GPU dependencies for Level2 training
 	@echo "Installing GPU dependencies..."
 	@echo "Installing PyTorch with automatic backend detection..."
-	venv/bin/pip install torch torchvision torchaudio
+	venv/bin/uv pip install torch torchvision torchaudio
 	@echo "GPU dependencies installed. Checking availability..."
 	venv/bin/python -c "import torch; print(f'PyTorch: {torch.__version__}'); print(f'CUDA/ROCm available: {torch.cuda.is_available()}'); print(f'Device count: {torch.cuda.device_count() if torch.cuda.is_available() else 0}')"
 
