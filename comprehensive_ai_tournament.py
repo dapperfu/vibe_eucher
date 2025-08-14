@@ -96,22 +96,25 @@ class ComprehensiveAITournament:
         # AI level configurations
         self.ai_levels = {
             "Level1": {
-                "types": ["balanced", "aggressive", "conservative", "opportunistic"],
-                "risk_ratios": [0.5, 0.8, 0.2, 0.7]
+                "description": "Traditional rule-based AI with configurable risk tolerance",
+                "risk_range": "0.0 (conservative) to 1.0 (aggressive)"
             },
             "Level2": {
-                "types": ["level2_strategic", "level2_balanced", "level2_aggressive"],
-                "risk_ratios": [0.5, 0.5, 0.8]
+                "description": "Neural network AI with learned strategies",
+                "risk_range": "0.0 (conservative) to 1.0 (aggressive)"
             },
             "Level3": {
-                "types": ["level3_strategic", "level3_balanced", "level3_aggressive"],
-                "risk_ratios": [0.5, 0.5, 0.8]
+                "description": "Advanced neural AI with ultra-comprehensive modeling",
+                "risk_range": "0.0 (conservative) to 1.0 (aggressive)"
             }
         }
         
         print(f"🏆 Comprehensive AI Tournament System")
         print(f"   Games per match: {games_per_match}")
-        print(f"   AI Levels: {', '.join(self.ai_levels.keys())}")
+        print(f"   AI Levels:")
+        for level, config in self.ai_levels.items():
+            print(f"     {level}: {config['description']}")
+            print(f"           Risk range: {config['risk_range']}")
         print()
     
     def run_tournament(self) -> TournamentStats:
@@ -246,30 +249,56 @@ class ComprehensiveAITournament:
         players = []
         
         if level == "Level1":
-            # Create two Level1 AI players with different styles
-            players.append(AIFactory.create_ai_player(f"{team_name}_Alice", "balanced", 0.5))
-            players.append(AIFactory.create_ai_player(f"{team_name}_Bob", "aggressive", 0.8))
+            # Create two Level1 AI players with different risk profiles
+            try:
+                players.append(AIFactory.create_ai_player(f"{team_name}_Alice", "balanced", 0.3))  # Lower risk
+                players.append(AIFactory.create_ai_player(f"{team_name}_Bob", "balanced", 0.7))   # Higher risk
+            except Exception as e:
+                print(f"   ⚠️ Failed to create Level1 AI: {e}")
+                # Fallback to basic AI
+                from euchre.ai.ai_profiles import BalancedAI
+                players.append(BalancedAI(f"{team_name}_Alice", 0.3))
+                players.append(BalancedAI(f"{team_name}_Bob", 0.7))
         
         elif level == "Level2":
-            # Create two Level2 AI players
+            # Create two Level2 AI players with different risk profiles
             try:
-                players.append(AIFactory.create_ai_player(f"{team_name}_Alice", "level2_strategic", 0.5))
-                players.append(AIFactory.create_ai_player(f"{team_name}_Bob", "level2_balanced", 0.5))
-            except:
+                players.append(AIFactory.create_ai_player(f"{team_name}_Alice", "level2_strategic", 0.3))
+                players.append(AIFactory.create_ai_player(f"{team_name}_Bob", "level2_strategic", 0.7))
+            except Exception as e:
+                print(f"   ⚠️ Failed to create Level2 AI: {e}, falling back to Level1")
                 # Fallback to Level1 if Level2 not available
-                players.append(AIFactory.create_ai_player(f"{team_name}_Alice", "strategic", 0.5))
-                players.append(AIFactory.create_ai_player(f"{team_name}_Bob", "balanced", 0.5))
+                try:
+                    players.append(AIFactory.create_ai_player(f"{team_name}_Alice", "balanced", 0.3))
+                    players.append(AIFactory.create_ai_player(f"{team_name}_Bob", "balanced", 0.7))
+                except Exception as e2:
+                    print(f"   ⚠️ Failed to create fallback Level1 AI: {e2}")
+                    from euchre.ai.ai_profiles import BalancedAI
+                    players.append(BalancedAI(f"{team_name}_Alice", 0.3))
+                    players.append(BalancedAI(f"{team_name}_Bob", 0.7))
         
         elif level == "Level3":
-            # Create two Level3 AI players
+            # Create two Level3 AI players with different risk profiles
             try:
-                players.append(AIFactory.create_ai_player(f"{team_name}_Alice", "level3_strategic", 0.5))
-                players.append(AIFactory.create_ai_player(f"{team_name}_Bob", "level3_balanced", 0.5))
-            except:
+                players.append(AIFactory.create_ai_player(f"{team_name}_Alice", "level3_strategic", 0.3))
+                players.append(AIFactory.create_ai_player(f"{team_name}_Bob", "level3_strategic", 0.7))
+            except Exception as e:
+                print(f"   ⚠️ Failed to create Level3 AI: {e}, falling back to Level1")
                 # Fallback to Level1 if Level3 not available
-                players.append(AIFactory.create_ai_player(f"{team_name}_Alice", "strategic", 0.5))
-                players.append(AIFactory.create_ai_player(f"{team_name}_Bob", "balanced", 0.5))
+                try:
+                    players.append(AIFactory.create_ai_player(f"{team_name}_Alice", "balanced", 0.3))
+                    players.append(AIFactory.create_ai_player(f"{team_name}_Bob", "balanced", 0.7))
+                except Exception as e2:
+                    print(f"   ⚠️ Failed to create fallback Level1 AI: {e2}")
+                    from euchre.ai.ai_profiles import BalancedAI
+                    players.append(BalancedAI(f"{team_name}_Alice", 0.3))
+                    players.append(BalancedAI(f"{team_name}_Bob", 0.7))
         
+        # Verify all players were created successfully
+        if len(players) != 2:
+            raise ValueError(f"Failed to create team for {level}: only {len(players)} players created")
+        
+        print(f"   ✅ Created {level} team: {players[0].name}, {players[1].name}")
         return players
     
     def _print_match_summary(self, result: MatchResult):
@@ -405,7 +434,7 @@ def main():
     print("=" * 60)
     
     # Run tournament
-    tournament = ComprehensiveAITournament(games_per_match=25)  # Start with 25 games per match
+    tournament = ComprehensiveAITournament(games_per_match=5)  # Start with just 5 games per match for testing
     stats = tournament.run_tournament()
     
     print("\n🎉 Comprehensive tournament completed successfully!")

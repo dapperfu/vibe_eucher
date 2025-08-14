@@ -328,7 +328,7 @@ comprehensive-tournament: install-gpu ## Run comprehensive tournament: Level1 vs
 
 comprehensive-analysis: install ## Analyze comprehensive tournament results
 	@echo "📊 Analyzing comprehensive tournament results..."
-	@if [ -f "comprehensive_tournament_results_*.json" ]; then \
+	@if ls comprehensive_tournament_results_*.json 1> /dev/null 2>&1; then \
 		echo "Found tournament results:"; \
 		ls -la comprehensive_tournament_results_*.json; \
 		echo ""; \
