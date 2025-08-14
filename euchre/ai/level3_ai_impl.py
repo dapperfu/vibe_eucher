@@ -79,8 +79,10 @@ class Level3AI(Player, BaseAIInterface):
         # Initialize AI interface
         BaseAIInterface.__init__(self, name, risk_profile=0.5)
         
+        # Store the risk profile name for later use
+        self.risk_profile_name = risk_profile
+        
         self.model_type = model_type.lower()
-        self.risk_profile_name = risk_profile.lower()
         self.model_path = model_path
         
         # Device setup
