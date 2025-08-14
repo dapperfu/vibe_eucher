@@ -39,7 +39,7 @@ run: install ## Run the euchre game
 
 ai-game: install ## Play AI vs AI game with full verbosity
 	@echo "🤖 Starting AI vs AI Game with full verbosity..."
-	venv/bin/python -m euchre.cli_main --very-verbose ai-vs-ai
+	venv/bin/python -m euchre.cli_main ai-vs-ai --very-verbose
 
 ai-game-ncurses: install ## Play AI vs AI game with ncurses interface
 	@echo "🖥️  Starting ncurses interface..."
