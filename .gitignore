@@ -142,6 +142,11 @@ Thumbs.db
 # Game log files (large files that shouldn't be tracked)
 euchre_game_*.txt
 game_*.txt
+*_game_*.txt
+*_log_*.txt
+*.log
+game_logs/
+logs/
 
 # Training data and models (should not be in version control)
 training_data/
