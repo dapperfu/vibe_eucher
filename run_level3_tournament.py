@@ -96,8 +96,8 @@ class Level3TournamentRunner:
             ]
             
             team_b_players = [
-                AIFactory.create_ai_player(f"Traditional_Charlie_{game_id}", "strategic", 0.5),
-                AIFactory.create_ai_player(f"Traditional_David_{game_id}", "balanced", 0.5)
+                AIFactory.create_ai_player(f"Traditional_Charlie_{game_id}", "level1_aggressive", 0.5),
+                AIFactory.create_ai_player(f"Traditional_David_{game_id}", "level1_balanced", 0.5)
             ]
             
             # Add players to game
