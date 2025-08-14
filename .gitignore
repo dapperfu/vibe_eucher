@@ -169,6 +169,7 @@ checkpoints/
 !requirements*.txt
 
 # Game data files
+euchre_game_*.txt
 games/
 neural_games/
 test_ai_profiles/
