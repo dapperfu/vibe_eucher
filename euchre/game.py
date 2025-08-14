@@ -62,6 +62,7 @@ class EuchreGame:
         self.tricks_won = {}
         self.round_number = 1
         self._top_card_picked_up = False  # Track if top card was picked up
+        self._dealer_ordered_up_top_card = False  # Track if dealer actually ordered up top card in first round
         
         # Initialize dealer selection (will be done in start_new_game)
         self.dealer_selection = None
@@ -190,6 +191,7 @@ class EuchreGame:
             player.tricks_won = 0
         self.trump_suit = None
         self._top_card_picked_up = False  # Reset top card picked up flag
+        self._dealer_ordered_up_top_card = False  # Reset dealer ordered up flag
         
         # Deal new cards for this round (unless it's the first round which was already dealt)
         if self.round_number > 1:
@@ -239,12 +241,20 @@ class EuchreGame:
                 self._handle_dealer_pickup(dealer, self.top_card)
                 self._top_card_picked_up = True
                 self.logger.info(f"🔄 {dealer.name} (dealer) picks up {self.top_card.unicode_str()}")
-            else:  # Dealer ordered it up
+            elif caller == dealer and trump_suit == self.top_card.suit:  # Dealer ordered up the top card
+                self._dealer_ordered_up_top_card = True  # Set flag that dealer actually ordered up top card
                 self._top_card_picked_up = True
                 self.logger.info(f"🔄 {dealer.name} (dealer) orders up {self.top_card.unicode_str()}")
+            # Note: If dealer == caller but trump_suit != top_card.suit, it means he was forced to pick a different suit
+            # In this case, the top card stays in the kitty and is not picked up
         
         if caller:
-            self.logger.info(f"{caller.name} called {trump_suit.name} as trump!")
+            if caller == self.game_state_manager.get_dealer() and trump_suit != self.top_card.suit:
+                # Dealer was forced to pick a different suit
+                self.logger.info(f"{caller.name} (dealer) was forced to pick {trump_suit.name} as trump!")
+            else:
+                # Normal trump call
+                self.logger.info(f"{caller.name} called {trump_suit.name} as trump!")
         else:
             self.logger.info(f"Trump suit is {trump_suit.name}")
         
