@@ -13,6 +13,13 @@ try:
 except ImportError:
     LEVEL2_AVAILABLE = False
 
+# Import Level 3 models if available
+try:
+    from .level3_ai_impl import Level3AI
+    LEVEL3_AVAILABLE = True
+except ImportError:
+    LEVEL3_AVAILABLE = False
+
 
 class AIFactory:
     """Factory for creating AI players with different profiles."""
@@ -29,11 +36,12 @@ class AIFactory:
             The player's name
         ai_type : str
             Type of AI: "level1_aggressive", "level1_conservative", "level1_balanced", "level1_opportunistic",
-                       "level2_strategic", "level2_aggressive", "level2_balanced", "level2_intuitive"
+                       "level2_strategic", "level2_aggressive", "level2_balanced", "level2_intuitive",
+                       "level3_strategic", "level3_aggressive", "level3_balanced", "level3_conservative", "level3_opportunistic"
         risk_ratio : float
             Risk tolerance (0.0 = conservative, 1.0 = aggressive)
         model_path : str, optional
-            Path to trained Level 2 model file (.pth)
+            Path to trained Level 2 or Level 3 model file (.pth)
             
         Returns
         -------
@@ -41,6 +49,13 @@ class AIFactory:
             The created AI player (either new interface or legacy Player)
         """
         ai_type = ai_type.lower()
+        
+        # Check if this is a Level 3 model type
+        if ai_type in ["level3_strategic", "level3_aggressive", "level3_balanced", "level3_conservative", "level3_opportunistic"]:
+            if not LEVEL3_AVAILABLE:
+                raise ValueError(f"Level 3 models not available. Install PyTorch and Level 3 dependencies.")
+            
+            return Level3AI(name, ai_type, risk_ratio, model_path)
         
         # Check if this is a Level 2 model type
         if ai_type in ["level2_strategic", "level2_aggressive", "level2_balanced", "level2_intuitive"]:
@@ -179,11 +194,17 @@ class AIFactory:
         """
         level1_types = ["level1_aggressive", "level1_conservative", "level1_balanced", "level1_opportunistic"]
         
+        available_types = level1_types.copy()
+        
         if LEVEL2_AVAILABLE:
             level2_types = ["level2_strategic", "level2_aggressive", "level2_balanced", "level2_intuitive"]
-            return level1_types + level2_types
+            available_types.extend(level2_types)
         
-        return level1_types
+        if LEVEL3_AVAILABLE:
+            level3_types = ["level3_strategic", "level3_aggressive", "level3_balanced", "level3_conservative", "level3_opportunistic"]
+            available_types.extend(level3_types)
+        
+        return available_types
     
     @staticmethod
     def is_level1_type(ai_type: str) -> bool:
@@ -218,6 +239,22 @@ class AIFactory:
         return ai_type.lower() in ["level2_strategic", "level2_aggressive", "level2_balanced", "level2_intuitive"]
     
     @staticmethod
+    def is_level3_type(ai_type: str) -> bool:
+        """Check if an AI type is a Level 3 model.
+        
+        Parameters
+        ----------
+        ai_type : str
+            The AI type to check
+            
+        Returns
+        -------
+        bool
+            True if it's a Level 3 type, False otherwise
+        """
+        return ai_type.lower() in ["level3_strategic", "level3_aggressive", "level3_balanced", "level3_conservative", "level3_opportunistic"]
+    
+    @staticmethod
     def is_new_interface_type(ai_type: str) -> bool:
         """Check if an AI type uses the new interface system.
         
@@ -232,7 +269,8 @@ class AIFactory:
             True if it uses the new interface, False if it's legacy
         """
         new_interface_types = ["level1_aggressive", "level1_conservative", "level1_balanced", "level1_opportunistic",
-                              "level2_strategic", "level2_aggressive", "level2_balanced", "level2_intuitive"]
+                              "level2_strategic", "level2_aggressive", "level2_balanced", "level2_intuitive",
+                              "level3_strategic", "level3_aggressive", "level3_balanced", "level3_conservative", "level3_opportunistic"]
         return ai_type.lower() in new_interface_types
     
     @staticmethod
@@ -265,4 +303,30 @@ class AIFactory:
         bool
             True if the risk ratio is valid
         """
-        return 0.0 <= risk_ratio <= 1.0 
+        return 0.0 <= risk_ratio <= 1.0
+    
+    @staticmethod
+    def create_level3_players(model_type: str = "level3_strategic", 
+                               model_path: Optional[str] = None) -> List[BaseAIInterface]:
+        """Create Level 3 AI players.
+        
+        Parameters
+        ----------
+        model_type : str
+            Type of Level 3 model to use
+        model_path : str, optional
+            Path to trained model file
+            
+        Returns
+        -------
+        List[BaseAIInterface]
+            List of Level 3 AI players
+        """
+        if not LEVEL3_AVAILABLE:
+            raise ValueError("Level 3 models not available. Install PyTorch and Level 3 dependencies.")
+        
+        names = ["Alice", "Bob", "Charlie", "David"]
+        ai_types = [model_type] * 4
+        model_paths = [model_path] * 4
+        
+        return AIFactory.create_ai_players(names, ai_types, model_paths) 
