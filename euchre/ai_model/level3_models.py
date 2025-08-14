@@ -695,6 +695,23 @@ class Level3NeuralModel(nn.Module):
         self.layer_norm2 = nn.LayerNorm(hidden_size)
         self.layer_norm3 = nn.LayerNorm(hidden_size)
         
+        # Risk dynamics LSTM for tracking risk changes over time
+        self.risk_dynamics_lstm = nn.LSTM(
+            input_size=hidden_size,
+            hidden_size=hidden_size // 2,
+            num_layers=2,
+            batch_first=True,
+            dropout=0.1
+        )
+        
+        # Risk predictor for forecasting risk changes
+        self.risk_predictor = nn.Sequential(
+            nn.Linear(hidden_size // 2, hidden_size // 4),
+            nn.GELU(),
+            nn.Dropout(0.1),
+            nn.Linear(hidden_size // 4, 19)  # 19 risk parameters
+        )
+        
         # Initialize weights
         self._initialize_weights()
     
