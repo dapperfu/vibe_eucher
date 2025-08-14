@@ -125,19 +125,27 @@ class Level3GameDataset(Dataset):
                 
                 # Play a few rounds to generate some data
                 try:
-                    # Play up to 5 rounds to generate some tricks
-                    for round_num in range(5):
-                        if hasattr(game, 'play_round'):
-                            game.play_round()
-                        elif hasattr(game, '_play_round'):
-                            game._play_round()
+                    # Play only 1 round to generate tricks (5 tricks = 1 round in euchre)
+                    # Each round consumes all 5 cards from each player
+                    if hasattr(game, 'play_round'):
+                        game.play_round()
+                    elif hasattr(game, '_play_round'):
+                        game._play_round()
+                    
+                    # Check if game is over after the round
+                    if hasattr(game, 'is_game_over') and game.is_game_over():
+                        print(f"Game {game_num} completed after 1 round")
+                    else:
+                        print(f"Game {game_num} still in progress after 1 round")
                         
-                        # Check if game is over
-                        if hasattr(game, 'is_game_over') and game.is_game_over():
-                            break
                 except Exception as e:
                     # If playing fails, just continue with basic game data
                     print(f"Warning: Game {game_num} playing failed: {e}")
+                    # Check if players still have cards for basic data extraction
+                    players_with_cards = [p for p in game.players if hasattr(p, 'hand') and len(p.hand) > 0]
+                    if len(players_with_cards) == 0:
+                        print(f"Warning: Game {game_num} players have no cards, skipping data extraction")
+                        continue
                 
                 # Collect game state data
                 game_data = self._extract_game_data(game)
@@ -226,39 +234,22 @@ class Level3GameDataset(Dataset):
                 
                 game_data['tricks'].append(trick_data)
         
-        # Extract final scores - handle case where game_state might be None
+        # Extract final scores - use the scoring manager to get current team scores
         try:
-            # Use the new get_scores method if available
-            if hasattr(game, 'get_scores'):
-                scores = game.get_scores()
+            if hasattr(game, 'scoring_manager') and hasattr(game.scoring_manager, 'get_team_scores'):
+                team1_score, team2_score = game.scoring_manager.get_team_scores(game.players)
                 game_data['final_scores'] = {
-                    'team1': scores.get('team1_score', 0),
-                    'team2': scores.get('team2_score', 0)
+                    'team1': team1_score,
+                    'team2': team2_score
                 }
-            elif hasattr(game, 'game_state') and game.game_state is not None:
-                try:
-                    game_data['final_scores'] = {
-                        'team1': getattr(game.game_state, 'team1_score', 0),
-                        'team2': getattr(game.game_state, 'team2_score', 0)
-                    }
-                except AttributeError:
-                    # Fallback to default scores if attributes don't exist
-                    game_data['final_scores'] = {'team1': 0, 'team2': 0}
             else:
-                # If no game_state, try alternative score sources
-                try:
-                    # Check if scores are stored directly on the game object
-                    if hasattr(game, 'team1_score'):
-                        game_data['final_scores'] = {
-                            'team1': game.team1_score,
-                            'team2': game.team2_score
-                        }
-                    else:
-                        # Default scores
-                        game_data['final_scores'] = {'team1': 0, 'team2': 0}
-                except AttributeError:
-                    # Final fallback
-                    game_data['final_scores'] = {'team1': 0, 'team2': 0}
+                # Fallback: calculate scores from player scores
+                team1_score = sum(game.players[i].score for i in range(0, 4, 2))
+                team2_score = sum(game.players[i].score for i in range(1, 4, 2))
+                game_data['final_scores'] = {
+                    'team1': team1_score,
+                    'team2': team2_score
+                }
         except Exception as e:
             # If all else fails, use default scores
             print(f"Warning: Could not extract scores from game: {e}")
