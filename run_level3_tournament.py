@@ -276,7 +276,7 @@ def main():
     print("=" * 50)
     
     # Run tournament
-    runner = Level3TournamentRunner(num_games=10)  # Start with 10 games for testing
+    runner = Level3TournamentRunner(num_games=3)  # Start with just 3 games for testing
     stats = runner.run_tournament()
     
     print("\n🎉 Tournament completed successfully!")

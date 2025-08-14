@@ -37,7 +37,7 @@ def play():
     
     # Start game
     try:
-        game.start_new_game()
+        game.run_full_game()
         click.echo("✅ Game completed successfully!")
     except Exception as e:
         click.echo(f"❌ Game failed: {e}", err=True)
@@ -63,7 +63,7 @@ def ai_vs_ai(very_verbose: bool):
     
     # Start game
     try:
-        game.start_new_game()
+        game.run_full_game()
         click.echo("✅ AI vs AI game completed successfully!")
     except Exception as e:
         click.echo(f"❌ AI vs AI game failed: {e}", err=True)
@@ -117,7 +117,7 @@ def logged_game():
     
     # Start game
     try:
-        game.start_new_game()
+        game.run_full_game()
         click.echo("✅ Logged game completed successfully!")
     except Exception as e:
         click.echo(f"❌ Logged game failed: {e}", err=True)

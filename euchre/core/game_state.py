@@ -50,10 +50,10 @@ class GameStateManager:
             # First round, set dealer to first player
             self.dealer = self.players[0]
         
-        # Reset round-specific state
+        # Reset round-specific state (but preserve trump caller team for scoring)
         self.trump_suit = None
         self.trump_caller = None
-        self.trump_caller_team = None
+        # Don't reset trump_caller_team here - it's needed for scoring the previous round
     
     def set_trump_suit(self, trump_suit: Suit, caller: Player) -> None:
         """Set the trump suit and caller.

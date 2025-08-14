@@ -14,6 +14,7 @@ from .core.scoring import ScoringManager
 from .core.dealer_selection import DealerSelection
 from .game_logic.trump_selection import TrumpSelectionManager
 from .ai.ai_factory import AIFactory
+from .ai.ai_adapter import AIAdapter
 from .models import Player, PlayerType, Card, Suit, Trick
 from .utils.logging_config import GameLogger
 import click
@@ -168,9 +169,11 @@ class EuchreGame:
             self.game_state_manager.start_new_round()
         
         self.logger.info(f"\n=== Starting Round {self.round_number} ===")
-        self.logger.debug("Player hands at start of round:")
-        for player in self.players:
-            self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
+        # Only show hands in very verbose mode to avoid redundancy
+        if self.very_verbose:
+            self.logger.debug("Player hands at start of round:")
+            for player in self.players:
+                self.logger.debug(f"{player.name}: {[card.unicode_str() for card in player.hand]}")
         
         # Reset round state
         self.current_trick = None
@@ -188,9 +191,11 @@ class EuchreGame:
             # Reset and shuffle the deck for the new round
             self.deck.reset_and_shuffle()
             self._deal_cards()  # This will assign new hands directly to player.hand
-            self.logger.debug("Player hands after dealing new cards:")
-            for player in self.players:
-                self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
+            # Only show hands in very verbose mode to avoid redundancy
+            if self.very_verbose:
+                self.logger.debug("Player hands after dealing new cards:")
+                for player in self.players:
+                    self.logger.debug(f"{player.name}: {[card.unicode_str() for card in player.hand]}")
         
         # Select trump suit
         self.logger.info(f"Dealer: {self.game_state_manager.get_dealer().name}")
@@ -216,6 +221,18 @@ class EuchreGame:
         if trump_suit:
             self.trump_suit = trump_suit
             self.game_state_manager.set_trump_suit(trump_suit, caller or self.game_state_manager.get_dealer())
+            
+            # Handle dealer pickup when someone orders up the top card
+            if caller and self.top_card and not self._top_card_picked_up:
+                dealer = self.game_state_manager.get_dealer()
+                if caller != dealer:  # Someone other than dealer ordered it up
+                    self._handle_dealer_pickup(dealer, self.top_card)
+                    self._top_card_picked_up = True
+                    self.logger.info(f"🔄 {dealer.name} (dealer) picks up {self.top_card.unicode_str()}")
+                else:  # Dealer ordered it up
+                    self._top_card_picked_up = True
+                    self.logger.info(f"🔄 {dealer.name} (dealer) orders up {self.top_card.unicode_str()}")
+            
             if caller:
                 self.logger.info(f"{caller.name} called {trump_suit.name} as trump!")
             else:
@@ -240,6 +257,32 @@ class EuchreGame:
         self.logger.log_round_start(self.round_number, trump_suit_name, hands_dict)
         
         # Note: Round playing is now handled separately by the calling method
+    
+    def _handle_dealer_pickup(self, dealer: Player, top_card: Card) -> None:
+        """Handle the dealer picking up the top card and discarding one card.
+        
+        Parameters
+        ----------
+        dealer : Player
+            The dealer who is picking up the top card
+        top_card : Card
+            The top card being picked up
+        """
+        # Add the top card to dealer's hand
+        dealer.hand.append(top_card)
+        
+        # Dealer must discard one card to maintain 5-card hand
+        if hasattr(dealer, 'choose_card_to_discard'):
+            # Use AI logic to choose which card to discard
+            discarded_card = dealer.choose_card_to_discard(top_card.suit)
+        else:
+            # Fallback: discard the lowest value card
+            discarded_card = min(dealer.hand, key=lambda c: c.rank.value)
+        
+        # Remove the discarded card
+        dealer.hand.remove(discarded_card)
+        
+        self.logger.info(f"🗑️  {dealer.name} discards {discarded_card.unicode_str()}")
     
     def _update_trump_status(self, trump_suit: Suit) -> None:
         """Update the trump status of all cards.
@@ -278,7 +321,7 @@ class EuchreGame:
         # Hands already shown in _start_new_round, no need to repeat
         
         # Continue rounds until game is over
-        while not self.scoring_manager.is_game_over(self.players):
+        while not self.is_game_over():
             self.round_number += 1
             self.logger.info(f"Starting round {self.round_number}")
             # Only show hands in very verbose mode to avoid redundancy
@@ -302,7 +345,11 @@ class EuchreGame:
         
         # Game is over
         self.logger.info("Game over")
-        final_scores = self.scoring_manager.get_team_scores(self.players)
+        # Get final scores from the game state manager where they're actually stored
+        final_scores = (
+            self.game_state_manager.game_scores.get("Team 1", 0),
+            self.game_state_manager.game_scores.get("Team 2", 0)
+        )
         self.logger.debug(f"Final scores: {final_scores}")
     
     def run_interactive_game(self, show_ai_hands: bool = False) -> None:
@@ -328,8 +375,16 @@ class EuchreGame:
         # Score the round
         self._score_round()
         
+        # Check if game is over after scoring
+        if self.is_game_over():
+            self.logger.info("🎉 Game Over! A team has reached 10 points!")
+            return  # Exit the method since game is over
+        
         # Start new round
         self.game_state_manager.start_new_round()
+        
+        # Reset trump caller team after scoring (it was needed for scoring the previous round)
+        self.game_state_manager.trump_caller_team = None
     
     def play_round(self) -> None:
         """Public method to play a single round."""
@@ -343,9 +398,12 @@ class EuchreGame:
     def _play_trick(self, trick_number: int = 1) -> None:
         """Play a single trick."""
         self.logger.debug("Starting new trick")
-        self.logger.debug("Player hands at start of trick:")
-        for player in self.players:
-            self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
+        
+        # Only show hands in very verbose mode to avoid redundancy
+        if self.very_verbose:
+            self.logger.debug("Player hands at start of trick:")
+            for player in self.players:
+                self.logger.debug(f"{player.name}: {[card.unicode_str() for card in player.hand]}")
         
         # Start new trick
         self.trick_manager.start_new_trick()
@@ -377,8 +435,10 @@ class EuchreGame:
         for _ in range(4):
             current_player = self.players[current_player_index]
             
-            self.logger.debug(f"Current player: {current_player.name} (id: {id(current_player)})")
-            self.logger.debug(f"{current_player.name} hand before playing: {len(current_player.hand)} cards: {[card.unicode_str() for card in current_player.hand]}")
+            # Only show detailed hand info in very verbose mode
+            if self.very_verbose:
+                self.logger.debug(f"Current player: {current_player.name}")
+                self.logger.debug(f"{current_player.name} hand: {len(current_player.hand)} cards: {[card.unicode_str() for card in current_player.hand]}")
             
             # Get card to play
             if current_player.player_type == PlayerType.AI:
@@ -386,16 +446,11 @@ class EuchreGame:
             else:
                 card = self._human_play_card(current_player, trick_number)
             
-            self.logger.debug(f"{current_player.name} played: {card}")
-            self.logger.debug(f"{current_player.name} hand after playing: {len(current_player.hand)} cards: {[card.unicode_str() for card in current_player.hand]}")
-            
             # Play the card
             self.trick_manager.play_card(current_player, card)
             
             # Display the play
             self.logger.info(f"{current_player.name} plays {card.unicode_str()}")
-            
-            # Show current trick state (removed verbose "Trick so far" logging)
             
             # Move to next player
             current_player_index = (current_player_index + 1) % 4
@@ -410,11 +465,6 @@ class EuchreGame:
             for player, card in self.current_trick.cards_played:
                 winner_indicator = " ← WINNER" if player.name == winner.name else ""
                 self.logger.info(f"  {player.name}: {card.unicode_str()}{winner_indicator}")
-        
-        # Show remaining cards in hands
-        self.logger.debug("Player hands after completing trick:")
-        for player in self.players:
-            self.logger.debug(f"{player.name} (id: {id(player)}) has {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
         
         # Update trick count
         self.tricks_won[winner.name] += 1
@@ -442,21 +492,10 @@ class EuchreGame:
                 self.logger.log_trick(trick_number, self.current_trick, winner, winning_card)
     
     def _ai_play_card(self, player: Player) -> Card:
-        """Get a card from an AI player."""
-        self.logger.debug(f"Player: {player.name} (id: {id(player)})")
-        self.logger.debug(f"Player type: {player.player_type}")
-        self.logger.debug(f"Player hand: {len(player.hand)} cards: {[card.unicode_str() for card in player.hand]}")
-        self.logger.debug(f"Current trick: {self.current_trick}")
-        self.logger.debug(f"Trump suit: {self.trump_suit}")
-        
+        """Get a card from an AI player using the new AI adapter."""
         # Check if player has cards
         if not player.hand:
             self.logger.error(f"ERROR: Player {player.name} has no cards!")
-            self.logger.debug(f"Player object: {player}")
-            self.logger.debug(f"Player hand attribute: {player.hand}")
-            self.logger.debug("All players and their hands:")
-            for p in self.players:
-                self.logger.debug(f"{p.name} (id: {id(p)}) has {len(p.hand)} cards: {[card.unicode_str() for card in p.hand]}")
             raise ValueError(f"AI player {player.name} has no cards to play")
         
         # Get the current trick state
@@ -465,17 +504,17 @@ class EuchreGame:
         # Extract lead suit from current trick
         lead_suit = current_trick.lead_suit if current_trick else None
         
-        # Choose card based on AI profile
-        if hasattr(player, 'choose_card_to_play'):
-            card = player.choose_card_to_play(lead_suit, self.trump_suit)
-        else:
-            # Fallback for basic AI
-            card = player.hand[0]
+        # Create game state for the AI adapter
+        game_state = {
+            'team1_score': self.game_state_manager.game_scores.get("Team 1", 0),
+            'team2_score': self.game_state_manager.game_scores.get("Team 2", 0),
+            'tricks_won_team1': self.tricks_won.get("Team 1", 0),
+            'tricks_won_team2': self.tricks_won.get("Team 2", 0),
+            'current_trick_number': self.round_number
+        }
         
-        self.logger.debug(f"Chosen card: {card}")
-        
-        # Don't remove card from hand yet - let trick manager handle it
-        self.logger.debug(f"Selected card: {card}")
+        # Use the AI adapter to get the card choice
+        card = AIAdapter.play_card(player, player.hand, lead_suit, self.trump_suit, current_trick, game_state)
         
         return card
     

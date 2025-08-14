@@ -72,17 +72,15 @@ class AIFactory:
         
         # Legacy support for old naming (backward compatibility)
         if ai_type in ["aggressive", "conservative", "balanced", "opportunistic"]:
-            return TraditionalAI(name, risk_ratio, ai_type)
-        
-        # Fallback to legacy AI types for backward compatibility
-        if ai_type == "aggressive":
-            return AggressiveAI(name, risk_ratio)
-        elif ai_type == "conservative":
-            return ConservativeAI(name, risk_ratio)
-        elif ai_type == "opportunistic":
-            return OpportunisticAI(name, risk_ratio)
-        else:  # balanced or unknown
-            return BalancedAI(name, risk_ratio)
+            # Use legacy AI classes for simple types to maintain compatibility
+            if ai_type == "aggressive":
+                return AggressiveAI(name, risk_ratio)
+            elif ai_type == "conservative":
+                return ConservativeAI(name, risk_ratio)
+            elif ai_type == "opportunistic":
+                return OpportunisticAI(name, risk_ratio)
+            else:  # balanced or unknown
+                return BalancedAI(name, risk_ratio)
     
     @staticmethod
     def create_ai_players(names: List[str], ai_types: List[str] = None, risk_ratios: List[float] = None,

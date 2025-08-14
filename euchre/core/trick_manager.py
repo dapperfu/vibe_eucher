@@ -47,6 +47,10 @@ class TrickManager:
         # Add card to trick
         self.current_trick.cards_played.append((player, card))
         
+        # Remove card from player's hand immediately
+        if card in player.hand:
+            player.hand.remove(card)
+        
         # Check for reneging
         if self._is_renege(player, card, self.current_trick.lead_suit):
             self.renege_count += 1
@@ -77,8 +81,7 @@ class TrickManager:
         # Add completed trick to round
         self.tricks_this_round.append(self.current_trick)
         
-        # Remove played cards from player hands
-        self._remove_played_cards_from_hands()
+        # Cards already removed from hands in play_card, no need to remove again
         
         # Clear current trick
         self.current_trick = None
@@ -153,18 +156,7 @@ class TrickManager:
         # card1 follows lead suit, card2 doesn't
         return True
     
-    def _remove_played_cards_from_hands(self) -> None:
-        """Remove played cards from player hands after trick completion."""
-        if not self.current_trick or not self.current_trick.cards_played:
-            return
-        
-        for player, card in self.current_trick.cards_played:
-            try:
-                if card in player.hand:
-                    player.hand.remove(card)
-            except ValueError:
-                # Card might already be removed or not in hand
-                pass
+    # Method removed - cards are now removed immediately when played
     
     def _is_renege(self, player: Player, card: Card, lead_suit: Suit) -> bool:
         """Check if a player reneged (didn't follow suit when possible).

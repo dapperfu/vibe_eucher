@@ -3,6 +3,7 @@
 from typing import List, Optional, Tuple
 from ..models import Player, Card, Suit
 from ..ai.ai_profiles import AggressiveAI, ConservativeAI, BalancedAI, OpportunisticAI
+from ..ai.ai_adapter import AIAdapter
 
 
 class TrumpSelectionManager:
@@ -84,7 +85,7 @@ class TrumpSelectionManager:
                 self.logger.info(f"   {player.name} considering...")
             
             if player.player_type.name == "AI":
-                if self._ai_should_order_up(player, top_card, player_index == dealer_index):
+                if AIAdapter.should_order_up(player, top_card, player_index == dealer_index):
                     if self.logger:
                         self.logger.info(f"   🎯 {player.name} ORDERS IT UP!")
                     return top_card.suit, player
@@ -151,29 +152,7 @@ class TrumpSelectionManager:
             self.logger.info(f"   👑 {dealer.name} picks {trump_suit.name} as trump.")
         return trump_suit
     
-    def _ai_should_order_up(self, player: Player, top_card: Card, is_dealer: bool) -> bool:
-        """Determine if an AI player should order up the top card.
-        
-        Parameters
-        ----------
-        player : Player
-            The AI player
-        top_card : Card
-            The top card flipped up
-        is_dealer : bool
-            Whether this player is the dealer
-            
-        Returns
-        -------
-        bool
-            True if the AI should order up
-        """
-        # Check if player has the AI profile methods
-        if hasattr(player, 'should_order_up'):
-            return player.should_order_up(top_card, is_dealer)
-        
-        # Fallback to basic AI logic
-        return self._basic_ai_trump_decision(player, top_card, is_dealer)
+    # AI method calls now use AIAdapter.should_order_up() directly
     
     def _basic_ai_trump_decision(self, player: Player, top_card: Card, is_dealer: bool) -> bool:
         """Basic AI trump decision logic.
