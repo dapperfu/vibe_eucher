@@ -1,4 +1,4 @@
-.PHONY: help venv install-pip test run clean train-ai evaluate-ai ai-game ai-game-ncurses ncurses logged profiles mass-games analyze cleanup jupyter jupyter-lab train-self-play train-integer-vs-float generate-profiles generate-profiles-cpu generate-profiles-gpu list-players play-trained tournament benchmark neural-tournament neural-analysis list-neural-models install-gpu train-level2 train-level2-fast train-level2-intensive evaluate-level2 train-level2-vs-traditional level2-tournament level2-analysis list-level2-models benchmark-level2 benchmark-training-progression benchmark-comprehensive quick-benchmark benchmark-analysis human-vs-ai human-vs-level2 list-ai-types logged-game train-level3 train-level3-fast train-level3-medium train-level3-deep evaluate-level3 list-level3-models
+.PHONY: help venv test run clean train-ai evaluate-ai ai-game ai-game-ncurses ncurses logged profiles mass-games analyze cleanup jupyter jupyter-lab train-self-play train-integer-vs-float generate-profiles generate-profiles-cpu generate-profiles-gpu list-players play-trained tournament benchmark neural-tournament neural-analysis list-neural-models train-level2 train-level2-fast train-level2-intensive evaluate-level2 train-level2-vs-traditional level2-tournament level2-analysis list-level2-models benchmark-level2 benchmark-training-progression benchmark-comprehensive quick-benchmark benchmark-analysis human-vs-ai human-vs-level2 list-ai-types logged-game train-level3 train-level3-fast train-level3-medium train-level3-deep evaluate-level3 list-level3-models
 
 help: ## Show this help message
 	@echo "Available commands:"
@@ -16,9 +16,12 @@ install: venv ## Install dependencies (traditional method)
 	venv/bin/pip install uv
 	venv/bin/uv pip install -r requirements.txt
 
-install-pip: venv ## Install package with pip (editable mode)
-	venv/bin/pip install --upgrade pip
+install-pip: venv/lib/python3.12/site-packages/euchre.egg-link ## Install package with pip (editable mode)
+	@echo "Package already installed in editable mode"
+
+venv/lib/python3.12/site-packages/euchre.egg-link: venv
 	venv/bin/uv pip install -e .
+	touch $@
 
 # =============================================================================
 # TESTING
@@ -177,12 +180,13 @@ benchmark: install ## Run performance benchmark comparing float vs integer model
 # LEVEL2 AI TRAINING TARGETS
 # =============================================================================
 
-install-gpu: install ## Install GPU dependencies for Level2 training
-	@echo "Installing GPU dependencies..."
-	@echo "Installing PyTorch with automatic backend detection..."
-	venv/bin/uv pip install torch torchvision torchaudio
-	@echo "GPU dependencies installed. Checking availability..."
+install-gpu: venv/lib/python3.12/site-packages/torch ## Install GPU dependencies for Level2 training
+	@echo "GPU dependencies already installed"
+	@echo "Checking availability..."
 	venv/bin/python -c "import torch; print(f'PyTorch: {torch.__version__}'); print(f'CUDA/ROCm available: {torch.cuda.is_available()}'); print(f'Device count: {torch.cuda.device_count() if torch.cuda.is_available() else 0}')"
+
+venv/lib/python3.12/site-packages/torch: install
+	venv/bin/uv pip install torch torchvision torchaudio
 
 train-level2: install-gpu ## Train Level2 AI models using unified trainer
 	@echo "Starting Level2 AI training with unified trainer..."
