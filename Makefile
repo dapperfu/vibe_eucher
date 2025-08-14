@@ -318,6 +318,26 @@ list-level2-models: install-gpu ## List available Level2 models
 	fi
 
 # =============================================================================
+# COMPREHENSIVE AI TOURNAMENTS
+# =============================================================================
+
+comprehensive-tournament: install-gpu ## Run comprehensive tournament: Level1 vs Level2 vs Level3 AI
+	@echo "🏆 Comprehensive AI Tournament: Level1 vs Level2 vs Level3"
+	@echo "Running round-robin tournament between all AI levels..."
+	venv/bin/python comprehensive_ai_tournament.py
+
+comprehensive-analysis: install ## Analyze comprehensive tournament results
+	@echo "📊 Analyzing comprehensive tournament results..."
+	@if [ -f "comprehensive_tournament_results_*.json" ]; then \
+		echo "Found tournament results:"; \
+		ls -la comprehensive_tournament_results_*.json; \
+		echo ""; \
+		echo "Run: venv/bin/python -c \"import json; print(json.dumps(json.load(open('comprehensive_tournament_results_*.json')), indent=2))\" for detailed results"; \
+	else \
+		echo "No tournament results found. Run comprehensive-tournament first."; \
+	fi
+
+# =============================================================================
 # LEVEL3 AI TRAINING TARGETS
 # =============================================================================
 
