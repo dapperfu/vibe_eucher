@@ -12,10 +12,53 @@ class TrickManager:
         self.current_trick: Optional[Trick] = None
         self.tricks_this_round: List[Trick] = []
         self.renege_count: int = 0
+        self.players: List[Player] = []
+        self.trump_suit: Optional[Suit] = None
+    
+    def set_players(self, players: List[Player]) -> None:
+        """Set the players for this trick manager.
+        
+        Parameters
+        ----------
+        players : List[Player]
+            List of players in the game
+        """
+        self.players = players
+    
+    def set_trump_suit(self, trump_suit: Suit) -> None:
+        """Set the trump suit for this round.
+        
+        Parameters
+        ----------
+        trump_suit : Suit
+            The trump suit for this round
+        """
+        self.trump_suit = trump_suit
     
     def start_new_trick(self) -> None:
         """Start a new trick."""
-        self.current_trick = Trick()
+        try:
+            if hasattr(self, 'logger') and self.logger:
+                self.logger.debug(f"Starting new trick")
+            
+            self.current_trick = Trick()
+            
+            if hasattr(self, 'logger') and self.logger:
+                self.logger.debug(f"Created new trick: {self.current_trick} (type: {type(self.current_trick)})")
+                self.logger.debug(f"Trick lead_suit: {self.current_trick.lead_suit} (type: {type(self.current_trick.lead_suit)})")
+                self.logger.debug(f"Trick cards_played: {self.current_trick.cards_played} (type: {type(self.current_trick.cards_played)})")
+                
+        except Exception as e:
+            # Catch and rethrow with debug context
+            import traceback
+            if hasattr(self, 'logger') and self.logger:
+                self.logger.error(f"ERROR in start_new_trick: {e}")
+                self.logger.error(f"Traceback: {traceback.format_exc()}")
+            else:
+                import logging
+                logging.error(f"ERROR in start_new_trick: {e}")
+                logging.error(f"Traceback: {traceback.format_exc()}")
+            raise
     
     def get_current_trick(self) -> Optional[Trick]:
         """Get the current trick.
@@ -38,22 +81,31 @@ class TrickManager:
             The card being played
         """
         if not self.current_trick:
-            raise ValueError("No current trick")
+            raise ValueError("No current trick to play in")
+        
+        if player not in self.players:
+            raise ValueError("Player not in this trick")
+        
+        if card not in player.hand:
+            raise ValueError("Card not in player's hand")
         
         # Set lead suit if this is the first card
-        if not self.current_trick.lead_suit:
-            self.current_trick.lead_suit = card.suit
+        if not self.current_trick.cards_played:
+            try:
+                self.current_trick.lead_suit = card.suit
+            except Exception as e:
+                if hasattr(self, 'logger') and self.logger:
+                    self.logger.error(f"Error setting lead suit: {e}")
+                else:
+                    import logging
+                    logging.error(f"Error setting lead suit: {e}")
+                raise
         
         # Add card to trick
-        self.current_trick.cards_played.append((player, card))
+        self.current_trick.add_card(player, card)
         
-        # Remove card from player's hand immediately
-        if card in player.hand:
-            player.hand.remove(card)
-        
-        # Check for reneging
-        if self._is_renege(player, card, self.current_trick.lead_suit):
-            self.renege_count += 1
+        # Remove card from player's hand
+        player.hand.remove(card)
     
     def complete_trick(self, trump_suit: Optional[Suit] = None) -> Player:
         """Complete the current trick and determine the winner.
@@ -115,46 +167,85 @@ class TrickManager:
         return winning_player
     
     def _card_beats(self, card1: Card, card2: Card, trump_suit: Optional[Suit] = None) -> bool:
-        """Check if card1 beats card2.
+        """Determine if card1 beats card2.
         
         Parameters
         ----------
         card1 : Card
-            First card
+            The first card
         card2 : Card
-            Second card
+            The second card
         trump_suit : Optional[Suit]
             The trump suit for this round
             
         Returns
         -------
         bool
-            True if card1 beats card2
+            True if card1 beats card2, False otherwise
         """
-        # Check if cards are trump cards
-        card1_is_trump = card1.is_trump_card(trump_suit) if trump_suit else False
-        card2_is_trump = card2.is_trump_card(trump_suit) if trump_suit else False
-        
-        # Trump cards always beat non-trump cards
-        if card1_is_trump and not card2_is_trump:
-            return True
-        if not card1_is_trump and card2_is_trump:
-            return False
-        
-        # If both are trump or both are non-trump, compare values
-        if card1_is_trump and card2_is_trump:
-            return card1.get_trump_value(trump_suit) > card2.get_trump_value(trump_suit)
-        
-        # Both non-trump - must follow lead suit
-        if card1.suit == self.current_trick.lead_suit and card2.suit == self.current_trick.lead_suit:
+        try:
+            # Safety check: ensure lead_suit is a Suit object
+            if hasattr(self, 'current_trick') and self.current_trick and hasattr(self.current_trick, 'lead_suit'):
+                lead_suit = self.current_trick.lead_suit
+                if not isinstance(lead_suit, Suit) and lead_suit is not None:
+                    # If lead_suit is corrupted, log it and use None
+                    if hasattr(self, 'logger') and self.logger:
+                        self.logger.error(f"ERROR: lead_suit is corrupted: {lead_suit} (type: {type(lead_suit)})")
+                    else:
+                        import logging
+                        logging.error(f"ERROR: lead_suit is corrupted: {lead_suit} (type: {type(lead_suit)})")
+                    lead_suit = None
+            else:
+                lead_suit = None
+            
+            # Both cards are trump
+            if trump_suit and card1.suit == trump_suit and card2.suit == trump_suit:
+                return card1.rank.value > card2.rank.value
+            
+            # Only card1 is trump
+            if trump_suit and card1.suit == trump_suit:
+                return True
+            
+            # Only card2 is trump
+            if trump_suit and card2.suit == trump_suit:
+                return False
+            
+            # Both non-trump - must follow lead suit
+            if lead_suit and card1.suit == lead_suit and card2.suit == lead_suit:
+                return card1.rank.value > card2.rank.value
+            
+            # If card1 doesn't follow lead suit, it can't win
+            if lead_suit and card1.suit != lead_suit:
+                return False
+            
+            # If card2 doesn't follow lead suit, card1 wins
+            if lead_suit and card2.suit != lead_suit:
+                return True
+            
+            # Both follow lead suit - compare ranks
             return card1.rank.value > card2.rank.value
-        
-        # If card1 doesn't follow lead suit, it can't win
-        if card1.suit != self.current_trick.lead_suit:
-            return False
-        
-        # card1 follows lead suit, card2 doesn't
-        return True
+            
+        except Exception as e:
+            # Catch and rethrow with debug context
+            import traceback
+            if hasattr(self, 'logger') and self.logger:
+                self.logger.error(f"ERROR in _card_beats method: {e}")
+                self.logger.error(f"Card1: {card1} (type: {type(card1)})")
+                self.logger.error(f"Card2: {card2} (type: {type(card2)})")
+                self.logger.error(f"Trump suit: {trump_suit} (type: {type(trump_suit)})")
+                self.logger.error(f"Lead suit: {lead_suit if 'lead_suit' in locals() else 'Not set'} (type: {type(lead_suit) if 'lead_suit' in locals() else 'Not set'})")
+                self.logger.error(f"Current trick: {self.current_trick if hasattr(self, 'current_trick') else 'No current_trick'}")
+                self.logger.error(f"Traceback: {traceback.format_exc()}")
+            else:
+                import logging
+                logging.error(f"ERROR in _card_beats method: {e}")
+                logging.error(f"Card1: {card1} (type: {type(card1)})")
+                logging.error(f"Card2: {card2} (type: {type(card2)})")
+                logging.error(f"Trump suit: {trump_suit} (type: {type(trump_suit)})")
+                logging.error(f"Lead suit: {lead_suit if 'lead_suit' in locals() else 'Not set'} (type: {type(lead_suit) if 'lead_suit' in locals() else 'Not set'})")
+                logging.error(f"Current trick: {self.current_trick if hasattr(self, 'current_trick') else 'No current_trick'}")
+                logging.error(f"Traceback: {traceback.format_exc()}")
+            raise
     
     # Method removed - cards are now removed immediately when played
     

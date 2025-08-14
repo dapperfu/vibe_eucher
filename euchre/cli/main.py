@@ -44,6 +44,169 @@ def play():
 
 
 @main.command()
+def ai_info():
+    """Display information about available AI types and their capabilities."""
+    click.echo("🤖 Available AI Types and Capabilities")
+    click.echo("=" * 50)
+    
+    from euchre.ai.ai_factory import AIFactory
+    available_types = AIFactory.get_available_ai_types()
+    
+    # Group by level
+    level1_types = [t for t in available_types if t.startswith("level1_")]
+    level2_types = [t for t in available_types if t.startswith("level2_")]
+    level3_types = [t for t in available_types if t.startswith("level3_")]
+    
+    click.echo("\n🔰 LEVEL 1 - Basic Rule-Based AI")
+    click.echo("-" * 30)
+    for ai_type in level1_types:
+        style = ai_type.replace("level1_", "").title()
+        click.echo(f"  • {style}: Traditional rule-based AI with {style.lower()} playing style")
+    
+    if level2_types:
+        click.echo("\n🧠 LEVEL 2 - Neural Network AI")
+        click.echo("-" * 30)
+        for ai_type in level2_types:
+            style = ai_type.replace("level2_", "").title()
+            click.echo(f"  • {style}: Neural network AI with intermediate complexity")
+        click.echo("  • Requires trained model files (.pth) for best performance")
+    
+    if level3_types:
+        click.echo("\n🚀 LEVEL 3 - Advanced Neural AI")
+        click.echo("-" * 30)
+        for ai_type in level3_types:
+            style = ai_type.replace("level3_", "").title()
+            click.echo(f"  • {style}: Ultra-comprehensive neural network AI")
+        click.echo("  • Features: 2048-dimensional inputs, transformer architecture, memory networks")
+        click.echo("  • Requires trained model files (.pth) for best performance")
+    
+    click.echo("\n🎯 Usage Examples:")
+    click.echo("  • Basic tournament: ai-tournament --ai-level level1 --ai-style balanced")
+    click.echo("  • Neural AI: ai-tournament --ai-level level2 --ai-style strategic --model-path model.pth")
+    click.echo("  • Mixed levels: ai-mix-match --team1-level level1 --team2-level level3")
+    click.echo("  • Advanced: ai-mix-match --team1-level level3 --team1-style aggressive --team2-level level2")
+
+
+@main.command()
+@click.option("--very-verbose", is_flag=True, help="Enable very verbose output")
+@click.option("--team1-level", default="level1", type=click.Choice(["level1", "level2", "level3"]), 
+              help="AI level for Team 1 (Alice & Charlie)")
+@click.option("--team2-level", default="level1", type=click.Choice(["level1", "level2", "level3"]), 
+              help="AI level for Team 2 (Bob & David)")
+@click.option("--team1-style", default="balanced", 
+              type=click.Choice(["aggressive", "conservative", "balanced", "opportunistic", "strategic", "intuitive"]),
+              help="AI style for Team 1")
+@click.option("--team2-style", default="balanced", 
+              type=click.Choice(["aggressive", "conservative", "balanced", "opportunistic", "strategic", "intuitive"]),
+              help="AI style for Team 2")
+@click.option("--team1-risk", default=0.5, type=click.FloatRange(0.0, 1.0), 
+              help="Risk tolerance for Team 1 (0.0=conservative, 1.0=aggressive)")
+@click.option("--team2-risk", default=0.5, type=click.FloatRange(0.0, 1.0), 
+              help="Risk tolerance for Team 2 (0.0=conservative, 1.0=aggressive)")
+@click.option("--team1-model", help="Path to trained model for Team 1 (level2/level3)")
+@click.option("--team2-model", help="Path to trained model for Team 2 (level2/level3)")
+def ai_mix_match(very_verbose: bool, team1_level: str, team2_level: str, 
+                 team1_style: str, team2_style: str, team1_risk: float, team2_risk: float,
+                 team1_model: str, team2_model: str):
+    """Run AI vs AI game with mixed difficulty levels for interesting matchups."""
+    click.echo("⚔️  Starting AI Mix Match - Different levels competing!")
+    click.echo(f"🔵 Team 1 (Alice & Charlie): Level {team1_level.upper()} {team1_style.title()} AI (Risk: {team1_risk:.1f})")
+    click.echo(f"🔴 Team 2 (Bob & David): Level {team2_level.upper()} {team2_style.title()} AI (Risk: {team2_risk:.1f})")
+    
+    if team1_model:
+        click.echo(f"🧠 Team 1 Model: {team1_model}")
+    if team2_model:
+        click.echo(f"🧠 Team 2 Model: {team2_model}")
+    
+    # Create game with appropriate verbosity
+    if very_verbose:
+        game = EuchreGame(verbose=True, very_verbose=True)
+    else:
+        game = EuchreGame(verbose=True)
+    
+    # Determine AI types
+    team1_ai_type = f"{team1_level}_{team1_style}"
+    team2_ai_type = f"{team2_level}_{team2_style}"
+    
+    # Validate AI types
+    from euchre.ai.ai_factory import AIFactory
+    available_types = AIFactory.get_available_ai_types()
+    
+    for ai_type in [team1_ai_type, team2_ai_type]:
+        if ai_type not in available_types:
+            click.echo(f"❌ AI type '{ai_type}' not available")
+            click.echo(f"Available types: {', '.join(available_types)}")
+            return
+    
+    # Add AI players with different configurations
+    game.add_ai_player("Alice", team1_ai_type, team1_risk, team1_model)      # Team 1
+    game.add_ai_player("Bob", team2_ai_type, team2_risk, team2_model)        # Team 2
+    game.add_ai_player("Charlie", team1_ai_type, team1_risk, team1_model)    # Team 1
+    game.add_ai_player("David", team2_ai_type, team2_risk, team2_model)      # Team 2
+    
+    click.echo(f"🤖 Teams configured - Let the battle begin!")
+    
+    # Start game
+    try:
+        game.run_full_game()
+        click.echo("✅ AI Mix Match completed successfully!")
+    except Exception as e:
+        click.echo(f"❌ AI Mix Match failed: {e}", err=True)
+
+
+@main.command()
+@click.option("--very-verbose", is_flag=True, help="Enable very verbose output")
+@click.option("--ai-level", default="level1", type=click.Choice(["level1", "level2", "level3"]), 
+              help="AI difficulty level (level1=basic, level2=neural, level3=advanced)")
+@click.option("--ai-style", default="balanced", 
+              type=click.Choice(["aggressive", "conservative", "balanced", "opportunistic", "strategic", "intuitive"]),
+              help="AI playing style")
+@click.option("--risk-ratio", default=0.5, type=click.FloatRange(0.0, 1.0), 
+              help="AI risk tolerance (0.0=conservative, 1.0=aggressive)")
+@click.option("--model-path", help="Path to trained model file (.pth) for level2/level3 AI")
+def ai_tournament(very_verbose: bool, ai_level: str, ai_style: str, risk_ratio: float, model_path: str):
+    """Run AI vs AI tournament with configurable difficulty levels."""
+    click.echo(f"🏆 Starting AI Tournament - Level {ai_level.upper()} {ai_style.title()} AI")
+    click.echo(f"🎯 AI Style: {ai_style.title()}")
+    click.echo(f"⚡ Risk Level: {risk_ratio:.1f}")
+    if model_path:
+        click.echo(f"🧠 Model: {model_path}")
+    
+    # Create game with appropriate verbosity
+    if very_verbose:
+        game = EuchreGame(verbose=True, very_verbose=True)
+    else:
+        game = EuchreGame(verbose=True)
+    
+    # Determine AI type based on level and style
+    ai_type = f"{ai_level}_{ai_style}"
+    
+    # Validate AI type
+    from euchre.ai.ai_factory import AIFactory
+    available_types = AIFactory.get_available_ai_types()
+    
+    if ai_type not in available_types:
+        click.echo(f"❌ AI type '{ai_type}' not available")
+        click.echo(f"Available types: {', '.join(available_types)}")
+        return
+    
+    # Add AI players with the selected configuration
+    game.add_ai_player("Alice", ai_type, risk_ratio, model_path)
+    game.add_ai_player("Bob", ai_type, risk_ratio, model_path)
+    game.add_ai_player("Charlie", ai_type, risk_ratio, model_path)
+    game.add_ai_player("David", ai_type, risk_ratio, model_path)
+    
+    click.echo(f"🤖 All players using {ai_type} AI with risk {risk_ratio:.1f}")
+    
+    # Start game
+    try:
+        game.run_full_game()
+        click.echo("✅ AI Tournament completed successfully!")
+    except Exception as e:
+        click.echo(f"❌ AI Tournament failed: {e}", err=True)
+
+
+@main.command()
 @click.option("--very-verbose", is_flag=True, help="Enable very verbose output")
 def ai_vs_ai(very_verbose: bool):
     """Run AI vs AI euchre game."""
@@ -308,7 +471,7 @@ def human_vs_ai(player_name: str, your_position: int, partner_ai_type: str,
     
     # Start game
     try:
-        game.start_new_game()
+        game.run_full_game()
         click.echo("✅ Human vs AI game completed successfully!")
     except Exception as e:
         click.echo(f"❌ Human vs AI game failed: {e}", err=True)
@@ -342,10 +505,9 @@ def human_vs_level1(player_name: str, your_position: int, level1_model: str,
             click.echo(f"👤 Added human player: {player_name} at position {i}")
         else:
             # This is a Level 1 AI player
-            if AIFactory.is_level1_type(ai_type):
-                ai_name = player_names[i]
-                game.add_ai_player(ai_name, level1_model, ai_risk)
-                click.echo(f"🤖 Added Level 1 {level1_model} AI: {ai_name} at position {i}")
+            ai_name = player_names[i]
+            game.add_ai_player(ai_name, level1_model, ai_risk)
+            click.echo(f"🤖 Added Level 1 {level1_model} AI: {ai_name} at position {i}")
     
     # Start game
     try:

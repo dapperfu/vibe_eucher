@@ -52,6 +52,9 @@ class EuchreGame:
         self.scoring_manager = ScoringManager()
         self.trump_selection_manager = TrumpSelectionManager(self.logger)
         
+        # Initialize AI adapter
+        self.ai_adapter = AIAdapter()
+        
         # Game state
         self.current_trick: Optional[Trick] = None
         self.top_card: Optional[Card] = None
@@ -88,6 +91,9 @@ class EuchreGame:
         self.deck.reset_and_shuffle()
         self.trick_manager.reset()
         
+        # Set players and trump suit in trick manager
+        self.trick_manager.set_players(self.players)
+        
         # Use traditional dealer selection for the first game
         dealer_method = getattr(self, 'dealer_selection_method', 'black_jack')
         first_dealer, selection_cards = self.dealer_selection.select_first_dealer(method=dealer_method, verbose=self.verbose)
@@ -119,9 +125,9 @@ class EuchreGame:
         # Show dealer and initial hands
         dealer = self.game_state_manager.get_dealer()
         self.logger.info(f"Dealer: {dealer.name}")
-        self.logger.info("Initial hands:")
+        self.logger.debug("Initial hands:")
         for player in self.players:
-            self.logger.info(f"{player.name}: {[card.unicode_str() for card in player.hand]}")
+            self.logger.debug(f"{player.name}: {[card.unicode_str() for card in player.hand]}")
         
         # Hands already shown above in info level, no need to repeat in debug
         
@@ -217,33 +223,30 @@ class EuchreGame:
         if self.verbose:
             self.logger.info("🎯 ===== END TRUMP SELECTION =====")
         
-        # Set the trump suit in the game state
-        if trump_suit:
-            self.trump_suit = trump_suit
-            self.game_state_manager.set_trump_suit(trump_suit, caller or self.game_state_manager.get_dealer())
+        # Set trump suit in game state
+        self.game_state_manager.set_trump_suit(trump_suit, caller or self.game_state_manager.get_dealer())
+        
+        # Update trick manager with trump suit
+        self.trick_manager.set_trump_suit(trump_suit)
+        
+        # Set trump suit for this round
+        self.trump_suit = trump_suit
             
-            # Handle dealer pickup when someone orders up the top card
-            if caller and self.top_card and not self._top_card_picked_up:
-                dealer = self.game_state_manager.get_dealer()
-                if caller != dealer:  # Someone other than dealer ordered it up
-                    self._handle_dealer_pickup(dealer, self.top_card)
-                    self._top_card_picked_up = True
-                    self.logger.info(f"🔄 {dealer.name} (dealer) picks up {self.top_card.unicode_str()}")
-                else:  # Dealer ordered it up
-                    self._top_card_picked_up = True
-                    self.logger.info(f"🔄 {dealer.name} (dealer) orders up {self.top_card.unicode_str()}")
-            
-            if caller:
-                self.logger.info(f"{caller.name} called {trump_suit.name} as trump!")
-            else:
-                self.logger.info(f"Trump suit is {trump_suit.name}")
-        else:
-            # If no trump was selected, dealer picks
+        # Handle dealer pickup when someone orders up the top card
+        if caller and self.top_card and not self._top_card_picked_up:
             dealer = self.game_state_manager.get_dealer()
-            trump_suit = self.trump_selection_manager._dealer_suit_selection(dealer, self.top_card)
-            self.trump_suit = trump_suit
-            self.game_state_manager.set_trump_suit(trump_suit, dealer)
-            # Note: The detailed logging is now handled in the TrumpSelectionManager
+            if caller != dealer:  # Someone other than dealer ordered it up
+                self._handle_dealer_pickup(dealer, self.top_card)
+                self._top_card_picked_up = True
+                self.logger.info(f"🔄 {dealer.name} (dealer) picks up {self.top_card.unicode_str()}")
+            else:  # Dealer ordered it up
+                self._top_card_picked_up = True
+                self.logger.info(f"🔄 {dealer.name} (dealer) orders up {self.top_card.unicode_str()}")
+        
+        if caller:
+            self.logger.info(f"{caller.name} called {trump_suit.name} as trump!")
+        else:
+            self.logger.info(f"Trump suit is {trump_suit.name}")
         
         # Show final hands after trump selection (only in very verbose mode)
         if self.very_verbose:
@@ -282,7 +285,7 @@ class EuchreGame:
         # Remove the discarded card
         dealer.hand.remove(discarded_card)
         
-        self.logger.info(f"🗑️  {dealer.name} discards {discarded_card.unicode_str()}")
+        self.logger.debug(f"🗑️  {dealer.name} discards {discarded_card.unicode_str()}")
     
     def _update_trump_status(self, trump_suit: Suit) -> None:
         """Update the trump status of all cards.
@@ -317,6 +320,9 @@ class EuchreGame:
         
         # Start the first round
         self._start_new_round()
+        
+        # Play the first round
+        self._play_round()
         
         # Hands already shown in _start_new_round, no need to repeat
         
@@ -383,8 +389,7 @@ class EuchreGame:
         # Start new round
         self.game_state_manager.start_new_round()
         
-        # Reset trump caller team after scoring (it was needed for scoring the previous round)
-        self.game_state_manager.trump_caller_team = None
+        # Note: trump_caller_team will be reset when start_new_round() is called
     
     def play_round(self) -> None:
         """Public method to play a single round."""
@@ -407,7 +412,6 @@ class EuchreGame:
         
         # Start new trick
         self.trick_manager.start_new_trick()
-        self.current_trick = self.trick_manager.get_current_trick()
         
         # Determine starting player (first trick: player after dealer, subsequent tricks: winner of previous trick)
         if trick_number == 1:
@@ -442,7 +446,7 @@ class EuchreGame:
             
             # Get card to play
             if current_player.player_type == PlayerType.AI:
-                card = self._ai_play_card(current_player)
+                card = self._ai_play_card(current_player, trick_number)
             else:
                 card = self._human_play_card(current_player, trick_number)
             
@@ -459,10 +463,13 @@ class EuchreGame:
         winner = self.trick_manager.complete_trick(self.trump_suit)
         self.logger.debug(f"Trick won by: {winner.name}")
         
+        # Get the completed trick for display purposes
+        completed_trick = self.trick_manager.tricks_this_round[-1] if self.trick_manager.tricks_this_round else None
+        
         # Show what each player played in this trick
-        if self.current_trick and hasattr(self.current_trick, 'cards_played'):
+        if completed_trick and hasattr(completed_trick, 'cards_played'):
             self.logger.info("Trick summary:")
-            for player, card in self.current_trick.cards_played:
+            for player, card in completed_trick.cards_played:
                 winner_indicator = " ← WINNER" if player.name == winner.name else ""
                 self.logger.info(f"  {player.name}: {card.unicode_str()}{winner_indicator}")
         
@@ -479,129 +486,191 @@ class EuchreGame:
         self.logger.info(f"Tricks won so far: {', '.join(tricks_summary)}")
         
         # Log trick completion to file
-        # Fix: Use the actual winning card, not the last card played
-        if self.current_trick and self.current_trick.cards_played:
+        if completed_trick and completed_trick.cards_played:
             # Find the winning card by looking at the trick manager's winner
             winning_card = None
-            for player, card in self.current_trick.cards_played:
+            for player, card in completed_trick.cards_played:
                 if player.name == winner.name:
                     winning_card = card
                     break
             
             if winning_card:
-                self.logger.log_trick(trick_number, self.current_trick, winner, winning_card)
+                self.logger.log_trick(trick_number, completed_trick, winner, winning_card)
     
-    def _ai_play_card(self, player: Player) -> Card:
-        """Get a card from an AI player using the new AI adapter."""
-        # Check if player has cards
-        if not player.hand:
-            self.logger.error(f"ERROR: Player {player.name} has no cards!")
-            raise ValueError(f"AI player {player.name} has no cards to play")
+    def _ai_play_card(self, player: Player, trick_number: int) -> Card:
+        """AI player plays a card."""
+        # Get valid cards for this AI player
+        valid_cards = self._get_valid_cards(player, self.current_trick.lead_suit if self.current_trick else None)
         
-        # Get the current trick state
-        current_trick = self.trick_manager.get_current_trick()
-        
-        # Extract lead suit from current trick
-        lead_suit = current_trick.lead_suit if current_trick else None
-        
-        # Create game state for the AI adapter
-        game_state = {
-            'team1_score': self.game_state_manager.game_scores.get("Team 1", 0),
-            'team2_score': self.game_state_manager.game_scores.get("Team 2", 0),
-            'tricks_won_team1': self.tricks_won.get("Team 1", 0),
-            'tricks_won_team2': self.tricks_won.get("Team 2", 0),
-            'current_trick_number': self.round_number
-        }
-        
-        # Use the AI adapter to get the card choice
-        card = AIAdapter.play_card(player, player.hand, lead_suit, self.trump_suit, current_trick, game_state)
-        
-        return card
-    
-    def _basic_ai_card_choice(self, player: Player, lead_suit: Optional[Suit], trump_suit: Optional[Suit]) -> Card:
-        """Basic AI card choice logic.
-        
-        Parameters
-        ----------
-        player : Player
-            The AI player
-        lead_suit : Optional[Suit]
-            The lead suit of the trick
-        trump_suit : Optional[Suit]
-            The trump suit for this round
+        try:
+            # Use AI adapter to select card
+            lead_suit = self.current_trick.lead_suit if self.current_trick else None
+            game_state = {
+                'team1_score': self.game_state_manager.game_scores.get("Team 1", 0),
+                'team2_score': self.game_state_manager.game_scores.get("Team 2", 0),
+                'tricks_won_team1': self.tricks_won.get("Team 1", 0),
+                'tricks_won_team2': self.tricks_won.get("Team 2", 0),
+                'current_trick_number': self.round_number
+            }
             
-        Returns
-        -------
-        Card
-            The card to play
-        """
-        if not lead_suit:
-            # Leading - play highest card
-            return max(player.hand, key=lambda c: c.rank.value)
-        
-        # Must follow suit if possible
-        cards_of_suit = [card for card in player.hand if card.suit == lead_suit]
-        if cards_of_suit:
-            return max(cards_of_suit, key=lambda c: c.rank.value)
-        else:
-            # Can't follow suit - play any card
-            return max(player.hand, key=lambda c: c.rank.value)
+            card = self.ai_adapter.play_card(player, valid_cards, lead_suit, self.game_state_manager.trump_suit, self.current_trick, game_state)
+            
+            # Safety check - if the AI returned something unexpected, use fallback
+            if not hasattr(card, 'suit') or not hasattr(card, 'rank'):
+                if self.logger:
+                    self.logger.error(f"ERROR: AI returned invalid card object: {card} (type: {type(card)})")
+                    self.logger.error(f"Falling back to basic AI logic")
+                
+                # Fallback to basic AI logic
+                card = self._basic_ai_card_choice(player, valid_cards, self.current_trick.lead_suit if self.current_trick else None)
+            
+            return card
+            
+        except Exception as e:
+            # Catch and rethrow with debug context
+            import traceback
+            if self.logger:
+                self.logger.error(f"ERROR in AI card selection: {e}")
+                self.logger.error(f"Player: {player.name}")
+                self.logger.error(f"Valid cards: {[card.unicode_str() for card in valid_cards]}")
+                self.logger.error(f"Current trick: {self.current_trick}")
+                self.logger.error(f"Trump suit: {self.game_state_manager.trump_suit}")
+                self.logger.error(f"Traceback: {traceback.format_exc()}")
+            
+            # Fallback to basic AI logic
+            if self.logger:
+                self.logger.info(f"Using fallback AI logic for {player.name}")
+            return self._basic_ai_card_choice(player, valid_cards, self.current_trick.lead_suit if self.current_trick else None)
+    
+    def _basic_ai_card_choice(self, player: Player, valid_cards: List[Card], lead_suit: Optional[Suit]) -> Card:
+        """Basic AI card selection logic as fallback."""
+        try:
+            # Safety check for corrupted lead_suit
+            if lead_suit is not None and not isinstance(lead_suit, Suit):
+                if self.logger:
+                    self.logger.error(f"ERROR: lead_suit is corrupted: {lead_suit} (type: {type(lead_suit)})")
+                lead_suit = None
+            
+            # Simple AI logic: play highest card if no lead suit, otherwise follow suit
+            if not lead_suit:
+                # No lead suit - play highest card
+                return max(valid_cards, key=lambda c: c.rank.value)
+            else:
+                # Follow lead suit if possible
+                lead_suit_cards = [c for c in valid_cards if c.suit == lead_suit]
+                if lead_suit_cards:
+                    return max(lead_suit_cards, key=lambda c: c.rank.value)
+                else:
+                    # Can't follow suit - play any card
+                    return valid_cards[0]
+                    
+        except Exception as e:
+            # Catch and rethrow with debug context
+            import traceback
+            if self.logger:
+                self.logger.error(f"ERROR in basic AI card choice: {e}")
+                self.logger.error(f"Player: {player.name}")
+                self.logger.error(f"Valid cards: {[card.unicode_str() for card in valid_cards]}")
+                self.logger.error(f"Lead suit: {lead_suit} (type: {type(lead_suit)})")
+                self.logger.error(f"Trump suit: {self.game_state_manager.trump_suit} (type: {type(self.game_state_manager.trump_suit)})")
+                self.logger.error(f"Traceback: {traceback.format_exc()}")
+            raise
     
     def _human_play_card(self, player: Player, trick_number: int) -> Card:
-        """Get a human player's card choice.
+        """Human player plays a card."""
+        print(f"\n🎮 Your turn, {player.name}!")
+        print(f"🎴 Your hand: {[card.unicode_str() for card in player.hand]}")
+        
+        if self.current_trick and self.current_trick.lead_suit:
+            print(f"🎯 Lead suit: {self.current_trick.lead_suit.name}")
+        if self.game_state_manager.trump_suit:
+            print(f"🃏 Trump suit: {self.game_state_manager.trump_suit.name}")
+        
+        # Get valid cards for this human player
+        valid_cards = self._get_valid_cards(player, self.current_trick.lead_suit if self.current_trick else None)
+        
+        # Show valid cards with numbers
+        print(f"✅ Valid cards to play:")
+        for i, card in enumerate(valid_cards):
+            print(f"  {i}: {card.unicode_str()}")
+        
+        while True:
+            try:
+                choice = input(f"Enter card number (0-{len(valid_cards)-1}): ").strip()
+                card_index = int(choice)
+                if 0 <= card_index < len(valid_cards):
+                    selected_card = valid_cards[card_index]
+                    print(f"🎯 You selected: {selected_card.unicode_str()}")
+                    return selected_card
+                else:
+                    print(f"❌ Invalid card number. Please enter 0-{len(valid_cards)-1}")
+            except ValueError:
+                print("❌ Please enter a valid number")
+            except Exception as e:
+                # Catch and rethrow with debug context
+                import traceback
+                if self.logger:
+                    self.logger.error(f"ERROR in human card selection: {e}")
+                    self.logger.error(f"Player: {player.name}")
+                    self.logger.error(f"Valid cards: {[card.unicode_str() for card in valid_cards]}")
+                    self.logger.error(f"Current trick: {self.current_trick}")
+                    self.logger.error(f"Trump suit: {self.game_state_manager.trump_suit}")
+                    self.logger.error(f"Traceback: {traceback.format_exc()}")
+                raise
+    
+    def _get_valid_cards(self, player: Player, lead_suit: Optional[Suit]) -> List[Card]:
+        """Get valid cards that a player can play.
         
         Parameters
         ----------
         player : Player
-            The human player
-        trick_number : int
-            The current trick number
+            The player
+        lead_suit : Optional[Suit]
+            The lead suit of the current trick
             
         Returns
         -------
-        Card
-            The card chosen by the human player
+        List[Card]
+            List of valid cards to play
         """
-        # This would prompt the human player
-        # For now, use basic AI logic
-        current_trick = self.trick_manager.get_current_trick()
-        lead_suit = current_trick.lead_suit if current_trick else None
-        trump_suit = self.trump_suit
+        if not lead_suit:
+            # First card of the trick - can play any card
+            return player.hand.copy()
         
-        return self._basic_ai_card_choice(player, lead_suit, trump_suit)
+        # Must follow suit if possible
+        cards_of_lead_suit = [card for card in player.hand if card.suit == lead_suit]
+        
+        if cards_of_lead_suit:
+            return cards_of_lead_suit
+        else:
+            # Can't follow suit - can play any card
+            return player.hand.copy()
     
     def _score_round(self) -> None:
         """Score the current round."""
-        self.logger.info(f"DEBUG: _score_round called, trump_caller_team: {self.game_state_manager.trump_caller_team}")
-        
-        if not self.game_state_manager.trump_caller_team:
-            self.logger.info("DEBUG: No trump caller team set, returning early")
+        if self.game_state_manager.trump_caller_team is None:
             return
         
         # Get round results
         round_results = self.trick_manager.get_round_results()
-        self.logger.info(f"DEBUG: Round results: {round_results}")
         
         # Score the round
         team1_score, team2_score = self.scoring_manager.score_round(
             self.players, self.game_state_manager.trump_caller_team
         )
-        self.logger.info(f"DEBUG: Scoring manager returned: Team 1: {team1_score}, Team 2: {team2_score}")
         
-        # Update scores
-        current_team1_score = self.game_state_manager.game_scores["Team 1"]
-        current_team2_score = self.game_state_manager.game_scores["Team 2"]
+        # Update game scores
+        current_team1_score = self.game_state_manager.game_scores.get("Team 1", 0)
+        current_team2_score = self.game_state_manager.game_scores.get("Team 2", 0)
+        
         new_team1_score = current_team1_score + team1_score
         new_team2_score = current_team2_score + team2_score
         
-        self.logger.info(f"DEBUG: Updating scores - Current: Team 1: {current_team1_score}, Team 2: {current_team2_score}")
-        self.logger.info(f"DEBUG: New scores: Team 1: {new_team1_score}, Team 2: {new_team2_score}")
-        
         self.game_state_manager.update_scores(new_team1_score, new_team2_score)
         
-        # Show round results
-        if not self.quiet_mode:
-            self._show_round_results(round_results, new_team1_score, new_team2_score)
+        # Log round results
+        self.logger.info(f"Round complete! Trick counts: {round_results}")
+        self.logger.info(f"Team 1: {new_team1_score}, Team 2: {new_team2_score}")
     
     def _show_round_results(self, round_results: List[int], team1_score: int, team2_score: int) -> None:
         """Show the results of a round.
@@ -749,7 +818,7 @@ class EuchreGame:
         if len(self.players) == 4 and self.dealer_selection is None:
             self.dealer_selection = DealerSelection(self.players)
     
-    def add_ai_player(self, name: str, ai_type: str, risk_ratio: float = 0.5) -> None:
+    def add_ai_player(self, name: str, ai_type: str, risk_ratio: float = 0.5, model_path: Optional[str] = None) -> None:
         """Add an AI player to the game.
         
         Parameters
@@ -757,12 +826,16 @@ class EuchreGame:
         name : str
             The player's name
         ai_type : str
-            The AI type: "aggressive", "conservative", "balanced", "opportunistic"
+            The AI type: "aggressive", "conservative", "balanced", "opportunistic", 
+                      "level2_strategic", "level2_aggressive", "level2_balanced", "level2_intuitive",
+                      "level3_strategic", "level3_aggressive", "level3_balanced", "level3_conservative", "level3_opportunistic"
         risk_ratio : float
             The risk ratio for the AI (0.0 = conservative, 1.0 = aggressive)
+        model_path : Optional[str]
+            Path to trained model file (.pth) for level2 and level3 AI types
         """
         from .ai.ai_factory import AIFactory
-        player = AIFactory.create_ai_player(name, ai_type, risk_ratio)
+        player = AIFactory.create_ai_player(name, ai_type, risk_ratio, model_path)
         self.players.append(player)
         
         # Update tricks_won dictionary

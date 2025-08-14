@@ -1,6 +1,6 @@
 # AI vs AI Games
 
-This guide explains how to run AI vs AI euchre games, tournaments, and analysis. Perfect for researchers, developers, and anyone interested in watching AI strategies compete.
+This guide explains how to run AI vs AI euchre games, tournaments, and analysis using the new unified AI interface. Perfect for researchers, developers, and anyone interested in watching AI strategies compete across three distinct AI levels.
 
 ## Quick Start
 
@@ -45,39 +45,46 @@ Trick won by Alice!
 
 ## AI Profile Tournaments
 
-### Different AI Personalities
+### Different AI Levels and Profiles
 ```bash
-# Run game with different AI profiles
-euchre ai-profiles -p aggressive -p conservative -p balanced -p opportunistic
+# Level 1 AI profiles (Traditional rule-based)
+euchre ai-profiles -p level1_aggressive -p level1_conservative -p level1_balanced -p level1_opportunistic
+
+# Level 2 AI profiles (Neural network)
+euchre ai-profiles -p level2_strategic -p level2_aggressive -p level2_balanced -p level2_intuitive
+
+# Level 3 AI profiles (Advanced neural network)
+euchre ai-profiles -p level3_strategic -p level3_aggressive -p level3_balanced -p level3_conservative -p level3_opportunistic
+
+# Mix AI levels
+euchre ai-profiles -p level1_aggressive -p level2_strategic -p level3_balanced -p level1_conservative
 
 # Custom risk ratios
 euchre ai-profiles -r 0.8 -r 0.3 -r 0.5 -r 0.7
 
 # Mix profiles and risk ratios
-euchre ai-profiles -p aggressive -r 0.9 -p conservative -r 0.2
+euchre ai-profiles -p level1_aggressive -r 0.9 -p level2_conservative -r 0.2
 ```
 
-### AI Profile Types
+### AI Level Types
 
-#### Aggressive AI
-- **Characteristics**: Calls trump frequently, plays high cards early
-- **Risk Level**: High
-- **Best For**: Fast-paced games, high-risk scenarios
+#### Level 1: Traditional AI
+- **Types**: `level1_aggressive`, `level1_conservative`, `level1_balanced`, `level1_opportunistic`
+- **Strategy**: Rule-based decision making with configurable risk profiles
+- **Performance**: Fast, explainable, consistent behavior
+- **Best For**: Learning, testing, and predictable gameplay
 
-#### Conservative AI
-- **Characteristics**: Passes on marginal hands, saves strong cards
-- **Risk Level**: Low
-- **Best For**: Defensive play, protecting leads
+#### Level 2: Neural Network AI
+- **Types**: `level2_strategic`, `level2_aggressive`, `level2_balanced`, `level2_intuitive`
+- **Strategy**: Pre-trained neural networks with 256-dimensional input
+- **Performance**: Sophisticated decision making, learns from data
+- **Best For**: Advanced gameplay and research
 
-#### Balanced AI
-- **Characteristics**: Mixes aggressive and conservative strategies
-- **Risk Level**: Medium
-- **Best For**: General gameplay, learning different styles
-
-#### Opportunistic AI
-- **Characteristics**: Adapts strategy based on game state
-- **Risk Level**: Variable
-- **Best For**: Dynamic situations, complex game states
+#### Level 3: Advanced Neural AI
+- **Types**: `level3_strategic`, `level3_aggressive`, `level3_balanced`, `level3_conservative`, `level3_opportunistic`
+- **Strategy**: Advanced neural networks with 2048-dimensional input
+- **Performance**: Highest level of sophistication and adaptability
+- **Best For**: Research, advanced AI development, and cutting-edge gameplay
 
 ## Tournament Mode
 
@@ -93,6 +100,27 @@ euchre tournament -n 250
 euchre tournament
 ```
 
+### Level-Specific Tournaments
+```bash
+# Level 1 AI tournament
+euchre tournament --ai-types level1_aggressive level1_conservative level1_balanced level1_opportunistic
+
+# Level 2 AI tournament
+euchre tournament --ai-types level2_strategic level2_aggressive level2_balanced level2_intuitive
+
+# Level 3 AI tournament
+euchre tournament --ai-types level3_strategic level3_aggressive level3_balanced level3_conservative level3_opportunistic
+```
+
+### Cross-Level Tournaments
+```bash
+# Tournament between different AI levels
+euchre tournament --ai-types level1_balanced level2_strategic level3_balanced level1_aggressive
+
+# Comprehensive tournament with all levels
+euchre comprehensive-tournament
+```
+
 ### Tournament Results
 Tournaments provide comprehensive statistics:
 ```
@@ -106,10 +134,15 @@ Longest Game: 7 rounds
 Shortest Game: 1 round
 
 Top Performers:
-- Alice: 28 wins, 72% win rate
-- Bob: 24 wins, 48% win rate
-- Charlie: 24 wins, 48% win rate
-- David: 24 wins, 48% win rate
+- Alice (Level 1 Balanced): 28 wins, 72% win rate
+- Bob (Level 2 Strategic): 24 wins, 48% win rate
+- Charlie (Level 3 Aggressive): 24 wins, 48% win rate
+- David (Level 1 Conservative): 24 wins, 48% win rate
+
+AI Level Performance:
+- Level 1 AI: 52 wins (52.0%)
+- Level 2 AI: 24 wins (24.0%)
+- Level 3 AI: 24 wins (24.0%)
 ```
 
 ## Neural Network Tournaments
@@ -130,8 +163,8 @@ euchre run-neural-games -m1 Sherlock -m2 Watson -n 2000
 ```
 
 ### Model Types
-- **Integer Models**: Fast, lightweight AI
-- **Float Models**: More precise, computationally intensive
+- **Level 2 Models**: 256-dimensional input, trained on game data
+- **Level 3 Models**: 2048-dimensional input, advanced architectures
 - **Hybrid Models**: Balance of speed and accuracy
 
 ## Mass Game Analysis
@@ -159,6 +192,11 @@ Games per Second: 553.1
 Win Distribution:
 - Team 1: 12,487 wins (49.9%)
 - Team 2: 12,513 wins (50.1%)
+
+AI Level Performance:
+- Level 1 AI: 12,234 wins (48.9%)
+- Level 2 AI: 6,383 wins (25.5%)
+- Level 3 AI: 6,383 wins (25.5%)
 
 Performance Metrics:
 - Average Game Length: 3.1 rounds
@@ -217,6 +255,11 @@ Strategy Evolution:
 - Trump Calling: More conservative
 - Card Play: Better suit management
 - Partner Coordination: Improved teamwork
+
+AI Level Improvements:
+- Level 1: +15.2% improvement
+- Level 2: +22.1% improvement
+- Level 3: +28.7% improvement
 ```
 
 ## Analysis and Insights
@@ -240,13 +283,18 @@ Strategy Evolution:
 - **Strategy Adaptation**: How AI responds to different opponents
 - **Error Reduction**: Fewer mistakes over time
 
+#### AI Level Comparison
+- **Level 1 vs Level 2**: Rule-based vs. neural network performance
+- **Level 2 vs Level 3**: Basic vs. advanced neural network capabilities
+- **Cross-Level Learning**: How different levels learn from each other
+
 ### Common Analysis Questions
 
-1. **Which AI profile performs best?**
-   - Run tournaments with different profiles
+1. **Which AI level performs best?**
+   - Run tournaments with different AI levels
    - Compare win rates and strategies
 
-2. **How do AI strategies differ?**
+2. **How do AI strategies differ between levels?**
    - Watch games with verbose logging
    - Analyze decision-making patterns
 
@@ -258,6 +306,10 @@ Strategy Evolution:
    - Run training sessions
    - Track performance improvements
 
+5. **Which risk profiles work best?**
+   - Test different risk ratios
+   - Analyze performance patterns
+
 ## Customizing AI vs AI Games
 
 ### Environment Variables
@@ -266,6 +318,10 @@ Strategy Evolution:
 export EUCHRE_AI_AGGRESSIVENESS=0.7
 export EUCHRE_AI_RISK_TOLERANCE=0.5
 export EUCHRE_AI_LEARNING_RATE=0.1
+
+# Set AI level preferences
+export EUCHRE_AI_DEFAULT_LEVEL=2
+export EUCHRE_AI_DEFAULT_PROFILE=strategic
 
 # Run game with custom settings
 euchre ai-vs-ai
@@ -276,7 +332,8 @@ Create custom AI profiles:
 ```json
 {
   "name": "CustomAI",
-  "profile": "balanced",
+  "ai_level": 2,
+  "ai_type": "strategic",
   "risk_ratio": 0.6,
   "aggressiveness": 0.7,
   "conservativeness": 0.3,
@@ -290,6 +347,7 @@ Create custom AI profiles:
 - **CPU**: Multi-core processor recommended for mass games
 - **Memory**: 4GB+ RAM for large tournaments
 - **Storage**: SSD recommended for fast game logging
+- **GPU**: Optional for Level 2/3 AI acceleration
 
 ### Optimization Tips
 ```bash
@@ -301,6 +359,9 @@ euchre run-neural-games --device cuda
 
 # Optimize memory usage
 euchre run-mass-games --memory-efficient
+
+# Use specific AI levels for performance
+euchre run-mass-games --ai-levels 1  # Only Level 1 AI for speed
 ```
 
 ## Troubleshooting
@@ -310,17 +371,32 @@ euchre run-mass-games --memory-efficient
 #### Games Run Slowly
 - Reduce number of games
 - Use fewer AI profiles
+- Use Level 1 AI for faster execution
 - Check system resources
 
 #### Memory Issues
 - Use memory-efficient mode
 - Reduce batch sizes
 - Close other applications
+- Use Level 1 AI for lower memory usage
 
 #### AI Behavior Issues
 - Check AI profile settings
 - Verify training data
 - Reset AI to default state
+- Check AI level compatibility
+
+#### PyTorch Issues (Level 2/3 AI)
+```bash
+# Check PyTorch installation
+python -c "import torch; print(torch.__version__)"
+
+# Check CUDA availability
+python -c "import torch; print(torch.cuda.is_available())"
+
+# Verify model files
+ls -la euchre/ai_model/
+```
 
 ### Getting Help
 ```bash
@@ -341,11 +417,13 @@ free -h
 - **Game Theory**: Study strategic decision making
 - **Machine Learning**: AI training and evolution
 - **Psychology**: Human vs. AI behavior comparison
+- **AI Architecture**: Compare different AI approaches
 
 ### Industry Applications
 - **Gaming**: AI opponent development
 - **Education**: Strategy learning tools
 - **Testing**: Game rule validation
+- **AI Development**: Benchmark different AI systems
 
 ### Data Collection
 ```bash
@@ -356,24 +434,30 @@ euchre run-mass-games --save-data --output-format json
 euchre analyze-games --focus trump-selection
 euchre analyze-games --focus card-play
 euchre analyze-games --focus teamwork
+
+# Compare AI levels
+euchre analyze-games --ai-levels 1 2 3 --focus performance
 ```
 
 ## Next Steps
 
 ### For Beginners
-1. **Start Simple**: Run basic AI vs AI games
+1. **Start Simple**: Run basic AI vs AI games with Level 1 AI
 2. **Watch Games**: Use verbose logging to understand strategies
 3. **Try Profiles**: Experiment with different AI personalities
+4. **Compare Levels**: See how different AI levels perform
 
 ### For Researchers
 1. **Run Experiments**: Use mass game runner for large-scale analysis
 2. **Train Models**: Use self-play training to improve AI
 3. **Analyze Results**: Use analysis tools to study patterns
+4. **Compare Architectures**: Test different AI level approaches
 
 ### For Developers
 1. **Study Code**: Review AI implementation
 2. **Create Profiles**: Build custom AI personalities
-3. **Contribute**: Improve AI algorithms
+3. **Contribute**: Improve existing AI algorithms
+4. **Extend System**: Add new AI levels or capabilities
 
 ---
 

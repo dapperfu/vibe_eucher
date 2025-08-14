@@ -38,22 +38,13 @@ class GameStateManager:
         self.trump_caller_team = None
     
     def start_new_round(self) -> None:
-        """Start a new round of the game."""
+        """Start a new round."""
+        # Reset round-specific state
         self.round_number += 1
-        
-        # Rotate dealer
-        if self.dealer:
-            dealer_index = next(i for i, p in enumerate(self.players) if p.name == self.dealer.name)
-            next_dealer_index = (dealer_index + 1) % 4
-            self.dealer = self.players[next_dealer_index]
-        else:
-            # First round, set dealer to first player
-            self.dealer = self.players[0]
-        
-        # Reset round-specific state (but preserve trump caller team for scoring)
         self.trump_suit = None
         self.trump_caller = None
-        # Don't reset trump_caller_team here - it's needed for scoring the previous round
+        # Note: trump_caller_team is intentionally NOT reset here
+        # It should persist until the next round's trump selection
     
     def set_trump_suit(self, trump_suit: Suit, caller: Player) -> None:
         """Set the trump suit and caller.

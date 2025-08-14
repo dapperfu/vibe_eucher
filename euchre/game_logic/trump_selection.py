@@ -50,11 +50,21 @@ class TrumpSelectionManager:
                 self.logger.info(f"✅ First round trump selection successful!")
             return trump_suit, caller
         
-        # Second round: dealer picks suit if no one ordered up
+        # Second round: players can call any suit (excluding the turned down suit)
         if self.logger:
             self.logger.info("🔄 No one ordered up. Second round begins.")
-        trump_suit = self._second_round_selection(players, dealer, top_card)
-        return trump_suit, dealer
+        trump_suit, caller = self._second_round_selection(players, dealer, top_card)
+        
+        if trump_suit:
+            return trump_suit, caller
+        else:
+            # If no one calls in second round, dealer must pick
+            if self.logger:
+                self.logger.info(f"   🎲 {dealer.name} must pick a suit (dealer's choice).")
+            trump_suit = self._dealer_suit_selection(dealer, top_card)
+            if self.logger:
+                self.logger.info(f"   👑 {dealer.name} picks {trump_suit.name} as trump.")
+            return trump_suit, dealer
     
     def _first_round_selection(self, players: List[Player], top_card: Card, dealer: Player) -> Tuple[Optional[Suit], Optional[Player]]:
         """Handle first round of trump selection.
@@ -93,13 +103,34 @@ class TrumpSelectionManager:
                     if self.logger:
                         self.logger.info(f"   ❌ {player.name} passes")
             else:
-                # Human player - would prompt here
+                # Human player - prompt for decision
                 if self.logger:
-                    self.logger.info(f"   ❌ {player.name} passes")
+                    self.logger.info(f"   👤 {player.name} (Human) - your turn to decide!")
+                
+                # Show the human player their hand and the top card
+                print(f"\n🎯 Trump Selection - {player.name}'s turn!")
+                print(f"🎴 Your hand: {[card.unicode_str() for card in player.hand]}")
+                print(f"🃏 Top card: {top_card.unicode_str()}")
+                print(f"🎲 You can order up {top_card.suit.name} as trump or pass")
+                print("  y: Order it up (call trump)")
+                print("  n: Pass")
+                
+                while True:
+                    choice = input("Do you want to order it up? (y/n): ").strip().lower()
+                    if choice in ['y', 'yes']:
+                        if self.logger:
+                            self.logger.info(f"   🎯 {player.name} ORDERS IT UP!")
+                        return top_card.suit, player
+                    elif choice in ['n', 'no']:
+                        if self.logger:
+                            self.logger.info(f"   ❌ {player.name} passes")
+                        break
+                    else:
+                        print("Please enter 'y' for yes or 'n' for no.")
         
         return None, None
     
-    def _second_round_selection(self, players: List[Player], dealer: Player, top_card: Card) -> Suit:
+    def _second_round_selection(self, players: List[Player], dealer: Player, top_card: Card) -> Tuple[Optional[Suit], Optional[Player]]:
         """Handle second round of trump selection.
         
         Parameters
@@ -113,8 +144,8 @@ class TrumpSelectionManager:
             
         Returns
         -------
-        Suit
-            The suit selected by the dealer
+        Tuple[Optional[Suit], Optional[Player]]
+            The selected trump suit and the player who called it
         """
         # Start with the player to the left of the dealer
         dealer_index = players.index(dealer)
@@ -134,23 +165,49 @@ class TrumpSelectionManager:
                     if trump_suit and trump_suit != top_card.suit:
                         if self.logger:
                             self.logger.info(f"   🎯 {player.name} calls {trump_suit.name} as trump!")
-                        return trump_suit
+                        return trump_suit, player
                 
                 # Fallback: pass
                 if self.logger:
                     self.logger.info(f"   ❌ {player.name} passes")
             else:
-                # Human player - would prompt here
+                # Human player - prompt for decision
                 if self.logger:
-                    self.logger.info(f"   ❌ {player.name} passes")
+                    self.logger.info(f"   👤 {player.name} (Human) - your turn to decide!")
+                
+                # Show the human player their hand and available suits
+                print(f"\n🎯 Second Round Trump Selection - {player.name}'s turn!")
+                print(f"🎴 Your hand: {[card.unicode_str() for card in player.hand]}")
+                print(f"🃏 Top card was {top_card.suit.name} (cannot be called)")
+                print(f"🎲 You can call any other suit as trump or pass")
+                
+                # Get available suits (excluding the turned down suit)
+                available_suits = [suit for suit in Suit if suit != top_card.suit]
+                print(f"✅ Available suits:")
+                for i, suit in enumerate(available_suits):
+                    print(f"  {i}: {suit.name}")
+                print("  pass: Skip (pass)")
+                
+                while True:
+                    choice = input("Enter suit number, or 'pass' to skip: ").strip().lower()
+                    if choice == 'pass':
+                        if self.logger:
+                            self.logger.info(f"   ❌ {player.name} passes")
+                        break
+                    elif choice.isdigit():
+                        suit_index = int(choice)
+                        if 0 <= suit_index < len(available_suits):
+                            chosen_suit = available_suits[suit_index]
+                            if self.logger:
+                                self.logger.info(f"   🎯 {player.name} calls {chosen_suit.name} as trump!")
+                            return chosen_suit, player
+                        else:
+                            print(f"Please enter a number between 0 and {len(available_suits)-1}")
+                    else:
+                        print(f"Please enter a valid suit number (0-{len(available_suits)-1}) or 'pass'")
         
-        # If no one calls, dealer must pick
-        if self.logger:
-            self.logger.info(f"   🎲 {dealer.name} must pick a suit (dealer's choice).")
-        trump_suit = self._dealer_suit_selection(dealer, top_card)
-        if self.logger:
-            self.logger.info(f"   👑 {dealer.name} picks {trump_suit.name} as trump.")
-        return trump_suit
+        # If no one calls, return None to indicate dealer must pick
+        return None, None
     
     # AI method calls now use AIAdapter.should_order_up() directly
     

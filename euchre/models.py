@@ -425,7 +425,7 @@ class Trick:
         
         winning_card = self.cards_played[0][1]
         for _, card in self.cards_played[1:]:
-            if self._card_beats(card, winning_card, None):  # No trump context yet
+            if winning_card.beats(card, None, None):  # No trump context yet
                 winning_card = card
         return winning_card
     
@@ -433,12 +433,13 @@ class Trick:
         """Get the winner of this trick."""
         if not self.cards_played:
             raise ValueError("No cards played in trick")
-            
+        
+        # Fallback to calculating winner (for backward compatibility)
         winner = self.cards_played[0][0]
         winning_card = self.cards_played[0][1]
         
         for player, card in self.cards_played[1:]:
-            if self._card_beats(card, winning_card, trump_suit):
+            if winning_card.beats(card, trump_suit, None):
                 winner = player
                 winning_card = card
                 
@@ -665,11 +666,6 @@ class Trick:
             Suit.SPADES: "♠"
         }
         return suit_symbols.get(suit, suit.value.title())
-    
-    def _card_beats(self, card1: Card, card2: Card, trump_suit: Optional[Suit]) -> bool:
-        """Determine if card1 beats card2 using proper trump hierarchy."""
-        # Use the Card class's beats method for consistent logic
-        return card1.beats(card2, trump_suit, self.lead_suit)
     
     def _is_trump_card(self, card: Card, trump_suit: Optional[Suit]) -> bool:
         """Check if a card is a trump card (including left bower)."""

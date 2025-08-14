@@ -31,29 +31,40 @@ class TraditionalAI(Player, BaseAIInterface):
     - Risk assessment based on score and game state
     """
     
-    def __init__(self, name: str, risk_profile: float = 0.5, ai_style: str = "balanced"):
-        """
-        Initialize traditional AI.
+    def __init__(self, name: str, ai_style: str = "balanced") -> None:
+        """Initialize TraditionalAI.
         
         Parameters
         ----------
         name : str
             The AI's name
-        risk_profile : float
-            Risk tolerance from 0.0 (conservative) to 1.0 (aggressive)
         ai_style : str
             AI style: "aggressive", "conservative", "balanced", "opportunistic"
         """
         # Initialize as a Player first
         super().__init__(name, PlayerType.AI)
         
-        # Initialize AI interface
-        BaseAIInterface.__init__(self, name, risk_profile)
-        
         self.ai_style = ai_style.lower()
+        
+        # Convert ai_style to risk_profile float
+        risk_profile_map = {
+            "aggressive": 0.8,
+            "conservative": 0.2,
+            "balanced": 0.5,
+            "opportunistic": 0.6
+        }
+        risk_profile = risk_profile_map.get(self.ai_style, 0.5)
+        
+        # Initialize AI interface with the risk_profile float
+        BaseAIInterface.__init__(self, name, risk_profile)
         
         # Style-specific modifiers
         self._setup_style_modifiers()
+    
+    @property
+    def risk_ratio(self) -> float:
+        """Get the risk ratio as a property."""
+        return self.risk_profile
     
     def _setup_style_modifiers(self):
         """Setup style-specific behavior modifiers."""
@@ -422,3 +433,13 @@ class TraditionalAI(Player, BaseAIInterface):
             return 0.15  # Bonus for last action
         else:
             return 0.0  # Middle positions get no bonus 
+
+    def __str__(self) -> str:
+        """String representation of the player."""
+        return f"{self.name} ({self.player_type.value}, {self.ai_style})"
+        
+    def __repr__(self) -> str:
+        """Detailed string representation of the player."""
+        team_info = f", team={self.get_team_name()}" if self.team is not None else ""
+        dealer_info = ", dealer" if self.is_dealer else ""
+        return f"TraditionalAI(name='{self.name}', player_type={self.player_type.value}, ai_style={self.ai_style}, hand_size={len(self.hand)}{team_info}{dealer_info})" 

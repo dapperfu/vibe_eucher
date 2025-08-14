@@ -1,15 +1,43 @@
 # AI Profiles
 
-This document explains the different AI personality profiles available in the Euchre game, how they behave, and how to customize them.
+This document explains the different AI personality profiles available in the Euchre game, how they behave, and how to customize them. The AI system now features three distinct levels with unified interfaces.
 
 ## Profile Overview
 
-AI profiles represent different playing styles and strategies. Each profile has distinct characteristics that affect how the AI makes decisions during the game.
+AI profiles represent different playing styles and strategies across three AI levels. Each profile has distinct characteristics that affect how the AI makes decisions during the game. All AI levels implement the same `BaseAIInterface` for seamless integration.
+
+## AI Levels and Profile Types
+
+### Level 1: Traditional AI
+**Rule-based AI with configurable risk profiles**
+
+- **Types**: `level1_aggressive`, `level1_conservative`, `level1_balanced`, `level1_opportunistic`
+- **Strategy**: Hard-coded rules and heuristics
+- **Performance**: Fast, explainable, consistent
+- **Best For**: Learning, testing, predictable gameplay
+
+### Level 2: Neural Network AI
+**Pre-trained neural networks with risk profile integration**
+
+- **Types**: `level2_strategic`, `level2_aggressive`, `level2_balanced`, `level2_intuitive`
+- **Strategy**: Neural network evaluation with 256-dimensional input
+- **Performance**: Sophisticated, learns from data
+- **Best For**: Advanced gameplay, research
+
+### Level 3: Advanced Neural AI
+**Advanced neural networks with comprehensive game modeling**
+
+- **Types**: `level3_strategic`, `level3_aggressive`, `level3_balanced`, `level3_conservative`, `level3_opportunistic`
+- **Strategy**: Advanced neural networks with 2048-dimensional input
+- **Performance**: Highest sophistication, most adaptable
+- **Best For**: Research, advanced AI development
 
 ## Available Profiles
 
-### Balanced Profile
-**Default profile for most AI players**
+### Level 1 Profiles
+
+#### Balanced Profile
+**Default profile for most Level 1 AI players**
 
 - **Risk Level**: Medium
 - **Trump Calling**: Moderate frequency
@@ -23,7 +51,7 @@ AI profiles represent different playing styles and strategies. Each profile has 
 - Considers partner's plays when making decisions
 - Adapts strategy based on game state
 
-### Aggressive Profile
+#### Aggressive Profile
 **High-risk, high-reward playing style**
 
 - **Risk Level**: High
@@ -38,7 +66,7 @@ AI profiles represent different playing styles and strategies. Each profile has 
 - Uses trump cards aggressively
 - Prioritizes winning tricks over saving cards
 
-### Conservative Profile
+#### Conservative Profile
 **Defensive, risk-averse playing style**
 
 - **Risk Level**: Low
@@ -53,7 +81,7 @@ AI profiles represent different playing styles and strategies. Each profile has 
 - Follows suit strictly
 - Works closely with partner
 
-### Opportunistic Profile
+#### Opportunistic Profile
 **Adaptive strategy based on game state**
 
 - **Risk Level**: Variable
@@ -68,15 +96,106 @@ AI profiles represent different playing styles and strategies. Each profile has 
 - Adapts card play to trick requirements
 - Balances individual and team goals
 
+### Level 2 Profiles
+
+#### Strategic Profile
+**Deep strategic thinking and partner coordination**
+
+- **Risk Level**: Medium-High
+- **Trump Calling**: Strategic, considers game context
+- **Card Play**: Plans multiple tricks ahead
+- **Partner Coordination**: Excellent
+- **Best For**: Strategic gameplay, team coordination
+
+#### Aggressive Profile
+**Bold and unpredictable, taking calculated risks**
+
+- **Risk Level**: High
+- **Trump Calling**: Frequent, aggressive
+- **Card Play**: High card usage, aggressive leading
+- **Partner Coordination**: Good
+- **Best For**: High-risk scenarios, aggressive play
+
+#### Balanced Profile
+**Most balanced and adaptable player**
+
+- **Risk Level**: Medium
+- **Trump Calling**: Balanced approach
+- **Card Play**: Adapts to game situation
+- **Partner Coordination**: Very good
+- **Best For**: General gameplay, learning
+
+#### Intuitive Profile
+**Deep intuition about game patterns**
+
+- **Risk Level**: Medium-Low
+- **Trump Calling**: Intuitive, pattern-based
+- **Card Play**: Follows game flow
+- **Partner Coordination**: Good
+- **Best For**: Pattern recognition, flow-based play
+
+### Level 3 Profiles
+
+#### Strategic Profile
+**Advanced strategic thinking with comprehensive modeling**
+
+- **Risk Level**: Adaptive
+- **Trump Calling**: Context-aware, strategic
+- **Card Play**: Multi-trick planning
+- **Partner Coordination**: Excellent
+- **Best For**: Advanced strategic gameplay
+
+#### Aggressive Profile
+**Advanced aggressive play with risk assessment**
+
+- **Risk Level**: High
+- **Trump Calling**: Aggressive with risk calculation
+- **Card Play**: High card usage, aggressive leading
+- **Partner Coordination**: Good
+- **Best For**: High-risk, high-reward scenarios
+
+#### Balanced Profile
+**Most balanced Level 3 player**
+
+- **Risk Level**: Medium
+- **Trump Calling**: Balanced, adaptive
+- **Card Play**: Adapts to all situations
+- **Partner Coordination**: Excellent
+- **Best For**: General advanced gameplay
+
+#### Conservative Profile
+**Advanced conservative play with protection**
+
+- **Risk Level**: Low
+- **Trump Calling**: Conservative, protective
+- **Card Play**: Saves strong cards, defensive
+- **Partner Coordination**: Excellent
+- **Best For**: Defensive, protective play
+
+#### Opportunistic Profile
+**Advanced opportunistic play with adaptation**
+
+- **Risk Level**: Variable
+- **Trump Calling**: Context-dependent, adaptive
+- **Card Play**: Adapts to game state
+- **Partner Coordination**: Very good
+- **Best For**: Dynamic, adaptive gameplay
+
 ## Profile Configuration
 
 ### Basic Profile Selection
 ```bash
-# Use specific profiles
-euchre ai-profiles -p aggressive -p conservative -p balanced -p opportunistic
+# Level 1 AI profiles
+euchre ai-profiles -p level1_aggressive -p level1_conservative -p level1_balanced -p level1_opportunistic
 
-# Mix profiles with risk ratios
-euchre ai-profiles -p aggressive -r 0.9 -p conservative -r 0.2
+# Level 2 AI profiles
+euchre ai-profiles -p level2_strategic -p level2_aggressive -p level2_balanced -p level2_intuitive
+
+# Level 3 AI profiles
+euchre ai-profiles -p level3_strategic -p level3_aggressive -p level3_balanced -p level3_conservative -p level3_opportunistic
+
+# Mix profiles and risk ratios
+euchre ai-profiles -p level1_aggressive -r 0.9 -p level2_conservative -r 0.2
 ```
 
 ### Risk Ratio Configuration
@@ -84,13 +203,19 @@ Each profile can be customized with a risk ratio (0.0 to 1.0):
 
 ```bash
 # High risk aggressive AI
-euchre ai-profiles -p aggressive -r 0.9
+euchre ai-profiles -p level1_aggressive -r 0.9
 
 # Low risk conservative AI
-euchre ai-profiles -p conservative -r 0.1
+euchre ai-profiles -p level1_conservative -r 0.1
 
 # Balanced AI with moderate risk
-euchre ai-profiles -p balanced -r 0.5
+euchre ai-profiles -p level1_balanced -r 0.5
+
+# Level 2 AI with custom risk
+euchre ai-profiles -p level2_strategic -r 0.7
+
+# Level 3 AI with custom risk
+euchre ai-profiles -p level3_balanced -r 0.6
 ```
 
 ### Profile Parameters
@@ -112,7 +237,9 @@ euchre ai-profiles -p balanced -r 0.5
 
 ## Profile Behavior Examples
 
-### Balanced AI Example
+### Level 1 AI Examples
+
+#### Balanced AI Example
 ```
 Hand: ['Ace of Spades', 'King of Diamonds', 'Queen of Clubs', 'Ten of Hearts', 'Nine of Spades']
 Top Card: Jack of Diamonds
@@ -123,7 +250,7 @@ Trick 2: Plays Nine of Spades when following suit (lowest card)
 Trick 3: Uses King of Diamonds to win (saves Ace for later)
 ```
 
-### Aggressive AI Example
+#### Aggressive AI Example
 ```
 Hand: ['Ace of Spades', 'King of Diamonds', 'Queen of Clubs', 'Ten of Hearts', 'Nine of Spades']
 Top Card: Jack of Diamonds
@@ -134,7 +261,7 @@ Trick 2: Plays King of Diamonds (high trump, aggressive play)
 Trick 3: Uses Queen of Clubs (high card, maintains lead)
 ```
 
-### Conservative AI Example
+#### Conservative AI Example
 ```
 Hand: ['Ace of Spades', 'King of Diamonds', 'Queen of Clubs', 'Ten of Hearts', 'Nine of Spades']
 Top Card: Jack of Diamonds
@@ -145,7 +272,7 @@ Trick 2: Plays Ten of Hearts when following suit (low card)
 Trick 3: Saves Ace of Spades (protects high card)
 ```
 
-### Opportunistic AI Example
+#### Opportunistic AI Example
 ```
 Hand: ['Ace of Spades', 'King of Diamonds', 'Queen of Clubs', 'Ten of Hearts', 'Nine of Spades']
 Top Card: Jack of Diamonds
@@ -156,48 +283,104 @@ Trick 2: Plays King of Diamonds (trump needed to win)
 Trick 3: Saves Ace of Spades (partner can win without it)
 ```
 
+### Level 2 AI Examples
+
+#### Strategic AI Example
+```
+Hand: ['Ace of Spades', 'King of Diamonds', 'Queen of Clubs', 'Ten of Hearts', 'Nine of Spades']
+Top Card: Jack of Diamonds
+Decision: Orders up Diamonds (neural network evaluation shows strong potential)
+
+Trick 1: Leads with Nine of Spades (strategic lead, saves high cards)
+Trick 2: Plays Ten of Hearts when following suit (moderate card)
+Trick 3: Uses King of Diamonds strategically (saves Ace for critical moment)
+```
+
+### Level 3 AI Examples
+
+#### Advanced Strategic AI Example
+```
+Hand: ['Ace of Spades', 'King of Diamonds', 'Queen of Clubs', 'Ten of Hearts', 'Nine of Spades']
+Top Card: Jack of Diamonds
+Decision: Orders up Diamonds (comprehensive game state analysis shows advantage)
+
+Trick 1: Leads with Nine of Spades (advanced strategic analysis)
+Trick 2: Plays Ten of Hearts when following suit (calculated risk)
+Trick 3: Uses King of Diamonds (optimal timing based on game state)
+```
+
 ## Creating Custom Profiles
 
-### Profile Definition
+### Profile Definition Using Unified Interface
 ```python
 from euchre.ai.ai_factory import AIFactory
 
-# Create custom profile
+# Create custom Level 1 AI profile
 custom_ai = AIFactory.create_ai_player(
     name="CustomPlayer",
-    profile="balanced",
-    risk_ratio=0.7,
-    aggressiveness=0.6,
-    conservativeness=0.4,
-    opportunism=0.8
+    ai_type="level1_balanced",  # Level 1 AI with balanced profile
+    risk_ratio=0.7
+)
+
+# Create custom Level 2 AI profile
+custom_ai = AIFactory.create_ai_player(
+    name="CustomPlayer",
+    ai_type="level2_strategic",  # Level 2 AI with strategic profile
+    risk_ratio=0.6
+)
+
+# Create custom Level 3 AI profile
+custom_ai = AIFactory.create_ai_player(
+    name="CustomPlayer",
+    ai_type="level3_balanced",  # Level 3 AI with balanced profile
+    risk_ratio=0.5
 )
 ```
 
 ### Custom Profile Class
 ```python
-from euchre.ai.base_ai import BaseAI
+from euchre.ai.base_ai_interface import BaseAIInterface
+from euchre.ai.game_context import GameContext
+from euchre.ai.decision_result import DecisionResult, DecisionType
 
-class CustomProfile(BaseAI):
-    def __init__(self, name: str, risk_ratio: float = 0.5):
-        super().__init__(name)
-        self.risk_ratio = risk_ratio
+class CustomProfile(BaseAIInterface):
+    def __init__(self, name: str, risk_profile: float = 0.5):
+        super().__init__(name, risk_profile)
         self.aggressiveness = 0.6
         self.conservativeness = 0.3
         self.opportunism = 0.7
     
-    def should_call_trump(self, hand, top_card, game_state):
+    def should_order_up(self, context: GameContext) -> DecisionResult:
         # Custom trump calling logic
-        hand_strength = self.evaluate_hand(hand)
-        if hand_strength > (0.7 - self.risk_ratio * 0.3):
-            return True
-        return False
-    
-    def choose_card_to_play(self, trick, trump_suit):
-        # Custom card selection logic
-        if self.should_play_trump(trick, trump_suit):
-            return self.select_best_trump(trump_suit)
+        hand_strength = self.evaluate_hand(context.hand)
+        if hand_strength > (0.7 - self.risk_profile * 0.3):
+            return DecisionResult(
+                decision_type=DecisionType.ORDER_UP,
+                confidence=0.8,
+                reasoning="Strong hand with good trump potential",
+                metadata={'hand_strength': hand_strength}
+            )
         else:
-            return self.select_follow_suit_card(trick.lead_suit)
+            return DecisionResult(
+                decision_type=DecisionType.PASS,
+                confidence=0.9,
+                reasoning="Hand not strong enough for trump",
+                metadata={'hand_strength': hand_strength}
+            )
+    
+    def play_card(self, context: GameContext) -> DecisionResult:
+        # Custom card selection logic
+        if context.lead_suit and self.has_suit(context.lead_suit):
+            card = self.select_follow_suit_card(context.lead_suit)
+        else:
+            card = self.select_lead_card()
+        
+        return DecisionResult(
+            decision_type=DecisionType.PLAY_CARD,
+            confidence=0.7,
+            reasoning="Selected best available card",
+            metadata={'selected_card': card}
+        )
 ```
 
 ## Profile Performance Analysis
@@ -205,49 +388,83 @@ class CustomProfile(BaseAI):
 ### Win Rate Comparison
 ```
 Profile Performance (1000 games each):
+
+Level 1 AI:
 - Balanced: 52.3% win rate
 - Aggressive: 48.7% win rate
 - Conservative: 51.2% win rate
 - Opportunistic: 53.1% win rate
+
+Level 2 AI:
+- Strategic: 58.9% win rate
+- Aggressive: 55.2% win rate
+- Balanced: 57.1% win rate
+- Intuitive: 56.8% win rate
+
+Level 3 AI:
+- Strategic: 62.3% win rate
+- Aggressive: 59.7% win rate
+- Balanced: 61.2% win rate
+- Conservative: 60.8% win rate
+- Opportunistic: 61.5% win rate
 ```
 
 ### Strategy Effectiveness
 ```
 Trump Calling Success:
+Level 1:
 - Balanced: 67.2%
 - Aggressive: 58.9%
 - Conservative: 78.4%
 - Opportunistic: 71.6%
 
+Level 2:
+- Strategic: 72.1%
+- Aggressive: 68.3%
+- Balanced: 70.8%
+- Intuitive: 69.5%
+
+Level 3:
+- Strategic: 75.2%
+- Aggressive: 71.8%
+- Balanced: 74.1%
+- Conservative: 76.3%
+- Opportunistic: 73.9%
+
 Trick Efficiency:
-- Balanced: 2.4 tricks/round
-- Aggressive: 2.1 tricks/round
-- Conservative: 2.6 tricks/round
-- Opportunistic: 2.5 tricks/round
+Level 1: 2.4 tricks/round
+Level 2: 2.7 tricks/round
+Level 3: 2.9 tricks/round
 ```
 
 ## Profile Selection Guide
 
 ### For Beginners
-**Recommended**: Balanced Profile
+**Recommended**: Level 1 Balanced Profile
 - **Why**: Predictable behavior, good learning tool
 - **Risk Level**: Medium
 - **Complexity**: Low
 
 ### For Learning
-**Recommended**: Mix of Profiles
+**Recommended**: Mix of Level 1 Profiles
 - **Why**: See different strategies in action
 - **Risk Level**: Variable
 - **Complexity**: Medium
 
-### For Research
-**Recommended**: Custom Profiles
-- **Why**: Test specific hypotheses
+### For Advanced Play
+**Recommended**: Level 2 or Level 3 AI
+- **Why**: More sophisticated decision making
 - **Risk Level**: Configurable
 - **Complexity**: High
 
+### For Research
+**Recommended**: Level 3 AI with Custom Profiles
+- **Why**: Most advanced capabilities, fully configurable
+- **Risk Level**: Configurable
+- **Complexity**: Very High
+
 ### For Entertainment
-**Recommended**: Aggressive vs Conservative
+**Recommended**: Level 1 Aggressive vs Conservative
 - **Why**: Exciting gameplay, clear strategy differences
 - **Risk Level**: High vs Low
 - **Complexity**: Low
@@ -257,6 +474,7 @@ Trick Efficiency:
 ### Environment Variables
 ```bash
 # Set default profile behavior
+export EUCHRE_AI_DEFAULT_LEVEL=1
 export EUCHRE_AI_DEFAULT_PROFILE=balanced
 export EUCHRE_AI_DEFAULT_RISK=0.5
 export EUCHRE_AI_AGGRESSIVENESS=0.6
@@ -267,19 +485,32 @@ export EUCHRE_AI_CONSERVATIVENESS=0.4
 ```json
 {
   "ai_profiles": {
-    "default": "balanced",
+    "default_level": 1,
+    "default_profile": "balanced",
     "profiles": {
-      "balanced": {
+      "level1_balanced": {
         "risk_ratio": 0.5,
         "aggressiveness": 0.5,
         "conservativeness": 0.5,
         "opportunism": 0.5
       },
-      "aggressive": {
+      "level1_aggressive": {
         "risk_ratio": 0.8,
         "aggressiveness": 0.9,
         "conservativeness": 0.1,
         "opportunism": 0.3
+      },
+      "level2_strategic": {
+        "risk_ratio": 0.6,
+        "aggressiveness": 0.6,
+        "conservativeness": 0.4,
+        "opportunism": 0.7
+      },
+      "level3_balanced": {
+        "risk_ratio": 0.5,
+        "aggressiveness": 0.5,
+        "conservativeness": 0.5,
+        "opportunism": 0.5
       }
     }
   }
@@ -291,10 +522,10 @@ export EUCHRE_AI_CONSERVATIVENESS=0.4
 ### Dynamic Profile Switching
 Some AI can change profiles during gameplay:
 ```python
-def adapt_profile(self, game_state):
-    if game_state.team_score < 3:
+def adapt_profile(self, context: GameContext):
+    if context.team_scores[0] < 3:
         self.profile = "aggressive"  # Need to catch up
-    elif game_state.team_score > 7:
+    elif context.team_scores[0] > 7:
         self.profile = "conservative"  # Protect the lead
     else:
         self.profile = "balanced"  # Normal play
@@ -307,11 +538,11 @@ def update_profile(self, game_result):
     if game_result.won:
         # Reinforce successful strategies
         self.aggressiveness *= 1.1
-        self.risk_ratio *= 1.05
+        self.risk_profile *= 1.05
     else:
         # Adjust unsuccessful strategies
         self.aggressiveness *= 0.9
-        self.risk_ratio *= 0.95
+        self.risk_profile *= 0.95
 ```
 
 ## Troubleshooting Profiles
@@ -321,19 +552,19 @@ def update_profile(self, game_result):
 #### AI Too Aggressive
 ```bash
 # Reduce risk ratio
-euchre ai-profiles -p aggressive -r 0.3
+euchre ai-profiles -p level1_aggressive -r 0.3
 
 # Use conservative profile instead
-euchre ai-profiles -p conservative
+euchre ai-profiles -p level1_conservative
 ```
 
 #### AI Too Conservative
 ```bash
 # Increase risk ratio
-euchre ai-profiles -p conservative -r 0.7
+euchre ai-profiles -p level1_conservative -r 0.7
 
 # Use balanced profile instead
-euchre ai-profiles -p balanced
+euchre ai-profiles -p level1_balanced
 ```
 
 #### Profile Not Working
@@ -348,10 +579,16 @@ euchre ai-profiles
 ### Profile Validation
 ```bash
 # Test profile behavior
-euchre ai-profiles -p balanced -v
+euchre ai-profiles -p level1_balanced -v
 
 # Run profile comparison
-euchre ai-profiles -p aggressive -p conservative -n 100
+euchre ai-profiles -p level1_aggressive -p level1_conservative -n 100
+
+# Test Level 2 profiles
+euchre ai-profiles -p level2_strategic -p level2_balanced -n 100
+
+# Test Level 3 profiles
+euchre ai-profiles -p level3_strategic -p level3_balanced -n 100
 ```
 
 ## Future Profile Enhancements

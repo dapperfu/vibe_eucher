@@ -1,6 +1,6 @@
 # AI System Overview
 
-The Euchre game features a sophisticated AI system that can play the game at various skill levels, learn from experience, and adapt strategies based on different scenarios.
+The Euchre game features a sophisticated AI system with three distinct levels that can play the game at various skill levels, learn from experience, and adapt strategies based on different scenarios. All AI levels share a unified interface for seamless integration.
 
 ## AI Architecture
 
@@ -8,21 +8,84 @@ The Euchre game features a sophisticated AI system that can play the game at var
 
 ```
 AI System
-├── Base AI (base_ai.py)
-├── AI Factory (ai_factory.py)
-├── AI Profiles (ai_profiles.py)
-├── Adaptive AI (adaptive_ai_profiles.py)
+├── BaseAIInterface (base_ai_interface.py) - Unified interface for all AI levels
+├── AI Factory (ai_factory.py) - Creates different AI types
+├── AI Adapter (ai_adapter.py) - Bridges legacy and new APIs
+├── Level 1 AI (traditional_ai_impl.py) - Traditional rule-based AI
+├── Level 2 AI (level2_ai_impl.py) - Neural network-based AI
+├── Level 3 AI (level3_ai_impl.py) - Advanced neural network AI
 ├── Neural Models (ai_model/)
+│   ├── Level 2 Models (level2_models.py)
+│   └── Level 3 Models (level3_models.py)
 └── Training Framework (ai_training_framework.py)
+```
+
+### Unified AI Interface
+
+All AI levels implement the same `BaseAIInterface`, ensuring they can be used interchangeably:
+
+```python
+class BaseAIInterface:
+    def should_order_up(self, context: GameContext) -> DecisionResult
+    def should_call_trump(self, context: GameContext) -> DecisionResult
+    def select_trump_suit(self, context: GameContext) -> DecisionResult
+    def play_card(self, context: GameContext) -> DecisionResult
+    def discard_card(self, context: GameContext) -> DecisionResult
 ```
 
 ### AI Player Types
 
-1. **Basic AI**: Simple rule-based players
-2. **Profile-Based AI**: Players with distinct personalities
-3. **Adaptive AI**: Players that learn and adjust strategies
-4. **Neural AI**: Machine learning-based players
-5. **Trained AI**: Players that have learned from thousands of games
+1. **Level 1 AI**: Traditional rule-based players with configurable risk profiles
+2. **Level 2 AI**: Neural network-based players with pre-trained models
+3. **Level 3 AI**: Advanced neural network players with comprehensive game modeling
+4. **Adaptive AI**: Players that learn and adjust strategies (future enhancement)
+
+## AI Levels
+
+### Level 1: Traditional AI
+
+**Types**: `level1_aggressive`, `level1_conservative`, `level1_balanced`, `level1_opportunistic`
+
+**Characteristics**:
+- **Strategy**: Rule-based decision making using hard-coded rules and heuristics
+- **Risk Profiles**: Configurable risk tolerance (0.0 = conservative, 1.0 = aggressive)
+- **Performance**: Fast, explainable, consistent behavior
+- **Best For**: Learning, testing, and predictable gameplay
+
+**Decision Making**:
+- Trump calling based on hand strength and risk tolerance
+- Card selection using traditional euchre strategies
+- Partner coordination through rule-based logic
+
+### Level 2: Neural Network AI
+
+**Types**: `level2_strategic`, `level2_aggressive`, `level2_balanced`, `level2_intuitive`
+
+**Characteristics**:
+- **Strategy**: Pre-trained neural networks with risk profile integration
+- **Models**: PyTorch-based neural networks trained on game data
+- **Performance**: Sophisticated decision making, learns from data
+- **Best For**: Advanced gameplay and research
+
+**Decision Making**:
+- Neural network evaluation of game states
+- 256-dimensional feature encoding
+- Risk profile integration during inference
+
+### Level 3: Advanced Neural AI
+
+**Types**: `level3_strategic`, `level3_aggressive`, `level3_balanced`, `level3_conservative`, `level3_opportunistic`
+
+**Characteristics**:
+- **Strategy**: Advanced neural networks with comprehensive game state modeling
+- **Models**: Sophisticated PyTorch models with 2048-dimensional input
+- **Performance**: Highest level of sophistication and adaptability
+- **Best For**: Research, advanced AI development, and cutting-edge gameplay
+
+**Decision Making**:
+- Comprehensive game state encoding
+- Advanced neural network architectures
+- Dynamic risk profile generation
 
 ## AI Capabilities
 
@@ -71,15 +134,61 @@ AI System
 ### Profile Configuration
 
 ```python
-# Example AI profile configuration
+# Example AI profile configuration using the new unified interface
 ai_player = AIFactory.create_ai_player(
     name="Sherlock",
-    profile="balanced",
-    risk_ratio=0.7
+    ai_type="level1_aggressive",  # Level 1 AI with aggressive profile
+    risk_ratio=0.8
+)
+
+# Level 2 AI with strategic profile
+ai_player = AIFactory.create_ai_player(
+    name="Watson",
+    ai_type="level2_strategic",
+    risk_ratio=0.6
+)
+
+# Level 3 AI with balanced profile
+ai_player = AIFactory.create_ai_player(
+    name="Moriarty",
+    ai_type="level3_balanced",
+    risk_ratio=0.5
 )
 ```
 
 ## AI Decision Making
+
+### Game Context
+
+All AI decisions use a unified `GameContext` object:
+
+```python
+@dataclass
+class GameContext:
+    hand: List[Card]                    # Player's current hand
+    position: int                       # Player position (0-3)
+    is_dealer: bool                     # Whether player is dealer
+    flipped_card: Optional[Card]        # Top card for trump selection
+    lead_suit: Optional[Suit]           # Lead suit in current trick
+    trump_suit: Optional[Suit]          # Current trump suit
+    trick_history: List[Trick]          # History of tricks this round
+    team_scores: Tuple[int, int]        # Current team scores
+    round_number: int                   # Current round number
+    # ... additional context fields
+```
+
+### Decision Results
+
+All AI decisions return a unified `DecisionResult`:
+
+```python
+@dataclass
+class DecisionResult:
+    decision_type: DecisionType         # The decision made
+    confidence: float                   # Confidence level (0.0-1.0)
+    reasoning: str                      # Human-readable explanation
+    metadata: Dict[str, Any]           # Additional decision data
+```
 
 ### Trump Selection Logic
 
@@ -160,6 +269,12 @@ euchre benchmark --device cpu --save-results
 ```bash
 # Run tournaments between different AI types
 euchre tournament --num-games 100
+
+# Run comprehensive tournament with all AI levels
+euchre comprehensive-tournament
+
+# Run Level 3 specific tournament
+euchre run-level3-tournament
 ```
 
 ## Customizing AI
@@ -174,14 +289,39 @@ euchre tournament --num-games 100
 ### Modifying AI Behavior
 
 ```python
-# Example: Custom AI decision logic
-class CustomAI(BaseAI):
-    def choose_card_to_play(self, trick, trump_suit):
-        # Custom card selection logic
-        if self.should_play_trump(trick, trump_suit):
-            return self.select_best_trump(trump_suit)
+# Example: Custom AI decision logic using the unified interface
+class CustomAI(BaseAIInterface):
+    def should_order_up(self, context: GameContext) -> DecisionResult:
+        # Custom trump ordering logic
+        hand_strength = self.evaluate_hand(context.hand)
+        if hand_strength > (0.7 - self.risk_profile * 0.3):
+            return DecisionResult(
+                decision_type=DecisionType.ORDER_UP,
+                confidence=0.8,
+                reasoning="Strong hand with good trump potential",
+                metadata={'hand_strength': hand_strength}
+            )
         else:
-            return self.select_follow_suit_card(trick.lead_suit)
+            return DecisionResult(
+                decision_type=DecisionType.PASS,
+                confidence=0.9,
+                reasoning="Hand not strong enough for trump",
+                metadata={'hand_strength': hand_strength}
+            )
+    
+    def play_card(self, context: GameContext) -> DecisionResult:
+        # Custom card selection logic
+        if context.lead_suit and self.has_suit(context.lead_suit):
+            card = self.select_follow_suit_card(context.lead_suit)
+        else:
+            card = self.select_lead_card()
+        
+        return DecisionResult(
+            decision_type=DecisionType.PLAY_CARD,
+            confidence=0.7,
+            reasoning="Selected best available card",
+            metadata={'selected_card': card}
+        )
 ```
 
 ## AI vs AI Games
@@ -193,10 +333,13 @@ class CustomAI(BaseAI):
 euchre ai-vs-ai
 
 # Tournament with custom profiles
-euchre ai-profiles -p aggressive -p conservative -p balanced -p opportunistic
+euchre ai-profiles -p level1_aggressive -p level1_conservative -p level1_balanced -p level1_opportunistic
 
 # Neural network tournament
 euchre run-neural-games -m1 Alice -m2 Bob -n 1000
+
+# Level 3 tournament
+euchre run-level3-tournament
 ```
 
 ### Analysis & Insights
@@ -217,8 +360,8 @@ euchre run-mass-games --num-games 10000
 
 ### Neural Network Models
 
-- **Integer Models**: Fast, lightweight AI
-- **Float Models**: More precise, computationally intensive
+- **Level 2 Models**: 256-dimensional input, trained on game data
+- **Level 3 Models**: 2048-dimensional input, advanced architectures
 - **Hybrid Models**: Balance of speed and accuracy
 
 ### Adaptive Learning
@@ -246,13 +389,13 @@ euchre run-mass-games --num-games 10000
 ## Getting Started with AI
 
 ### For Players
-1. **Try Different Profiles**: Experiment with various AI personalities
+1. **Try Different Levels**: Experiment with Level 1, 2, and 3 AI
 2. **Watch AI Games**: Observe how AI strategies differ
 3. **Learn from AI**: Adopt successful AI strategies
 
 ### For Developers
 1. **Study AI Code**: Review `ai/` directory implementation
-2. **Create Custom AI**: Build your own AI strategies
+2. **Create Custom AI**: Build your own AI strategies using the unified interface
 3. **Contribute**: Improve existing AI algorithms
 
 ### For Researchers

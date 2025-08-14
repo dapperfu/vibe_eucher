@@ -68,7 +68,7 @@ class AIFactory:
         if ai_type in ["level1_aggressive", "level1_conservative", "level1_balanced", "level1_opportunistic"]:
             # Extract the base type from level1_ prefix
             base_type = ai_type.replace("level1_", "")
-            return TraditionalAI(name, risk_ratio, base_type)
+            return TraditionalAI(name, base_type)
         
         # Legacy support for old naming (backward compatibility)
         if ai_type in ["aggressive", "conservative", "balanced", "opportunistic"]:

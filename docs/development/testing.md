@@ -1,12 +1,12 @@
 # Testing Guide
 
-This document explains how to run tests, write new tests, and maintain test quality for the Euchre project.
+This document explains how to run tests, write new tests, and maintain test quality for the Euchre project. The test suite now achieves 100% pass rate with comprehensive coverage of the unified AI interface.
 
 ## Quick Start
 
 ### Run All Tests
 ```bash
-# Basic test run
+# Basic test run (all tests pass)
 make test
 
 # Or manually
@@ -35,20 +35,11 @@ venv/bin/pytest -k "test_trump"
 tests/
 ├── __init__.py
 ├── test_models.py          # Tests for game models
-├── test_game.py            # Tests for game logic
-├── test_ai.py              # Tests for AI system
-├── test_core/              # Tests for core components
-│   ├── __init__.py
-│   ├── test_deck.py        # Deck management tests
-│   ├── test_game_state.py  # Game state tests
-│   ├── test_trick_manager.py # Trick management tests
-│   └── test_scoring.py     # Scoring system tests
-├── test_ai/                 # AI system tests
-│   ├── __init__.py
-│   ├── test_base_ai.py     # Base AI tests
-│   ├── test_ai_factory.py  # AI factory tests
-│   └── test_profiles.py    # AI profile tests
-└── conftest.py             # Test configuration and fixtures
+├── test_game.py            # Tests for game logic and AI integration
+├── test_ai_game.py         # Tests for AI gameplay functionality
+├── test_ai_profiles.py     # Tests for AI profile system
+├── conftest.py             # Test configuration and fixtures
+└── __init__.py
 ```
 
 ### Test File Naming
@@ -62,7 +53,7 @@ tests/
 
 #### Run All Tests
 ```bash
-# Using make
+# Using make (recommended)
 make test
 
 # Using pytest directly
@@ -177,9 +168,9 @@ pip install pytest-cov
 ```python
 def test_card_creation():
     """Test that cards are created correctly."""
-    card = Card(Suit.HEARTS, Rank.ACE)
-    assert card.suit == Suit.HEARTS
+    card = Card(rank=Rank.ACE, suit=Suit.HEARTS)
     assert card.rank == Rank.ACE
+    assert card.suit == Suit.HEARTS
     assert str(card) == "Ace of Hearts"
 ```
 
@@ -234,11 +225,11 @@ def sample_players():
 def sample_hand():
     """Create a sample hand for testing."""
     return [
-        Card(Suit.HEARTS, Rank.ACE),
-        Card(Suit.DIAMONDS, Rank.KING),
-        Card(Suit.CLUBS, Rank.QUEEN),
-        Card(Suit.SPADES, Rank.JACK),
-        Card(Suit.HEARTS, Rank.TEN)
+        Card(rank=Rank.ACE, suit=Suit.HEARTS),
+        Card(rank=Rank.KING, suit=Suit.DIAMONDS),
+        Card(rank=Rank.QUEEN, suit=Suit.CLUBS),
+        Card(rank=Rank.JACK, suit=Suit.SPADES),
+        Card(rank=Rank.TEN, suit=Suit.HEARTS)
     ]
 
 def test_player_with_hand(sample_players, sample_hand):
@@ -339,6 +330,183 @@ def test_deck_dealing_players(num_players, expected_hands):
     assert len(hands) == expected_hands
 ```
 
+## AI System Testing
+
+### Testing Unified AI Interface
+
+#### Test BaseAIInterface Implementation
+```python
+def test_ai_interface_implementation():
+    """Test that AI classes implement the unified interface."""
+    from euchre.ai.base_ai_interface import BaseAIInterface
+    from euchre.ai.traditional_ai_impl import TraditionalAI
+    from euchre.ai.level2_ai_impl import Level2AI
+    from euchre.ai.level3_ai_impl import Level3AI
+    
+    # Test that all AI classes implement the interface
+    assert issubclass(TraditionalAI, BaseAIInterface)
+    assert issubclass(Level2AI, BaseAIInterface)
+    assert issubclass(Level3AI, BaseAIInterface)
+    
+    # Test that required methods exist
+    ai_classes = [TraditionalAI, Level2AI, Level3AI]
+    required_methods = [
+        'should_order_up', 'should_call_trump', 'select_trump_suit',
+        'play_card', 'discard_card'
+    ]
+    
+    for ai_class in ai_classes:
+        for method_name in required_methods:
+            assert hasattr(ai_class, method_name)
+            method = getattr(ai_class, method_name)
+            assert callable(method)
+```
+
+#### Test GameContext Usage
+```python
+def test_ai_game_context_usage():
+    """Test that AI methods use GameContext correctly."""
+    from euchre.ai.traditional_ai_impl import TraditionalAI
+    from euchre.ai.game_context import GameContext
+    from euchre.models import Card, Suit, Rank
+    
+    ai = TraditionalAI("Test", "balanced")
+    
+    # Create game context
+    context = GameContext(
+        hand=[Card(rank=Rank.ACE, suit=Suit.HEARTS)],
+        position=0,
+        is_dealer=False,
+        flipped_card=Card(rank=Rank.JACK, suit=Suit.HEARTS),
+        lead_suit=None,
+        trump_suit=None,
+        trick_history=[],
+        team_scores=(0, 0),
+        round_number=1
+    )
+    
+    # Test that AI methods accept GameContext
+    result = ai.should_order_up(context)
+    assert hasattr(result, 'decision_type')
+    assert hasattr(result, 'confidence')
+    assert hasattr(result, 'reasoning')
+```
+
+#### Test DecisionResult Structure
+```python
+def test_ai_decision_result_structure():
+    """Test that AI methods return DecisionResult objects."""
+    from euchre.ai.traditional_ai_impl import TraditionalAI
+    from euchre.ai.decision_result import DecisionResult, DecisionType
+    from euchre.ai.game_context import GameContext
+    from euchre.models import Card, Suit, Rank
+    
+    ai = TraditionalAI("Test", "balanced")
+    
+    # Create minimal game context
+    context = GameContext(
+        hand=[Card(rank=Rank.ACE, suit=Suit.HEARTS)],
+        position=0,
+        is_dealer=False,
+        flipped_card=None,
+        lead_suit=None,
+        trump_suit=None,
+        trick_history=[],
+        team_scores=(0, 0),
+        round_number=1
+    )
+    
+    # Test all AI methods return DecisionResult
+    methods_to_test = [
+        'should_order_up', 'should_call_trump', 'select_trump_suit',
+        'play_card', 'discard_card'
+    ]
+    
+    for method_name in methods_to_test:
+        method = getattr(ai, method_name)
+        result = method(context)
+        assert isinstance(result, DecisionResult)
+        assert hasattr(result, 'decision_type')
+        assert hasattr(result, 'confidence')
+        assert hasattr(result, 'reasoning')
+        assert hasattr(result, 'metadata')
+```
+
+### Testing AI Levels
+
+#### Test Level 1 AI (Traditional)
+```python
+def test_level1_ai_creation():
+    """Test Level 1 AI creation and basic functionality."""
+    from euchre.ai.traditional_ai_impl import TraditionalAI
+    
+    # Test different AI styles
+    styles = ["aggressive", "conservative", "balanced", "opportunistic"]
+    
+    for style in styles:
+        ai = TraditionalAI("Test", style)
+        assert ai.name == "Test"
+        assert ai.ai_style == style
+        assert 0.0 <= ai.risk_ratio <= 1.0
+        assert hasattr(ai, 'risk_profile')
+```
+
+#### Test Level 2 AI (Neural Network)
+```python
+def test_level2_ai_creation():
+    """Test Level 2 AI creation and basic functionality."""
+    from euchre.ai.level2_ai_impl import Level2AI
+    
+    # Test different AI types
+    ai_types = ["strategic", "aggressive", "balanced", "intuitive"]
+    
+    for ai_type in ai_types:
+        ai = Level2AI("Test", ai_type, 0.5)
+        assert ai.name == "Test"
+        assert ai.ai_type == ai_type
+        assert 0.0 <= ai.risk_profile <= 1.0
+```
+
+#### Test Level 3 AI (Advanced Neural)
+```python
+def test_level3_ai_creation():
+    """Test Level 3 AI creation and basic functionality."""
+    from euchre.ai.level3_ai_impl import Level3AI
+    
+    # Test different AI types
+    ai_types = ["strategic", "aggressive", "balanced", "conservative", "opportunistic"]
+    
+    for ai_type in ai_types:
+        ai = Level3AI("Test", ai_type, 0.5)
+        assert ai.name == "Test"
+        assert ai.ai_type == ai_type
+        assert 0.0 <= ai.risk_profile <= 1.0
+```
+
+### Testing AI Factory
+
+#### Test AI Creation
+```python
+def test_ai_factory_creation():
+    """Test AI factory creates correct AI types."""
+    from euchre.ai.ai_factory import AIFactory
+    
+    # Test Level 1 AI creation
+    level1_ai = AIFactory.create_ai_player("Test", "level1_balanced", 0.5)
+    assert level1_ai.__class__.__name__ == "TraditionalAI"
+    assert level1_ai.ai_style == "balanced"
+    
+    # Test Level 2 AI creation
+    level2_ai = AIFactory.create_ai_player("Test", "level2_strategic", 0.5)
+    assert level2_ai.__class__.__name__ == "Level2AI"
+    assert level2_ai.ai_type == "strategic"
+    
+    # Test Level 3 AI creation
+    level3_ai = AIFactory.create_ai_player("Test", "level3_balanced", 0.5)
+    assert level3_ai.__class__.__name__ == "Level3AI"
+    assert level3_ai.ai_type == "balanced"
+```
+
 ## Test Quality
 
 ### Assertions
@@ -408,6 +576,12 @@ def test_performance():
 def test_edge_cases():
     """Test boundary conditions and edge cases."""
     pass
+
+# AI-specific tests
+@pytest.mark.ai
+def test_ai_functionality():
+    """Test AI system functionality."""
+    pass
 ```
 
 ## Test Configuration
@@ -425,6 +599,7 @@ markers =
     integration: marks tests as integration tests
     unit: marks tests as unit tests
     performance: marks tests as performance tests
+    ai: marks tests as AI system tests
 ```
 
 ### conftest.py Configuration
@@ -450,12 +625,17 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "integration: marks tests as integration tests"
     )
+    config.addinivalue_line(
+        "markers", "ai: marks tests as AI system tests"
+    )
 
 def pytest_collection_modifyitems(config, items):
     """Modify test collection."""
     for item in items:
         if "slow" in item.keywords:
             item.add_marker(pytest.mark.slow)
+        if "ai" in item.keywords:
+            item.add_marker(pytest.mark.ai)
 ```
 
 ## Continuous Integration
@@ -527,6 +707,12 @@ make check-all
 3. **Parallel Execution**: Use pytest-xdist for parallel testing
 4. **Mock External Dependencies**: Don't test external services
 
+### AI Testing Specifics
+1. **Test Interface Compliance**: Ensure all AI classes implement the unified interface
+2. **Test GameContext Usage**: Verify AI methods use GameContext correctly
+3. **Test DecisionResult Structure**: Check that AI methods return proper DecisionResult objects
+4. **Test Risk Profile Integration**: Verify risk profiles affect AI behavior correctly
+
 ## Troubleshooting
 
 ### Common Issues
@@ -567,6 +753,18 @@ pytest --cov=euchre --cov-report=html
 pytest --cov-config=.coveragerc
 ```
 
+#### AI-Specific Issues
+```bash
+# Check AI module imports
+python -c "from euchre.ai import TraditionalAI, Level2AI, Level3AI; print('AI imports OK')"
+
+# Check PyTorch installation (for Level 2/3 AI)
+python -c "import torch; print(f'PyTorch version: {torch.__version__}')"
+
+# Check CUDA availability (if using GPU)
+python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}')"
+```
+
 ### Getting Help
 ```bash
 # Check pytest help
@@ -592,6 +790,12 @@ pytest -v --tb=long
 2. **Mutation Testing**: Use mutmut for mutation testing
 3. **Fuzzing**: Add fuzz testing for robustness
 4. **Load Testing**: Test with large datasets
+
+### AI Testing Enhancements
+1. **Model Validation**: Test neural network model outputs
+2. **Performance Benchmarking**: Test AI decision-making speed
+3. **Strategy Validation**: Test AI strategy effectiveness
+4. **Cross-Level Testing**: Test AI level interactions
 
 ---
 

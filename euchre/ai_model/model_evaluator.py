@@ -18,6 +18,8 @@ from ..ai_profiles import AggressiveAI, ConservativeAI, BalancedAI, Opportunisti
 from ..models import Player, PlayerType, Card, Suit, Rank
 from ..game_logger import GameLogger
 from .euchre_nn import EuchreNN
+from .level3_models import Level3NeuralModel
+from .model_player import ModelPlayer
 
 
 class ModelEvaluator:
@@ -80,17 +82,56 @@ class ModelEvaluator:
             # Load model with CPU mapping to handle CUDA-trained models on CPU
             checkpoint = torch.load(self.model_path, map_location='cpu')
             
-            # Create model instance
-            model = EuchreNN(
-                input_size=128,
-                hidden_size=256,
-                output_size=64,
-                risk_embedding_size=32,
-                use_risk_attention=True
-            )
+            # Create model instance based on checkpoint configuration
+            if isinstance(checkpoint, dict) and 'model_config' in checkpoint:
+                config = checkpoint['model_config']
+                print(f"📋 Model config: {config}")
+                
+                # Use Level3NeuralModel for complex architectures
+                if config.get('input_size', 0) > 1000:  # Complex model
+                    model = Level3NeuralModel(
+                        input_size=config.get('input_size', 2048),
+                        hidden_size=config.get('hidden_size', 512),
+                        num_layers=config.get('num_layers', 4),
+                        risk_embedding_size=config.get('risk_embedding_size', 128),
+                        use_attention=config.get('use_attention', True),
+                        use_transformer=config.get('use_transformer', False),
+                        use_memory_networks=config.get('use_memory_networks', False)
+                    )
+                    print(f"🏗️  Created Level3NeuralModel with config: {config}")
+                else:
+                    # Fallback to simple EuchreNN
+                    model = EuchreNN(
+                        input_size=config.get('input_size', 128),
+                        hidden_size=config.get('hidden_size', 256),
+                        output_size=config.get('output_size', 64),
+                        risk_embedding_size=config.get('risk_embedding_size', 32),
+                        use_risk_attention=config.get('use_attention', True)
+                    )
+                    print(f"🏗️  Created EuchreNN with config: {config}")
+            else:
+                # Fallback to default EuchreNN
+                model = EuchreNN(
+                    input_size=128,
+                    hidden_size=256,
+                    output_size=64,
+                    risk_embedding_size=32,
+                    use_risk_attention=True
+                )
+                print("🏗️  Created default EuchreNN model")
             
-            # Load state dict
-            model.load_state_dict(checkpoint)
+            # Load state dict - handle both direct state dict and checkpoint format
+            if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
+                # This is a full checkpoint with training state
+                state_dict = checkpoint['model_state_dict']
+                print(f"📦 Loaded model from checkpoint (epoch {checkpoint.get('current_epoch', 'unknown')})")
+            else:
+                # This is a direct state dict
+                state_dict = checkpoint
+                print("📦 Loaded model from direct state dict")
+            
+            # Load the state dict
+            model.load_state_dict(state_dict)
             
             # Move to device (will be CPU if CUDA not available)
             model.to(self.device)
@@ -243,9 +284,15 @@ class ModelEvaluator:
         game.add_ai_player("North", strategy, strategy_config['risk_ratio'])
         game.add_ai_player("East", strategy, strategy_config['risk_ratio'])
         
-        # Add model players (you'll need to implement this based on your model interface)
-        game.add_model_player("South", self.model, self.device)
-        game.add_model_player("West", self.model, self.device)
+        # Add model players using ModelPlayer class
+        model_player_south = ModelPlayer("South", self.model, self.device, "balanced")
+        model_player_west = ModelPlayer("West", self.model, self.device, "balanced")
+        game.players.append(model_player_south)
+        game.players.append(model_player_west)
+        
+        # Initialize dealer selection since we bypassed add_player method
+        from ..core.dealer_selection import DealerSelection
+        game.dealer_selection = DealerSelection(game.players)
         
         # Start game
         game.start_new_game()
