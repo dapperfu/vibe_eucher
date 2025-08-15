@@ -24,7 +24,7 @@ import logging
 # Import the enhanced Level3 AI components
 from euchre.ai_model.level3_models import Level3NeuralModel, Level3RiskProfile
 from euchre.game import EuchreGame
-from euchre.models import Card, Suit, Rank, Player
+from euchre.models import Card, Suit, Rank, Player, PlayerType
 from euchre.ai.ai_factory import AIFactory
 
 # Set up logging
@@ -457,11 +457,11 @@ class EnhancedLevel3Trainer:
         for i in range(4):
             if i == hand_scenario.current_position:
                 # This is our AI player
-                player = Player(f"AI_Player_{i}", "ai")
+                player = Player(f"AI_Player_{i}", PlayerType.AI)
                 player.hand = hand_scenario.player_hand.copy()
             else:
                 # Opponent players with random hands
-                player = Player(f"Opponent_{i}", "ai")
+                player = Player(f"Opponent_{i}", PlayerType.AI)
                 # Generate random hand for opponent
                 player.hand = self._generate_random_hand()
             players.append(player)
