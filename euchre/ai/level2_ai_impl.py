@@ -120,7 +120,7 @@ class Level2AI(Player, BaseAIInterface):
         Parameters
         ----------
         context : GameContext
-            Current game context including hand, top card, dealer, etc.
+            Current game context including hand, flipped card, dealer, etc.
             
         Returns
         -------
@@ -128,33 +128,64 @@ class Level2AI(Player, BaseAIInterface):
             Decision with type, confidence, and reasoning
         """
         try:
-            # Prepare input tensor for the model
-            input_tensor = self._prepare_input_tensor(context)
+            # Strategic evaluation based on hand strength and position
+            hand = context.hand
+            flipped_card = context.flipped_card
+            is_dealer = context.is_dealer
             
-            # Get model prediction
-            with torch.no_grad():
-                outputs = self.model(input_tensor, self.risk_profile_obj)
-                
-                # Handle different model output formats
-                if isinstance(outputs, dict) and 'trump_decision' in outputs:
-                    trump_probs = torch.softmax(outputs['trump_decision'], dim=-1)
-                elif isinstance(outputs, torch.Tensor):
-                    # If model returns raw tensor, assume it's trump decision logits
-                    trump_probs = torch.softmax(outputs, dim=-1)
-                else:
-                    # Fallback: create random probabilities
-                    trump_probs = torch.softmax(torch.randn(2), dim=-1)
-                
-                # Ensure we have the right number of outputs
-                if trump_probs.size(-1) >= 2:
-                    trump_confidence = trump_probs[1].item()  # Probability of ordering up
-                else:
-                    # Fallback to random decision
-                    trump_confidence = 0.5
+            # If no flipped card, we can't order up
+            if not flipped_card:
+                return DecisionResult(
+                    decision_type=DecisionType.PASS,
+                    confidence=0.0,
+                    reasoning=f"Level 2 AI {self.name} passes - no flipped card to order up"
+                )
             
-            # Apply risk profile adjustment
+            # Count trump cards in hand (including left bower)
+            trump_suit = flipped_card.suit
+            left_bower_suit = self._get_left_bower_suit(trump_suit)
+            trump_count = 0
+            high_trump_count = 0
+            
+            for card in hand:
+                if card.suit == trump_suit:
+                    trump_count += 1
+                    if card.rank in [Rank.JACK, Rank.ACE, Rank.KING, Rank.QUEEN]:
+                        high_trump_count += 1
+                elif card.suit == left_bower_suit and card.rank == Rank.JACK:
+                    trump_count += 1
+                    high_trump_count += 1  # Left bower is high trump
+            
+            # Strategic decision factors
+            base_confidence = 0.0
+            
+            # Factor 1: Trump count (more trump = higher confidence)
+            if trump_count >= 3:
+                base_confidence += 0.4
+            elif trump_count >= 2:
+                base_confidence += 0.2
+            elif trump_count >= 1:
+                base_confidence += 0.1
+            
+            # Factor 2: High trump count (J, A, K, Q)
+            if high_trump_count >= 2:
+                base_confidence += 0.3
+            elif high_trump_count >= 1:
+                base_confidence += 0.15
+            
+            # Factor 3: Position (dealer has advantage)
+            if is_dealer:
+                base_confidence += 0.1
+            
+            # Factor 4: Flipped card quality
+            if flipped_card.rank in [Rank.JACK, Rank.ACE, Rank.KING]:
+                base_confidence += 0.2
+            elif flipped_card.rank == Rank.QUEEN:
+                base_confidence += 0.1
+            
+            # Factor 5: Risk profile adjustment
             risk_adjustment = self.risk_profile_obj.trump_calling_aggression - 0.5
-            adjusted_confidence = trump_confidence + (risk_adjustment * 0.2)
+            adjusted_confidence = base_confidence + (risk_adjustment * 0.3)
             adjusted_confidence = max(0.0, min(1.0, adjusted_confidence))
             
             # Make decision
@@ -163,10 +194,10 @@ class Level2AI(Player, BaseAIInterface):
             # Generate reasoning
             if should_order:
                 reasoning = f"Level 2 AI {self.name} orders up with {adjusted_confidence:.2%} confidence"
-                reasoning += f" (base: {trump_confidence:.2%}, risk adjustment: {risk_adjustment:+.2f})"
+                reasoning += f" (trump: {trump_count}, high: {high_trump_count}, dealer: {is_dealer})"
             else:
                 reasoning = f"Level 2 AI {self.name} passes with {adjusted_confidence:.2%} confidence"
-                reasoning += f" (base: {trump_confidence:.2%}, risk adjustment: {risk_adjustment:+.2f})"
+                reasoning += f" (trump: {trump_count}, high: {high_trump_count}, dealer: {is_dealer})"
             
             return DecisionResult(
                 decision_type=DecisionType.ORDER_UP if should_order else DecisionType.PASS,
@@ -183,6 +214,17 @@ class Level2AI(Player, BaseAIInterface):
                 reasoning=f"Level 2 AI {self.name} encountered error, defaulting to pass"
             )
     
+    def _get_left_bower_suit(self, trump_suit: Suit) -> Suit:
+        """Get the suit of the left bower for a given trump suit."""
+        if trump_suit == Suit.HEARTS:
+            return Suit.DIAMONDS
+        elif trump_suit == Suit.DIAMONDS:
+            return Suit.HEARTS
+        elif trump_suit == Suit.CLUBS:
+            return Suit.SPADES
+        else:  # SPADES
+            return Suit.CLUBS
+    
     def should_call_trump(self, context: GameContext) -> DecisionResult:
         """
         Decide whether to call trump during second round.
@@ -198,45 +240,73 @@ class Level2AI(Player, BaseAIInterface):
             Decision with type, confidence, and reasoning
         """
         try:
-            # Prepare input tensor for the model
-            input_tensor = self._prepare_input_tensor(context)
+            # Strategic evaluation for second round trump calling
+            hand = context.hand
+            is_dealer = context.is_dealer
             
-            # Get model prediction
-            with torch.no_grad():
-                outputs = self.model(input_tensor, self.risk_profile_obj)
+            # Evaluate each suit as potential trump
+            best_suit = None
+            best_confidence = 0.0
+            
+            for potential_trump in [Suit.HEARTS, Suit.DIAMONDS, Suit.CLUBS, Suit.SPADES]:
+                # Count trump cards for this suit (including left bower)
+                left_bower_suit = self._get_left_bower_suit(potential_trump)
+                trump_count = 0
+                high_trump_count = 0
                 
-                # Handle different model output formats
-                if isinstance(outputs, dict) and 'trump_decision' in outputs:
-                    trump_probs = torch.softmax(outputs['trump_decision'], dim=-1)
-                elif isinstance(outputs, torch.Tensor):
-                    # If model returns raw tensor, assume it's trump decision logits
-                    trump_probs = torch.softmax(outputs, dim=-1)
-                else:
-                    # Fallback: create random probabilities
-                    trump_probs = torch.softmax(torch.randn(2), dim=-1)
+                for card in hand:
+                    if card.suit == potential_trump:
+                        trump_count += 1
+                        if card.rank in [Rank.JACK, Rank.ACE, Rank.KING, Rank.QUEEN]:
+                            high_trump_count += 1
+                    elif card.suit == left_bower_suit and card.rank == Rank.JACK:
+                        trump_count += 1
+                        high_trump_count += 1  # Left bower is high trump
                 
-                # Ensure we have the right number of outputs
-                if trump_probs.size(-1) >= 2:
-                    trump_confidence = trump_probs[1].item()  # Probability of calling trump
-                else:
-                    # Fallback to random decision
-                    trump_confidence = 0.5
+                # Calculate confidence for this suit
+                suit_confidence = 0.0
+                
+                # Factor 1: Trump count
+                if trump_count >= 3:
+                    suit_confidence += 0.5
+                elif trump_count >= 2:
+                    suit_confidence += 0.3
+                elif trump_count >= 1:
+                    suit_confidence += 0.1
+                
+                # Factor 2: High trump count
+                if high_trump_count >= 2:
+                    suit_confidence += 0.4
+                elif high_trump_count >= 1:
+                    suit_confidence += 0.2
+                
+                # Factor 3: Position (dealer has advantage)
+                if is_dealer:
+                    suit_confidence += 0.1
+                
+                # Update best suit if this one is better
+                if suit_confidence > best_confidence:
+                    best_confidence = suit_confidence
+                    best_suit = potential_trump
             
             # Apply risk profile adjustment
             risk_adjustment = self.risk_profile_obj.trump_calling_aggression - 0.5
-            adjusted_confidence = trump_confidence + (risk_adjustment * 0.2)
+            adjusted_confidence = best_confidence + (risk_adjustment * 0.3)
             adjusted_confidence = max(0.0, min(1.0, adjusted_confidence))
             
             # Make decision
-            should_call = adjusted_confidence > 0.5
+            should_call = adjusted_confidence > 0.6  # Higher threshold for second round
             
             # Generate reasoning
             if should_call:
-                reasoning = f"Level 2 AI {self.name} calls trump with {adjusted_confidence:.2%} confidence"
-                reasoning += f" (base: {trump_confidence:.2%}, risk adjustment: {risk_adjustment:+.2f})"
+                reasoning = f"Level 2 AI {self.name} calls {best_suit.name} as trump with {adjusted_confidence:.2%} confidence"
+                # Count cards for the chosen suit
+                left_bower_suit = self._get_left_bower_suit(best_suit)
+                trump_count = sum(1 for card in hand if card.suit == best_suit or (card.suit == left_bower_suit and card.rank == Rank.JACK))
+                reasoning += f" (trump: {trump_count})"
             else:
                 reasoning = f"Level 2 AI {self.name} passes with {adjusted_confidence:.2%} confidence"
-                reasoning += f" (base: {trump_confidence:.2%}, risk adjustment: {risk_adjustment:+.2f})"
+                reasoning += f" (best suit: {best_suit.name if best_suit else 'none'})"
             
             return DecisionResult(
                 decision_type=DecisionType.CALL_TRUMP if should_call else DecisionType.PASS,
@@ -275,24 +345,60 @@ class Level2AI(Player, BaseAIInterface):
             with torch.no_grad():
                 outputs = self.model(input_tensor, self.risk_profile_obj)
                 
-                # Handle different model output formats
+                # Handle different model output formats and ensure proper tensor shapes
+                card_probs = None
+                num_cards = len(context.hand)
+                
                 if isinstance(outputs, dict) and 'card_selection' in outputs:
-                    card_probs = torch.softmax(outputs['card_selection'], dim=-1)
+                    # Model returns dictionary with card_selection key
+                    raw_output = outputs['card_selection']
+                    if isinstance(raw_output, torch.Tensor):
+                        # Handle 2D tensors [1, X] by squeezing to 1D
+                        if raw_output.dim() == 2 and raw_output.size(0) == 1:
+                            raw_output = raw_output.squeeze(0)  # Convert [1, X] to [X]
+                        
+                        # Ensure tensor has the right number of outputs
+                        if raw_output.dim() == 1:
+                            if raw_output.size(0) >= num_cards:
+                                card_probs = torch.softmax(raw_output, dim=0)
+                            else:
+                                # Pad with zeros if not enough outputs
+                                padded = torch.cat([raw_output, torch.zeros(num_cards - raw_output.size(0), device=raw_output.device, dtype=raw_output.dtype)])
+                                card_probs = torch.softmax(padded, dim=0)
+                        else:
+                            card_probs = torch.softmax(raw_output, dim=-1)
+                    else:
+                        # Fallback for non-tensor outputs
+                        card_probs = torch.softmax(torch.randn(num_cards), dim=0)
+                        
                 elif isinstance(outputs, torch.Tensor):
-                    # If model returns raw tensor, assume it's card selection logits
-                    card_probs = torch.softmax(outputs, dim=-1)
+                    # Model returns raw tensor
+                    raw_output = outputs
+                    # Handle 2D tensors [1, X] by squeezing to 1D
+                    if raw_output.dim() == 2 and raw_output.size(0) == 1:
+                        raw_output = raw_output.squeeze(0)  # Convert [1, X] to [X]
+                    
+                    if raw_output.dim() == 1:
+                        if raw_output.size(0) >= num_cards:
+                            card_probs = torch.softmax(raw_output, dim=0)
+                        else:
+                            # Pad with zeros if not enough outputs
+                            padded = torch.cat([raw_output, torch.zeros(num_cards - raw_output.size(0), device=raw_output.device, dtype=raw_output.dtype)])
+                            card_probs = torch.softmax(padded, dim=0)
+                    else:
+                        card_probs = torch.softmax(raw_output, dim=-1)
                 else:
                     # Fallback: create random probabilities
-                    card_probs = torch.softmax(torch.randn(len(context.hand)), dim=-1)
+                    card_probs = torch.softmax(torch.randn(num_cards), dim=0)
                 
-                # Ensure we have the right number of cards
-                if card_probs.size(-1) >= len(context.hand):
-                    chosen_card_idx = torch.argmax(card_probs).item()
-                    confidence = card_probs[chosen_card_idx].item()
-                else:
-                    # Fallback to random selection
-                    chosen_card_idx = 0
-                    confidence = 0.5
+                # Ensure we have exactly the right number of probabilities
+                if card_probs.size(0) < num_cards:
+                    # Pad with zeros if needed
+                    card_probs = torch.cat([card_probs, torch.zeros(num_cards - card_probs.size(0), device=card_probs.device, dtype=card_probs.dtype)])
+                
+                # Now safely choose the card with highest probability
+                chosen_card_idx = torch.argmax(card_probs).item()
+                confidence = card_probs[chosen_card_idx].item()
             
             # Get the chosen card
             if 0 <= chosen_card_idx < len(context.hand):
@@ -309,7 +415,7 @@ class Level2AI(Player, BaseAIInterface):
                 decision_type=DecisionType.PLAY_CARD,
                 confidence=confidence,
                 reasoning=reasoning,
-                card=chosen_card
+                metadata={'selected_card': str(chosen_card)}
             )
             
         except Exception as e:
@@ -320,7 +426,7 @@ class Level2AI(Player, BaseAIInterface):
                 decision_type=DecisionType.PLAY_CARD,
                 confidence=0.3,
                 reasoning=f"Level 2 AI {self.name} encountered error, defaulting to first card",
-                card=fallback_card
+                metadata={'selected_card': str(fallback_card)}
             )
     
     def play_card(self, context: GameContext) -> DecisionResult:
@@ -333,24 +439,60 @@ class Level2AI(Player, BaseAIInterface):
             with torch.no_grad():
                 outputs = self.model(input_tensor, self.risk_profile_obj)
                 
-                # Handle different model output formats
+                # Handle different model output formats and ensure proper tensor shapes
+                card_probs = None
+                num_cards = len(context.hand)
+                
                 if isinstance(outputs, dict) and 'card_selection' in outputs:
-                    card_probs = torch.softmax(outputs['card_selection'], dim=-1)
+                    # Model returns dictionary with card_selection key
+                    raw_output = outputs['card_selection']
+                    if isinstance(raw_output, torch.Tensor):
+                        # Handle 2D tensors [1, X] by squeezing to 1D
+                        if raw_output.dim() == 2 and raw_output.size(0) == 1:
+                            raw_output = raw_output.squeeze(0)  # Convert [1, X] to [X]
+                        
+                        # Ensure tensor has the right number of outputs
+                        if raw_output.dim() == 1:
+                            if raw_output.size(0) >= num_cards:
+                                card_probs = torch.softmax(raw_output, dim=0)
+                            else:
+                                # Pad with zeros if not enough outputs
+                                padded = torch.cat([raw_output, torch.zeros(num_cards - raw_output.size(0), device=raw_output.device, dtype=raw_output.dtype)])
+                                card_probs = torch.softmax(padded, dim=0)
+                        else:
+                            card_probs = torch.softmax(raw_output, dim=-1)
+                    else:
+                        # Fallback for non-tensor outputs
+                        card_probs = torch.softmax(torch.randn(num_cards), dim=0)
+                        
                 elif isinstance(outputs, torch.Tensor):
-                    # If model returns raw tensor, assume it's card selection logits
-                    card_probs = torch.softmax(outputs, dim=-1)
+                    # Model returns raw tensor
+                    raw_output = outputs
+                    # Handle 2D tensors [1, X] by squeezing to 1D
+                    if raw_output.dim() == 2 and raw_output.size(0) == 1:
+                        raw_output = raw_output.squeeze(0)  # Convert [1, X] to [X]
+                    
+                    if raw_output.dim() == 1:
+                        if raw_output.size(0) >= num_cards:
+                            card_probs = torch.softmax(raw_output, dim=0)
+                        else:
+                            # Pad with zeros if not enough outputs
+                            padded = torch.cat([raw_output, torch.zeros(num_cards - raw_output.size(0), device=raw_output.device, dtype=raw_output.dtype)])
+                            card_probs = torch.softmax(padded, dim=0)
+                    else:
+                        card_probs = torch.softmax(raw_output, dim=-1)
                 else:
                     # Fallback: create random probabilities
-                    card_probs = torch.softmax(torch.randn(len(context.hand)), dim=-1)
+                    card_probs = torch.softmax(torch.randn(num_cards), dim=0)
                 
-                # Ensure we have the right number of cards
-                if card_probs.size(-1) >= len(context.hand):
-                    chosen_card_idx = torch.argmax(card_probs).item()
-                    confidence = card_probs[chosen_card_idx].item()
-                else:
-                    # Fallback to random selection
-                    chosen_card_idx = 0
-                    confidence = 0.5
+                # Ensure we have exactly the right number of probabilities
+                if card_probs.size(0) < num_cards:
+                    # Pad with zeros if needed
+                    card_probs = torch.cat([card_probs, torch.zeros(num_cards - card_probs.size(0), device=card_probs.device, dtype=card_probs.dtype)])
+                
+                # Now safely choose the card with highest probability
+                chosen_card_idx = torch.argmax(card_probs).item()
+                confidence = card_probs[chosen_card_idx].item()
             
             # Get the chosen card
             if 0 <= chosen_card_idx < len(context.hand):
@@ -432,41 +574,76 @@ class Level2AI(Player, BaseAIInterface):
     def select_trump_suit(self, context: GameContext) -> DecisionResult:
         """Select which suit to call as trump."""
         try:
-            # Prepare input tensor for the model
-            input_tensor = self._prepare_input_tensor(context)
+            # Strategic evaluation for dealer's forced trump selection
+            hand = context.hand
+            is_dealer = context.is_dealer
             
-            # Get model prediction
-            with torch.no_grad():
-                outputs = self.model(input_tensor, self.risk_profile_obj)
+            # Evaluate each suit as potential trump
+            best_suit = None
+            best_confidence = 0.0
+            
+            for potential_trump in [Suit.HEARTS, Suit.DIAMONDS, Suit.CLUBS, Suit.SPADES]:
+                # Count trump cards for this suit (including left bower)
+                left_bower_suit = self._get_left_bower_suit(potential_trump)
+                trump_count = 0
+                high_trump_count = 0
                 
-                # Handle different model output formats
-                if isinstance(outputs, dict) and 'suit_selection' in outputs:
-                    suit_probs = torch.softmax(outputs['suit_selection'], dim=-1)
-                elif isinstance(outputs, torch.Tensor):
-                    # If model returns raw tensor, assume it's suit selection logits
-                    suit_probs = torch.softmax(outputs, dim=-1)
-                else:
-                    # Fallback: create random probabilities
-                    suit_probs = torch.softmax(torch.randn(4), dim=-1)
+                for card in hand:
+                    if card.suit == potential_trump:
+                        trump_count += 1
+                        if card.rank in [Rank.JACK, Rank.ACE, Rank.KING, Rank.QUEEN]:
+                            high_trump_count += 1
+                    elif card.suit == left_bower_suit and card.rank == Rank.JACK:
+                        trump_count += 1
+                        high_trump_count += 1  # Left bower is high trump
                 
-                # Ensure we have the right number of suits
-                if suit_probs.size(-1) >= 4:
-                    chosen_suit_idx = torch.argmax(suit_probs).item()
-                    confidence = suit_probs[chosen_suit_idx].item()
-                else:
-                    # Fallback to random selection
-                    chosen_suit_idx = 0
-                    confidence = 0.5
+                # Calculate confidence for this suit
+                suit_confidence = 0.0
+                
+                # Factor 1: Trump count (critical for dealer)
+                if trump_count >= 3:
+                    suit_confidence += 0.6
+                elif trump_count >= 2:
+                    suit_confidence += 0.4
+                elif trump_count >= 1:
+                    suit_confidence += 0.2
+                
+                # Factor 2: High trump count
+                if high_trump_count >= 2:
+                    suit_confidence += 0.5
+                elif high_trump_count >= 1:
+                    suit_confidence += 0.3
+                
+                # Factor 3: Dealer advantage (can lead first trick)
+                if is_dealer:
+                    suit_confidence += 0.2
+                
+                # Factor 4: Avoid suits with very few cards
+                if trump_count == 0:
+                    suit_confidence -= 0.3  # Penalty for no trump
+                
+                # Update best suit if this one is better
+                if suit_confidence > best_confidence:
+                    best_confidence = suit_confidence
+                    best_suit = potential_trump
             
-            # Map index to suit
-            suit_map = [Suit.HEARTS, Suit.DIAMONDS, Suit.CLUBS, Suit.SPADES]
-            selected_suit = suit_map[chosen_suit_idx] if chosen_suit_idx < len(suit_map) else Suit.HEARTS
+            # Apply risk profile adjustment
+            risk_adjustment = self.risk_profile_obj.trump_calling_aggression - 0.5
+            adjusted_confidence = best_confidence + (risk_adjustment * 0.2)
+            adjusted_confidence = max(0.0, min(1.0, adjusted_confidence))
             
-            reasoning = f"Level 2 AI {self.name} selected {selected_suit.name} as trump with {confidence:.2%} confidence"
+            # Dealer must pick something, so use best available
+            selected_suit = best_suit if best_suit else Suit.HEARTS  # Fallback
+            
+            reasoning = f"Level 2 AI {self.name} selected {selected_suit.name} as trump with {adjusted_confidence:.2%} confidence"
+            # Count cards for the chosen suit
+            left_bower_suit = self._get_left_bower_suit(selected_suit)
+            trump_count = sum(1 for card in hand if card.suit == selected_suit or (card.suit == left_bower_suit and card.rank == Rank.JACK))
+            reasoning += f" (trump: {trump_count})"
             
             return DecisionResult(
                 decision_type=DecisionType.CALL_TRUMP,
-                confidence=confidence,
+                confidence=adjusted_confidence,
                 reasoning=reasoning,
                 metadata={'selected_suit': selected_suit.name}
             )
@@ -491,27 +668,62 @@ class Level2AI(Player, BaseAIInterface):
             with torch.no_grad():
                 outputs = self.model(input_tensor, self.risk_profile_obj)
                 
-                # Handle different model output formats
+                # Handle different model output formats and ensure proper tensor shapes
+                card_probs = None
+                num_cards = len(context.hand)
+                
                 if isinstance(outputs, dict) and 'card_selection' in outputs:
-                    card_probs = torch.softmax(outputs['card_selection'], dim=-1)
+                    # Model returns dictionary with card_selection key
+                    raw_output = outputs['card_selection']
+                    if isinstance(raw_output, torch.Tensor):
+                        # Handle 2D tensors [1, X] by squeezing to 1D
+                        if raw_output.dim() == 2 and raw_output.size(0) == 1:
+                            raw_output = raw_output.squeeze(0)  # Convert [1, X] to [X]
+                        
+                        # Ensure tensor has the right number of outputs
+                        if raw_output.dim() == 1:
+                            if raw_output.size(0) >= num_cards:
+                                card_probs = torch.softmax(raw_output, dim=0)
+                            else:
+                                # Pad with zeros if not enough outputs
+                                padded = torch.cat([raw_output, torch.zeros(num_cards - raw_output.size(0), device=raw_output.device, dtype=raw_output.dtype)])
+                                card_probs = torch.softmax(padded, dim=0)
+                        else:
+                            card_probs = torch.softmax(raw_output, dim=-1)
+                    else:
+                        # Fallback for non-tensor outputs
+                        card_probs = torch.softmax(torch.randn(num_cards), dim=0)
+                        
                 elif isinstance(outputs, torch.Tensor):
-                    # If model returns raw tensor, assume it's card selection logits
-                    card_probs = torch.softmax(outputs, dim=-1)
+                    # Model returns raw tensor
+                    raw_output = outputs
+                    # Handle 2D tensors [1, X] by squeezing to 1D
+                    if raw_output.dim() == 2 and raw_output.size(0) == 1:
+                        raw_output = raw_output.squeeze(0)  # Convert [1, X] to [X]
+                    
+                    if raw_output.dim() == 1:
+                        if raw_output.size(0) >= num_cards:
+                            card_probs = torch.softmax(raw_output, dim=0)
+                        else:
+                            # Pad with zeros if not enough outputs
+                            padded = torch.cat([raw_output, torch.zeros(num_cards - raw_output.size(0), device=raw_output.device, dtype=raw_output.dtype)])
+                            card_probs = torch.softmax(padded, dim=0)
+                    else:
+                        card_probs = torch.softmax(raw_output, dim=-1)
                 else:
                     # Fallback: create random probabilities
-                    card_probs = torch.softmax(torch.randn(len(context.hand)), dim=-1)
+                    card_probs = torch.softmax(torch.randn(num_cards), dim=0)
                 
-                # Ensure we have the right number of cards
-                if card_probs.size(-1) >= len(context.hand):
-                    # For discarding, we want the card with lowest strategic value
-                    # Invert the probabilities to favor lower-value cards
-                    discard_probs = 1.0 - card_probs[0]
-                    chosen_card_idx = torch.argmax(discard_probs).item()
-                    confidence = discard_probs[chosen_card_idx].item()
-                else:
-                    # Fallback to random selection
-                    chosen_card_idx = 0
-                    confidence = 0.5
+                # Ensure we have exactly the right number of probabilities
+                if card_probs.size(0) < num_cards:
+                    # Pad with zeros if needed
+                    card_probs = torch.cat([card_probs, torch.zeros(num_cards - card_probs.size(0), device=card_probs.device, dtype=card_probs.dtype)])
+                
+                # For discarding, we want the card with lowest strategic value
+                # Invert the probabilities to favor lower-value cards
+                discard_probs = 1.0 - card_probs
+                chosen_card_idx = torch.argmax(discard_probs).item()
+                confidence = discard_probs[chosen_card_idx].item()
             
             # Get the chosen card
             if 0 <= chosen_card_idx < len(context.hand):

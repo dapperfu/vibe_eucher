@@ -459,3 +459,193 @@ list-level3-models: install-gpu ## List available Level3 models
 	@echo ""
 	@echo "To see detailed model information, run:"
 	@echo "  venv/bin/python -c \"import torch; model = torch.load('path/to/model.pth'); print(f'Model config: {model.get(\"model_config\", \"N/A\")}')\"" 
+
+# =============================================================================
+# ENHANCED LEVEL3 TRAINING
+# =============================================================================
+
+train-level3-quick: install-gpu ## Quick smoke test training for Level3 AI
+	@echo "🚀 Starting Level3 Quick Training (smoke test)..."
+	@echo "   • 10 hand scenarios × 10 iterations = 100 games"
+	@echo "   • Lightweight model for fast testing"
+	@echo "   • Estimated time: 5-10 minutes"
+	@echo ""
+	venv/bin/python3 train_level3_enhanced.py --target quick --device auto
+
+train-level3-fast: install-gpu ## Fast training for Level3 AI
+	@echo "⚡ Starting Level3 Fast Training..."
+	@echo "   • 50 hand scenarios × 50 iterations = 2,500 games"
+	@echo "   • Moderate complexity model"
+	@echo "   • Estimated time: 30-60 minutes"
+	@echo ""
+	venv/bin/python3 train_level3_enhanced.py --target fast --device auto
+
+train-level3-balanced: install-gpu ## Balanced training for Level3 AI
+	@echo "⚖️ Starting Level3 Balanced Training..."
+	@echo "   • 100 hand scenarios × 100 iterations = 10,000 games"
+	@echo "   • Good complexity model"
+	@echo "   • Estimated time: 2-4 hours"
+	@echo ""
+	venv/bin/python3 train_level3_enhanced.py --target balanced --device auto
+
+train-level3-deep: install-gpu ## Deep training for Level3 AI
+	@echo "🧠 Starting Level3 Deep Training..."
+	@echo "   • 200 hand scenarios × 200 iterations = 40,000 games"
+	@echo "   • Maximum complexity model"
+	@echo "   • Estimated time: 8-16 hours"
+	@echo ""
+	venv/bin/python3 train_level3_enhanced.py --target deep --device auto
+
+train-level3-all: train-level3-quick train-level3-fast train-level3-balanced train-level3-deep ## Train all Level3 models
+
+# =============================================================================
+# ENHANCED TRAINING UTILITIES
+# =============================================================================
+
+generate-training-scenarios: ## Generate training scenarios for analysis
+	@echo "📊 Generating training scenarios..."
+	venv/bin/python3 -c "
+from train_level3_enhanced import create_training_configs, EnhancedLevel3Trainer
+configs = create_training_configs()
+for config in configs:
+    print(f'\\n🎯 {config.name.upper()} Training:')
+    print(f'   Hand Scenarios: {config.num_hand_scenarios}')
+    print(f'   Iterations per Hand: {config.iterations_per_hand}')
+    print(f'   Total Games: {config.num_hand_scenarios * config.iterations_per_hand}')
+    print(f'   Model: {config.model_config[\"hidden_size\"]} hidden, {config.model_config[\"num_layers\"]} layers')
+"
+
+analyze-training-data: ## Analyze existing training data
+	@echo "📈 Analyzing training data..."
+	@if [ -d "trained_models" ]; then \
+		echo "Found trained models:"; \
+		ls -la trained_models/; \
+		for model_dir in trained_models/*; do \
+			if [ -d "$$model_dir" ]; then \
+				echo "\\n📁 $$model_dir:"; \
+				ls -la "$$model_dir/"; \
+			fi; \
+		done; \
+	else \
+		echo "No trained models found. Run training first."; \
+	fi
+
+# =============================================================================
+# ENHANCED DEMONSTRATION
+# =============================================================================
+
+demonstrate-enhanced: ## Demonstrate enhanced Level3 AI capabilities
+	@echo "🎯 Demonstrating Enhanced Level3 AI..."
+	@echo "   • 100% AI-driven decision making"
+	@echo "   • Multiple AI personalities"
+	@echo "   • Strategic analysis and adaptation"
+	@echo ""
+	venv/bin/python3 demonstrate_enhanced_level3_ai.py
+
+# =============================================================================
+# COMPREHENSIVE ENHANCED SYSTEM
+# =============================================================================
+
+enhanced-system: install-gpu train-level3-balanced demonstrate-enhanced ## Complete enhanced system setup and demo
+
+enhanced-analysis: enhanced-system ## Run enhanced analysis and demonstration
+	@echo "🎉 Enhanced Level3 AI system ready!"
+	@echo "   • Training completed with repeated hand scenarios"
+	@echo "   • AI trained on decision quality, not just game outcomes"
+	@echo "   • Multiple AI personalities available"
+	@echo "   • Strategic analysis and adaptation working"
+	@echo ""
+	@echo "Next steps:"
+	@echo "   • Run tournaments: make run-enhanced-tournament"
+	@echo "   • Test different personalities: make test-ai-personalities"
+	@echo "   • Analyze performance: make analyze-ai-performance" 
+
+# =============================================================================
+# ENHANCED TOURNAMENTS
+# =============================================================================
+
+run-enhanced-tournament: ## Run enhanced AI tournament
+	@echo "🏆 Running Enhanced AI Tournament..."
+	@echo "   • Round-robin between all AI personalities"
+	@echo "   • Strategic analysis and performance metrics"
+	@echo "   • Decision quality evaluation"
+	@echo ""
+	venv/bin/python3 enhanced_ai_tournament.py --games-per-matchup 20 --save-results
+
+run-quick-tournament: ## Run quick tournament (smoke test)
+	@echo "🚀 Running Quick Tournament (smoke test)..."
+	@echo "   • 5 games per matchup for fast testing"
+	@echo "   • Basic performance evaluation"
+	@echo ""
+	venv/bin/python3 enhanced_ai_tournament.py --games-per-matchup 5
+
+run-deep-tournament: ## Run comprehensive tournament
+	@echo "🧠 Running Deep Tournament..."
+	@echo "   • 50 games per matchup for thorough evaluation"
+	@echo "   • Detailed strategic analysis"
+	@echo "   • Performance comparison"
+	@echo ""
+	venv/bin/python3 enhanced_ai_tournament.py --games-per-matchup 50 --save-results
+
+# =============================================================================
+# AI PERSONALITY TESTING
+# =============================================================================
+
+test-ai-personalities: ## Test different AI personalities
+	@echo "🧪 Testing AI Personalities..."
+	@echo "   • Strategic Mastermind vs Ultra Conservative"
+	@echo "   • Balanced vs Aggressive"
+	@echo "   • Performance comparison"
+	@echo ""
+	venv/bin/python3 -c "
+from enhanced_ai_tournament import EnhancedAITournament, create_tournament_configs
+configs = create_tournament_configs()
+tournament = EnhancedAITournament(configs, 'cpu')
+print('\\n🎯 Testing AI Personalities...')
+for ai_name, ai in tournament.ai_players.items():
+    print(f'🤖 {ai_name}: {ai.risk_profile_name}')
+    print(f'   Risk Profile: {ai.risk_profile:.3f}')
+    print(f'   Model Type: {ai.model_type}')
+    print()
+"
+
+# =============================================================================
+# PERFORMANCE ANALYSIS
+# =============================================================================
+
+analyze-ai-performance: ## Analyze AI performance metrics
+	@echo "📊 Analyzing AI Performance..."
+	@echo "   • Win rates and scoring patterns"
+	@echo "   • Strategic decision analysis"
+	@echo "   • Performance comparison charts"
+	@echo ""
+	@if [ -f "tournament_results_*.json" ]; then \
+		echo "Found tournament results:"; \
+		ls -la tournament_results_*.json; \
+		echo ""; \
+		echo "Analyzing latest results..."; \
+		venv/bin/python3 -c "
+import json
+import glob
+import os
+results_files = glob.glob('tournament_results_*.json')
+if results_files:
+    latest_file = max(results_files, key=os.path.getctime)
+    with open(latest_file, 'r') as f:
+        data = json.load(f)
+    print(f'📊 Latest Tournament Results: {latest_file}')
+    print(f'🏆 AI Players: {data[\"ai_players\"]}')
+    print(f'🎮 Total Games: {len(data[\"individual_results\"])}')
+    print(f'⏰ Timestamp: {data[\"timestamp\"]}')
+    print()
+    print('📈 Performance Summary:')
+    for ai_name, stats in data['tournament_stats'].items():
+        win_rate = stats.get('win_rate', 0) * 100
+        print(f'   {ai_name}: {win_rate:.1f}% win rate')
+else:
+    print('No tournament results found. Run a tournament first.')
+"; \
+	else \
+		echo "No tournament results found. Run a tournament first:"; \
+		echo "  make run-enhanced-tournament"; \
+	fi 

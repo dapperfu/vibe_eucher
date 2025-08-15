@@ -198,32 +198,8 @@ class TrickManager:
             else:
                 lead_suit = None
             
-            # Both cards are trump
-            if trump_suit and card1.suit == trump_suit and card2.suit == trump_suit:
-                return card1.rank.value > card2.rank.value
-            
-            # Only card1 is trump
-            if trump_suit and card1.suit == trump_suit:
-                return True
-            
-            # Only card2 is trump
-            if trump_suit and card2.suit == trump_suit:
-                return False
-            
-            # Both non-trump - must follow lead suit
-            if lead_suit and card1.suit == lead_suit and card2.suit == lead_suit:
-                return card1.rank.value > card2.rank.value
-            
-            # If card1 doesn't follow lead suit, it can't win
-            if lead_suit and card1.suit != lead_suit:
-                return False
-            
-            # If card2 doesn't follow lead suit, card1 wins
-            if lead_suit and card2.suit != lead_suit:
-                return True
-            
-            # Both follow lead suit - compare ranks
-            return card1.rank.value > card2.rank.value
+            # Use the Card.beats method which properly implements bower rules
+            return card1.beats(card2, trump_suit, lead_suit)
             
         except Exception as e:
             # Catch and rethrow with debug context
