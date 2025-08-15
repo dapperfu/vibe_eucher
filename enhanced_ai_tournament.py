@@ -97,12 +97,20 @@ class EnhancedAITournament:
     
     def _get_risk_profile_for_name(self, ai_name: str) -> str:
         """Get appropriate risk profile for AI name."""
-        if 'quick' in ai_name.lower():
+        # Handle personality-based names first
+        if 'strategic' in ai_name.lower():
+            return 'strategic_mastermind'
+        elif 'aggressive' in ai_name.lower():
+            return 'aggressive'
+        elif 'conservative' in ai_name.lower():
+            return 'ultra_conservative'
+        elif 'balanced' in ai_name.lower():
+            return 'balanced'
+        # Handle model-based names
+        elif 'quick' in ai_name.lower():
             return 'balanced'
         elif 'fast' in ai_name.lower():
             return 'aggressive'
-        elif 'balanced' in ai_name.lower():
-            return 'balanced'
         elif 'deep' in ai_name.lower():
             return 'strategic_mastermind'
         else:
@@ -189,18 +197,22 @@ class EnhancedAITournament:
         
         for game_num in range(num_games):
             try:
-                # Create a new game
-                game = EuchreGame()
+                # Create a new game with verbose logging
+                game = EuchreGame(verbose=True, very_verbose=True)
                 
                 # Add AI players
                 ai1 = self.ai_players[ai1_name]
                 ai2 = self.ai_players[ai2_name]
                 
-                # Create teams
+                # Create teams - all AI players
                 team1_players = [ai1, ai2]  # AI1 and AI2 on same team
-                team2_players = [self._create_opponent_ai(), self._create_opponent_ai()]
                 
-                # Add all players to game
+                # Create additional AI opponents using the same models but different personalities
+                ai3 = self._create_ai_opponent(f"{ai1_name}_Opponent", ai1.model_path)
+                ai4 = self._create_ai_opponent(f"{ai2_name}_Opponent", ai2.model_path)
+                team2_players = [ai3, ai4]
+                
+                # Add all AI players to game
                 for player in team1_players + team2_players:
                     game.add_player(player.name, player.player_type)
                 
@@ -208,10 +220,14 @@ class EnhancedAITournament:
                 start_time = time.time()
                 game.start_new_game()
                 
-                # Play game to completion
+                # Play game to completion with verbose output
                 if hasattr(game, 'run_full_game'):
+                    print(f"\n🎮 **Game {game_num + 1}: {ai1_name} + {ai2_name} vs Team2**")
+                    print("=" * 60)
                     game.run_full_game()
                 elif hasattr(game, 'play_game'):
+                    print(f"\n🎮 **Game {game_num + 1}: {ai1_name} + {ai2_name} vs Team2**")
+                    print("=" * 60)
                     game.play_game()
                 else:
                     # Fallback: simulate game completion
@@ -275,11 +291,30 @@ class EnhancedAITournament:
         
         return results
     
-    def _create_opponent_ai(self) -> Player:
-        """Create an opponent AI player."""
-        # Create a basic AI opponent
-        opponent = Player(f"Opponent_{random.randint(1000, 9999)}", "ai")
-        return opponent
+    def _create_ai_opponent(self, name: str, model_path: str) -> Level3AI:
+        """Create an AI opponent using the same model but different personality."""
+        # Create a different personality for the opponent
+        personality = random.choice(['conservative', 'aggressive', 'balanced', 'strategic'])
+        
+        try:
+            opponent = Level3AI(
+                name=name,
+                model_type="level3_strategic",
+                risk_profile=personality,
+                model_path=model_path,
+                device=str(self.device)
+            )
+            return opponent
+        except Exception as e:
+            # Fallback to basic AI if model loading fails
+            print(f"⚠️ Failed to create AI opponent {name}: {e}")
+            fallback_ai = Level3AI(
+                name=name,
+                model_type="level3_strategic",
+                risk_profile=personality,
+                device=str(self.device)
+            )
+            return fallback_ai
     
     def _simulate_game_completion(self, game: EuchreGame):
         """Simulate game completion when real game methods fail."""
@@ -417,14 +452,20 @@ def create_tournament_configs() -> Dict[str, str]:
     # Check for existing trained models
     model_dir = Path("trained_models")
     
+    print(f"🔍 Searching for models in: {model_dir}")
+    
     if model_dir.exists():
         # Look for enhanced models
         for model_subdir in model_dir.iterdir():
+            print(f"  📁 Found subdir: {model_subdir.name}")
             if model_subdir.is_dir() and 'level3_enhanced' in model_subdir.name:
                 model_name = model_subdir.name.replace('level3_enhanced_', '')
                 best_model = model_subdir / "best_model.pth"
                 if best_model.exists():
                     configs[f"Level3_{model_name.title()}"] = str(best_model)
+                    print(f"    ✅ Added enhanced model: {model_name}")
+                else:
+                    print(f"    ❌ No best_model.pth in {model_subdir.name}")
         
         # Look for original models
         for model_subdir in model_dir.iterdir():
@@ -433,9 +474,28 @@ def create_tournament_configs() -> Dict[str, str]:
                 best_model = model_subdir / "best_model.pth"
                 if best_model.exists():
                     configs[f"Level3_{model_name.title()}"] = str(best_model)
+                    print(f"    ✅ Added original model: {model_name}")
+                else:
+                    print(f"    ❌ No best_model.pth in {model_subdir.name}")
+    
+    print(f"🎯 Found {len(configs)} models: {list(configs.keys())}")
+    
+    # If we have models, create multiple personalities using the same models
+    if configs:
+        # Create multiple personalities for each model
+        personality_configs = {}
+        for base_name, model_path in configs.items():
+            # Create different personalities using the same model
+            personality_configs[f"{base_name}_Strategic"] = model_path
+            personality_configs[f"{base_name}_Aggressive"] = model_path
+            personality_configs[f"{base_name}_Conservative"] = model_path
+            personality_configs[f"{base_name}_Balanced"] = model_path
+        
+        print(f"🎭 Created {len(personality_configs)} AI personalities from {len(configs)} models")
+        return personality_configs
     
     # If no models found, create placeholder configs
-    if not configs:
+    else:
         configs = {
             "Level3_Quick": "trained_models/level3_enhanced_quick/best_model.pth",
             "Level3_Fast": "trained_models/level3_enhanced_fast/best_model.pth",

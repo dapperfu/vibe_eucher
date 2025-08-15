@@ -104,22 +104,40 @@ class EnhancedLevel3Dataset(Dataset):
         
         # Hand encoding (5 cards * 52 possible cards = 260 features)
         hand_features = [0] * 260
-        for card in hand_scenario['player_hand']:
-            # Convert suit string to index (hearts=0, diamonds=1, clubs=2, spades=3)
-            suit_idx = {'hearts': 0, 'diamonds': 1, 'clubs': 2, 'spades': 3}[card.suit.value]
-            # Rank is already 0-13 (9=0, 10=1, J=2, Q=3, K=4, A=5)
-            rank_idx = card.rank.value - 9  # Convert 9-14 to 0-5
-            card_idx = suit_idx * 13 + rank_idx
-            hand_features[card_idx] = 1
+        for card_item in hand_scenario['player_hand']:
+            # Handle both Card objects and strings
+            if isinstance(card_item, Card):
+                card = card_item
+            elif isinstance(card_item, str):
+                card = self._parse_card_string(card_item)
+            else:
+                card = None
+            
+            if card:
+                # Convert suit string to index (hearts=0, diamonds=1, clubs=2, spades=3)
+                suit_idx = {'hearts': 0, 'diamonds': 1, 'clubs': 2, 'spades': 3}[card.suit.value]
+                # Rank is already 0-13 (9=0, 10=1, J=2, Q=3, K=4, A=5)
+                rank_idx = card.rank.value - 9  # Convert 9-14 to 0-5
+                card_idx = suit_idx * 13 + rank_idx
+                hand_features[card_idx] = 1
         features.extend(hand_features)
         
         # Top card encoding (52 cards + 1 for no card = 53 features)
         top_card_features = [0] * 53
         if hand_scenario['top_card']:
-            suit_idx = {'hearts': 0, 'diamonds': 1, 'clubs': 2, 'spades': 3}[hand_scenario['top_card'].suit.value]
-            rank_idx = hand_scenario['top_card'].rank.value - 9
-            card_idx = suit_idx * 13 + rank_idx
-            top_card_features[card_idx] = 1
+            top_card_item = hand_scenario['top_card']
+            if isinstance(top_card_item, Card):
+                top_card = top_card_item
+            elif isinstance(top_card_item, str):
+                top_card = self._parse_card_string(top_card_item)
+            else:
+                top_card = None
+            
+            if top_card:
+                suit_idx = {'hearts': 0, 'diamonds': 1, 'clubs': 2, 'spades': 3}[top_card.suit.value]
+                rank_idx = top_card.rank.value - 9
+                card_idx = suit_idx * 13 + rank_idx
+                top_card_features[card_idx] = 1
         else:
             top_card_features[52] = 1
         features.extend(top_card_features)
@@ -158,6 +176,62 @@ class EnhancedLevel3Dataset(Dataset):
         
         return torch.tensor(features, dtype=torch.float32)
     
+    def _parse_card_string(self, card_str: str) -> Optional[Card]:
+        """Parse a card string back to a Card object."""
+        try:
+            # Handle format like "King of Hearts" or "King ♥"
+            if " of " in card_str:
+                parts = card_str.split(" of ")
+                rank_str = parts[0].strip()
+                suit_str = parts[1].strip().lower()
+            else:
+                # Handle format like "King ♥" or "K♥"
+                # Extract rank and suit from the string
+                rank_str = ""
+                suit_str = ""
+                
+                # Find the suit symbol or word
+                suit_symbols = {'♥': 'hearts', '♦': 'diamonds', '♣': 'clubs', '♠': 'spades'}
+                for symbol, suit_name in suit_symbols.items():
+                    if symbol in card_str:
+                        suit_str = suit_name
+                        rank_str = card_str.replace(symbol, '').strip()
+                        break
+                
+                # If no symbol found, try to parse by looking for suit words
+                if not suit_str:
+                    for suit_word in ['hearts', 'diamonds', 'clubs', 'spades']:
+                        if suit_word in card_str.lower():
+                            suit_str = suit_word
+                            rank_str = card_str.lower().replace(suit_word, '').strip()
+                            break
+            
+            # Map rank strings to Rank enum values
+            rank_map = {
+                '9': Rank.NINE, 'nine': Rank.NINE,
+                '10': Rank.TEN, 'ten': Rank.TEN,
+                'j': Rank.JACK, 'jack': Rank.JACK,
+                'q': Rank.QUEEN, 'queen': Rank.QUEEN,
+                'k': Rank.KING, 'king': Rank.KING,
+                'a': Rank.ACE, 'ace': Rank.ACE
+            }
+            
+            # Map suit strings to Suit enum values
+            suit_map = {
+                'hearts': Suit.HEARTS, '♥': Suit.HEARTS,
+                'diamonds': Suit.DIAMONDS, '♦': Suit.DIAMONDS,
+                'clubs': Suit.CLUBS, '♣': Suit.CLUBS,
+                'spades': Suit.SPADES, '♠': Suit.SPADES
+            }
+            
+            if rank_str.lower() in rank_map and suit_str in suit_map:
+                return Card(rank_map[rank_str.lower()], suit_map[suit_str])
+            
+        except Exception as e:
+            logger.warning(f"Failed to parse card string '{card_str}': {e}")
+        
+        return None
+    
     def _generate_targets(self, sample: Dict) -> Dict[str, torch.Tensor]:
         """Generate target outputs from training sample."""
         # Trump decision target (2 classes: pass/order_up)
@@ -179,8 +253,16 @@ class EnhancedLevel3Dataset(Dataset):
         card_target = torch.zeros(5)
         card_played = sample['decisions']['card_played']
         # Find the index of the played card in the hand
-        for i, card in enumerate(sample['hand_scenario']['player_hand']):
-            if str(card) == card_played:
+        for i, card_item in enumerate(sample['hand_scenario']['player_hand']):
+            # Handle both Card objects and strings
+            if isinstance(card_item, Card):
+                card = card_item
+            elif isinstance(card_item, str):
+                card = self._parse_card_string(card_item)
+            else:
+                card = None
+            
+            if card and str(card) == card_played:
                 card_target[i] = 1.0
                 break
         
@@ -256,6 +338,9 @@ class EnhancedLevel3Trainer:
         
         # Loss functions
         self.criterion = nn.CrossEntropyLoss()
+        
+        # Training state
+        self.best_loss = float('inf')
         
         logger.info(f"Enhanced Level3 Trainer initialized for {config.name}")
         logger.info(f"Model parameters: {sum(p.numel() for p in self.model.parameters()):,}")
@@ -385,11 +470,8 @@ class EnhancedLevel3Trainer:
         for player in players:
             game.add_player(player.name, player.player_type)
         
-        # Set game state
-        game.dealer_position = hand_scenario.dealer_position
-        game.current_position = hand_scenario.current_position
-        game.team1_score = hand_scenario.team_scores[0]
-        game.team2_score = hand_scenario.team_scores[1]
+        # Set game state - use the actual EuchreGame interface
+        # Note: EuchreGame doesn't have these attributes directly, so we'll work with what's available
         game.round_number = hand_scenario.round_number
         
         return game
@@ -442,9 +524,22 @@ class EnhancedLevel3Trainer:
                 # Fallback: simulate game outcome
                 pass
             
-            # Determine outcome
-            team1_score = getattr(game, 'team1_score', 0)
-            team2_score = getattr(game, 'team2_score', 0)
+            # Determine outcome - use the actual EuchreGame interface
+            # Get scores from the game state manager if available
+            team1_score = 0
+            team2_score = 0
+            
+            if hasattr(game, 'game_state_manager') and hasattr(game.game_state_manager, 'team1_score'):
+                team1_score = game.game_state_manager.team1_score
+                team2_score = game.game_state_manager.team2_score
+            elif hasattr(game, 'tricks_won'):
+                # Calculate scores from tricks won
+                team1_tricks = sum(1 for player_name, tricks in game.tricks_won.items() 
+                                 if player_name in ['AI_Player_0', 'AI_Player_2'])
+                team2_tricks = sum(1 for player_name, tricks in game.tricks_won.items() 
+                                 if player_name in ['AI_Player_1', 'AI_Player_3'])
+                team1_score = team1_tricks
+                team2_score = team2_tricks
             
             if team1_score >= 10:
                 result = 'WIN'
@@ -518,8 +613,8 @@ class EnhancedLevel3Trainer:
             for outcome in outcomes:
                 training_sample = {
                     'hand_scenario': {
-                        'player_hand': [str(card) for card in scenario.player_hand],
-                        'top_card': str(scenario.top_card) if scenario.top_card else None,
+                        'player_hand': scenario.player_hand,  # Keep original Card objects
+                        'top_card': scenario.top_card,  # Keep original Card object
                         'dealer_position': scenario.dealer_position,
                         'current_position': scenario.current_position,
                         'team_scores': scenario.team_scores,

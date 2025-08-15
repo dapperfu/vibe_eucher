@@ -121,6 +121,7 @@ class Level3AI(Player, BaseAIInterface):
     
     def _create_model(self) -> Level3NeuralModel:
         """Create the appropriate Level 3 model."""
+        # Default model config
         model_config = {
             'input_size': 2048,
             'hidden_size': 1024,
@@ -131,23 +132,79 @@ class Level3AI(Player, BaseAIInterface):
             'use_memory_networks': True
         }
         
-        # Adjust model based on type
-        if "aggressive" in self.model_type:
-            model_config['hidden_size'] = 1024
-            model_config['num_layers'] = 8
-        elif "conservative" in self.model_type:
-            model_config['hidden_size'] = 1024
-            model_config['num_layers'] = 8
-        elif "balanced" in self.model_type:
-            model_config['hidden_size'] = 1024
-            model_config['num_layers'] = 8
-        elif "strategic" in self.model_type:
-            model_config['hidden_size'] = 1024
-            model_config['num_layers'] = 8
-        elif "opportunistic" in self.model_type:
-            model_config['hidden_size'] = 1024
-            model_config['num_layers'] = 8
+        # Try to detect model architecture from trained model file
+        if self.model_path and Path(self.model_path).exists():
+            try:
+                checkpoint = torch.load(self.model_path, map_location='cpu')
+                
+                # Check if checkpoint has model config
+                if 'model_config' in checkpoint:
+                    saved_config = checkpoint['model_config']
+                    model_config.update(saved_config)
+                    logger.info(f"Detected model config from checkpoint: hidden_size={saved_config.get('hidden_size', 'unknown')}, num_layers={saved_config.get('num_layers', 'unknown')}")
+                
+                # Try to infer from state dict
+                elif 'model_state_dict' in checkpoint:
+                    state_dict = checkpoint['model_state_dict']
+                    # Infer hidden size from first layer
+                    if 'input_layer.weight' in state_dict:
+                        hidden_size = state_dict['input_layer.weight'].shape[0]
+                        model_config['hidden_size'] = hidden_size
+                        logger.info(f"Inferred hidden_size={hidden_size} from model weights")
+                    
+                    # Infer num layers from hidden layers
+                    hidden_layer_count = 0
+                    for key in state_dict.keys():
+                        if key.startswith('hidden_layers.') and '.0.weight' in key:
+                            layer_num = int(key.split('.')[1])
+                            hidden_layer_count = max(hidden_layer_count, layer_num + 1)
+                    
+                    if hidden_layer_count > 0:
+                        model_config['num_layers'] = hidden_layer_count
+                        logger.info(f"Inferred num_layers={hidden_layer_count} from model weights")
+                
+                elif 'state_dict' in checkpoint:
+                    state_dict = checkpoint['state_dict']
+                    # Infer hidden size from first layer
+                    if 'input_layer.weight' in state_dict:
+                        hidden_size = state_dict['input_layer.weight'].shape[0]
+                        model_config['hidden_size'] = hidden_size
+                        logger.info(f"Inferred hidden_size={hidden_size} from model weights")
+                    
+                    # Infer num layers from hidden layers
+                    hidden_layer_count = 0
+                    for key in state_dict.keys():
+                        if key.startswith('hidden_layers.') and '.0.weight' in key:
+                            layer_num = int(key.split('.')[1])
+                            hidden_layer_count = max(hidden_layer_count, layer_num + 1)
+                    
+                    if hidden_layer_count > 0:
+                        model_config['num_layers'] = hidden_layer_count
+                        logger.info(f"Inferred num_layers={hidden_layer_count} from model weights")
+                
+            except Exception as e:
+                logger.warning(f"Could not detect model config from {self.model_path}: {e}")
+                logger.info("Using default model config")
         
+        # Adjust model based on type (only if we couldn't detect from checkpoint)
+        if model_config['hidden_size'] == 1024 and model_config['num_layers'] == 8:
+            if "aggressive" in self.model_type:
+                model_config['hidden_size'] = 1024
+                model_config['num_layers'] = 8
+            elif "conservative" in self.model_type:
+                model_config['hidden_size'] = 1024
+                model_config['num_layers'] = 8
+            elif "balanced" in self.model_type:
+                model_config['hidden_size'] = 1024
+                model_config['num_layers'] = 8
+            elif "strategic" in self.model_type:
+                model_config['hidden_size'] = 1024
+                model_config['num_layers'] = 8
+            elif "opportunistic" in self.model_type:
+                model_config['hidden_size'] = 1024
+                model_config['num_layers'] = 8
+        
+        logger.info(f"Creating Level3 model with config: hidden_size={model_config['hidden_size']}, num_layers={model_config['num_layers']}")
         return create_level3_model(model_config)
     
     def _load_trained_model(self, model_path: str):

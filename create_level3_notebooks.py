@@ -6,13 +6,20 @@ This script programmatically generates multiple Jupyter notebooks demonstrating
 Level3 AI capabilities including model loading, decision making, and game analysis.
 
 Generated notebooks:
-- level3_model_loading.ipynb - Model loading and basic usage
+- level3_model_loading.ipynb - Model loading and basic usage with actual trained models
 - level3_order_up_logic.ipynb - Trump calling decisions with different hand strengths
 - level3_card_selection.ipynb - Card playing logic in various situations
 - level3_leading_strategy.ipynb - Leading card strategies
 - level3_following_strategy.ipynb - Following suit and off-suit decisions
+- level3_enhanced_training.ipynb - Enhanced training system with repeated scenarios
 - level3_ai_tournament.ipynb - Tournament between different Level3 AI profiles
 - level3_summary.ipynb - Summary of all Level3 AI capabilities and statistics
+
+Updated to reflect the latest Enhanced Level3 AI Training System with:
+- Repeated hand scenario training approach
+- Multiple training targets (Quick, Fast, Balanced, Deep)
+- Actual trained models from enhanced training
+- Decision quality analysis rather than just game outcomes
 """
 
 import nbformat as nbf
@@ -28,16 +35,42 @@ def create_level3_model_loading_notebook():
     # Title
     nb.cells.append(new_markdown_cell("""# Level3 AI Model Loading and Basic Usage
 
-This notebook demonstrates how to load and use the Level3 Euchre AI models.
+This notebook demonstrates how to load and use the **Enhanced Level3 Euchre AI models**.
 
-## Overview
-Level3 AI models are ultra-comprehensive neural networks that capture every conceivable detail about the Euchre game state, including:
-- Complete game history with every card played
-- Player behavior patterns and tendencies  
-- Advanced card counting and probability analysis
-- Multi-turn strategic planning
-- Partner coordination and team dynamics
-- Risk assessment and adaptation
+## 🚀 Enhanced Level3 AI Training System
+
+The Enhanced Level3 AI Training System implements **repeated hand scenario training** to train AI on **decision quality** rather than just game outcomes. This approach is inspired by Monte Carlo Tree Search (MCTS) and self-play techniques used in modern game AI.
+
+### **Key Innovation: Repeated Hand Scenarios**
+- **Traditional Training**: Train on 1000 different games, each decision appears only once
+- **Enhanced Training**: Train on 100 hand scenarios × 100 iterations each = 10,000 games
+- **Result**: AI learns robust strategies, not lucky outcomes
+
+## 🎯 Available Trained Models
+
+### **1. Quick Training (Smoke Test)**
+- **Path**: `trained_models/level3_enhanced_quick/`
+- **Hand Scenarios**: 10 × 10 iterations = 100 games
+- **Model**: Lightweight (256 hidden, 2 layers)
+- **Use Case**: Testing and validation
+
+### **2. Fast Training**
+- **Path**: `trained_models/level3_fast/`
+- **Hand Scenarios**: 50 × 50 iterations = 2,500 games
+- **Model**: Moderate (512 hidden, 4 layers)
+- **Use Case**: Development and iteration
+
+### **3. Balanced Training**
+- **Path**: `trained_models/level3_enhanced_balanced/`
+- **Hand Scenarios**: 100 × 100 iterations = 10,000 games
+- **Model**: Good (768 hidden, 6 layers)
+- **Use Case**: Production training
+
+### **4. Deep Training**
+- **Path**: `trained_models/level3_enhanced_deep/`
+- **Hand Scenarios**: 200 × 200 iterations = 40,000 games
+- **Model**: Maximum (1024 hidden, 8 layers)
+- **Use Case**: Research and optimization
 
 ## Hardware Requirements
 - **GPU**: 24GB NVIDIA GPU recommended for training
@@ -67,11 +100,11 @@ from euchre.game import EuchreGame
 
 print("✅ Imports successful")
 print(f"PyTorch version: {torch.__version__}")
-print(f"CUDA available: {torch.cuda.is_available()}"))"""))
+print(f"CUDA available: {torch.cuda.is_available()}")"""))
     
     # Model Configuration
     nb.cells.append(new_markdown_cell("## Model Configuration"))
-    nb.cells.append(new_code_cell("""# Level3 model configuration
+    nb.cells.append(new_code_cell("""# Enhanced Level3 model configuration
 model_config = {
     'type': 'standard',
     'input_size': 2048,      # Total features from encoder
@@ -83,14 +116,14 @@ model_config = {
     'use_memory_networks': True  # Use memory networks
 }
 
-print("🧠 Level3 Model Configuration:")
+print("🧠 Enhanced Level3 Model Configuration:")
 for key, value in model_config.items():
     print(f"  {key}: {value}")"""))
     
     # Create Model
-    nb.cells.append(new_markdown_cell("## Create Level3 Model"))
-    nb.cells.append(new_code_cell("""# Create the Level3 model
-print("🔧 Creating Level3 model...")
+    nb.cells.append(new_markdown_cell("## Create Enhanced Level3 Model"))
+    nb.cells.append(new_code_cell("""# Create the Enhanced Level3 model
+print("🔧 Creating Enhanced Level3 model...")
 model = create_level3_model(model_config)
 
 # Count parameters
@@ -109,8 +142,8 @@ print(f"🚀 Model moved to: {device}")"""))
     
     # Risk Profiles
     nb.cells.append(new_markdown_cell("## Risk Profile Management"))
-    nb.cells.append(new_code_cell("""# Create different risk profiles
-print("🎯 Creating Risk Profiles...")
+    nb.cells.append(new_code_cell("""# Create different risk profiles for Enhanced Level3
+print("🎯 Creating Enhanced Level3 Risk Profiles...")
 
 # Ultra-conservative profile
 ultra_conservative = create_level3_risk_profile('ultra_conservative')
@@ -144,10 +177,50 @@ risk_names = [
 for i, (name, value) in enumerate(zip(risk_names, risk_vector)):
     print(f"  {name}: {value:.2f}")"""))
     
+    # Load Trained Models
+    nb.cells.append(new_markdown_cell("## Load Trained Enhanced Level3 Models"))
+    nb.cells.append(new_code_cell("""# Load actual trained models from enhanced training
+print("📂 Loading Trained Enhanced Level3 Models...")
+
+# Check available models
+model_paths = {
+    'quick': 'trained_models/level3_enhanced_quick/best_model.pth',
+    'fast': 'trained_models/level3_fast/best_model.pth',
+    'balanced': 'trained_models/level3_enhanced_balanced/best_model.pth',
+    'deep': 'trained_models/level3_enhanced_deep/best_model.pth'
+}
+
+available_models = {}
+for name, path in model_paths.items():
+    if os.path.exists(path):
+        available_models[name] = path
+        print(f"  ✅ {name.upper()}: {path}")
+    else:
+        print(f"  ❌ {name.upper()}: Not found")
+
+print(f"\\n📊 Found {len(available_models)} trained models")
+
+# Load a specific model (e.g., quick training)
+if 'quick' in available_models:
+    print("\\n🔧 Loading Quick Training Model...")
+    checkpoint = torch.load(available_models['quick'], map_location=device)
+    
+    # Create model with same configuration
+    loaded_model = create_level3_model(checkpoint.get('model_config', model_config))
+    loaded_model.load_state_dict(checkpoint['model_state_dict'])
+    loaded_model.to(device)
+    loaded_model.eval()
+    
+    print(f"✅ Loaded trained model from {available_models['quick']}")
+    print(f"📊 Model parameters: {sum(p.numel() for p in loaded_model.parameters()):,}")
+else:
+    print("\\n⚠️  No trained models found. Using untrained model for demonstration.")
+    loaded_model = model"""))
+    
     # Model Forward Pass
     nb.cells.append(new_markdown_cell("## Model Forward Pass"))
     nb.cells.append(new_code_cell("""# Test model forward pass with dummy data
-print("🧪 Testing Model Forward Pass...")
+print("🧪 Testing Enhanced Level3 Model Forward Pass...")
 
 # Create dummy input (2048 features)
 batch_size = 2
@@ -156,7 +229,7 @@ dummy_input = torch.randn(batch_size, 2048).to(device)
 # Test with different risk profiles
 print("\\n🔍 Testing with Ultra-Conservative Profile:")
 with torch.no_grad():
-    outputs = model(dummy_input, ultra_conservative)
+    outputs = loaded_model(dummy_input, ultra_conservative)
     
 print("  Output keys:", list(outputs.keys()))
 print("  Trump decision shape:", outputs['trump_decision'].shape)
@@ -165,7 +238,7 @@ print("  Risk adjustment shape:", outputs['risk_adjustment'].shape)
 
 print("\\n🔍 Testing with Ultra-Aggressive Profile:")
 with torch.no_grad():
-    outputs = model(dummy_input, ultra_aggressive)
+    outputs = loaded_model(dummy_input, ultra_aggressive)
     
 print("  Trump decision probabilities:")
 trump_probs = torch.softmax(outputs['trump_decision'], dim=1)
@@ -173,22 +246,59 @@ print(f"    Order up: {trump_probs[0, 1]:.3f}, Pass: {trump_probs[0, 0]:.3f}")
 
 print("\\n🔍 Testing with Strategic Mastermind Profile:")
 with torch.no_grad():
-    outputs = model(dummy_input, strategic)
+    outputs = loaded_model(dummy_input, strategic)
     
 print("  Strategic planning output shape:", outputs['strategic_planning'].shape)
 print("  Partner coordination shape:", outputs['partner_coordination'].shape)"""))
     
+    # Enhanced Training Analysis
+    nb.cells.append(new_markdown_cell("## Enhanced Training Analysis"))
+    nb.cells.append(new_code_cell("""# Analyze the enhanced training approach
+print("📈 Enhanced Level3 Training Analysis")
+print("=" * 50)
+
+print("\\n🎯 **Repeated Hand Scenario Training**")
+print("This approach trains AI on decision quality rather than just game outcomes:")
+
+print("\\n1. **Hand Scenario Generation**")
+print("   - Create diverse hand scenarios (strong hands, weak hands, etc.)")
+print("   - Each scenario represents a specific strategic situation")
+print("   - Scenarios cover different difficulty levels (easy, medium, hard)")
+
+print("\\n2. **Repeated Simulation**")
+print("   - Play each hand scenario multiple times (10-200 iterations)")
+print("   - Same hand against different opponents and strategies")
+print("   - Record decision outcomes and success rates")
+
+print("\\n3. **Decision Quality Analysis**")
+print("   - Analyze which decisions lead to better outcomes")
+print("   - AI learns: 'Calling trump with this hand wins 73% of the time'")
+print("   - Robust strategies, not lucky outcomes")
+
+print("\\n4. **Training Targets**")
+print("   - Quick: 10 scenarios × 10 iterations = 100 games (smoke test)")
+print("   - Fast: 50 scenarios × 50 iterations = 2,500 games (development)")
+print("   - Balanced: 100 scenarios × 100 iterations = 10,000 games (production)")
+print("   - Deep: 200 scenarios × 200 iterations = 40,000 games (research)")
+
+print("\\n🚀 **Benefits of Enhanced Training**")
+print("   - More robust decision-making")
+print("   - Better generalization to new situations")
+print("   - Reduced variance in training outcomes")
+print("   - Improved strategic understanding")"""))
+    
     # Save and Load Models
     nb.cells.append(new_markdown_cell("## Save and Load Models"))
     nb.cells.append(new_code_cell("""# Save model
-print("💾 Saving model...")
+print("💾 Saving Enhanced Level3 model...")
 model_path = "trained_models/level3_demo/model.pth"
 os.makedirs(os.path.dirname(model_path), exist_ok=True)
 
 torch.save({
     'model_state_dict': model.state_dict(),
     'model_config': model_config,
-    'model_type': 'Level3NeuralModel'
+    'model_type': 'Level3NeuralModel',
+    'training_approach': 'enhanced_repeated_scenarios'
 }, model_path)
 
 print(f"✅ Model saved to: {model_path}")
@@ -198,66 +308,35 @@ print("\\n📂 Loading model...")
 checkpoint = torch.load(model_path, map_location=device)
 loaded_model = create_level3_model(checkpoint['model_config'])
 loaded_model.load_state_dict(checkpoint['model_state_dict'])
-loaded_model = loaded_model.to(device)
+loaded_model.to(device)
+loaded_model.eval()
 
 print("✅ Model loaded successfully")
-print(f"  Model type: {checkpoint['model_type']}")
-print(f"  Config: {checkpoint['model_config']}")"""))
-    
-    # Model Analysis
-    nb.cells.append(new_markdown_cell("## Model Analysis"))
-    nb.cells.append(new_code_cell("""# Analyze model architecture
-print("🔍 Model Architecture Analysis:")
-
-print("\\n📊 Layer Information:")
-for name, module in model.named_modules():
-    if hasattr(module, 'weight'):
-        if hasattr(module.weight, 'shape'):
-            print(f"  {name}: {module.weight.shape}")
-        if hasattr(module, 'out_features'):
-            print(f"  {name}: {module.out_features} outputs")
-
-print("\\n🧠 Specialized Networks:")
-specialized_networks = [
-    'card_pattern_network', 'strategic_planning_network',
-    'partner_coordination_network', 'opponent_modeling_network'
-]
-
-for net_name in specialized_networks:
-    if hasattr(model, net_name):
-        net = getattr(model, net_name)
-        print(f"  {net_name}: {len(net)} layers")
-
-print("\\n🎯 Output Heads:")
-output_heads = [
-    'trump_decision_head', 'card_selection_head', 'suit_selection_head',
-    'risk_adjustment_head', 'strategic_planning_head', 'partner_coordination_head'
-]
-
-for head_name in output_heads:
-    if hasattr(model, head_name):
-        head = getattr(model, head_name)
-        if hasattr(head, 'weight'):
-            print(f"  {head_name}: {head.weight.shape}")"""))
+print(f"Training approach: {checkpoint.get('training_approach', 'unknown')}")"""))
     
     # Summary
-    nb.cells.append(new_markdown_cell("## Summary
+    nb.cells.append(new_markdown_cell("""## Summary
 
 This notebook demonstrated:
-- ✅ Loading and configuring Level3 AI models
-- ✅ Creating different risk profiles
-- ✅ Testing model forward passes
-- ✅ Saving and loading models
-- ✅ Analyzing model architecture
+- ✅ **Enhanced Level3 AI Training System** with repeated hand scenarios
+- ✅ **Multiple Training Targets** (Quick, Fast, Balanced, Deep)
+- ✅ **Risk Profile Management** with 19 risk parameters
+- ✅ **Model Loading** from actual trained models
+- ✅ **Forward Pass Testing** with different risk profiles
+- ✅ **Enhanced Training Analysis** explaining the new approach
 
-The Level3 AI represents the most sophisticated Euchre AI available, with:
-- **2048 input features** capturing every game detail
-- **8 hidden layers** with 1024 neurons each
-- **Specialized analysis networks** for different aspects of the game
-- **Dynamic risk adaptation** with 19 risk parameters
-- **Memory networks** using LSTM and attention mechanisms
+**Key Innovations:**
+1. **Repeated Hand Scenarios**: Train on decision quality, not just outcomes
+2. **Multiple Training Levels**: From quick smoke tests to deep research
+3. **Risk-Aware Models**: 19-dimensional risk parameter space
+4. **Strategic Planning**: Long-term thinking and partner coordination
 
-Next notebooks will demonstrate the AI's decision-making capabilities in actual game situations."""))
+**Next Steps:**
+- Explore trump calling logic with different hand strengths
+- Analyze card selection strategies in various situations
+- Understand leading and following strategies
+- Run AI tournaments between different risk profiles
+- See comprehensive summary of all capabilities"""))
     
     return nb
 

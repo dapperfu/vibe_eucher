@@ -472,14 +472,6 @@ train-level3-quick: install-gpu ## Quick smoke test training for Level3 AI
 	@echo ""
 	venv/bin/python3 train_level3_enhanced.py --target quick --device auto
 
-train-level3-fast: install-gpu ## Fast training for Level3 AI
-	@echo "⚡ Starting Level3 Fast Training..."
-	@echo "   • 50 hand scenarios × 50 iterations = 2,500 games"
-	@echo "   • Moderate complexity model"
-	@echo "   • Estimated time: 30-60 minutes"
-	@echo ""
-	venv/bin/python3 train_level3_enhanced.py --target fast --device auto
-
 train-level3-balanced: install-gpu ## Balanced training for Level3 AI
 	@echo "⚖️ Starting Level3 Balanced Training..."
 	@echo "   • 100 hand scenarios × 100 iterations = 10,000 games"
@@ -487,14 +479,6 @@ train-level3-balanced: install-gpu ## Balanced training for Level3 AI
 	@echo "   • Estimated time: 2-4 hours"
 	@echo ""
 	venv/bin/python3 train_level3_enhanced.py --target balanced --device auto
-
-train-level3-deep: install-gpu ## Deep training for Level3 AI
-	@echo "🧠 Starting Level3 Deep Training..."
-	@echo "   • 200 hand scenarios × 200 iterations = 40,000 games"
-	@echo "   • Maximum complexity model"
-	@echo "   • Estimated time: 8-16 hours"
-	@echo ""
-	venv/bin/python3 train_level3_enhanced.py --target deep --device auto
 
 train-level3-all: train-level3-quick train-level3-fast train-level3-balanced train-level3-deep ## Train all Level3 models
 
@@ -504,16 +488,7 @@ train-level3-all: train-level3-quick train-level3-fast train-level3-balanced tra
 
 generate-training-scenarios: ## Generate training scenarios for analysis
 	@echo "📊 Generating training scenarios..."
-	venv/bin/python3 -c "
-from train_level3_enhanced import create_training_configs, EnhancedLevel3Trainer
-configs = create_training_configs()
-for config in configs:
-    print(f'\\n🎯 {config.name.upper()} Training:')
-    print(f'   Hand Scenarios: {config.num_hand_scenarios}')
-    print(f'   Iterations per Hand: {config.iterations_per_hand}')
-    print(f'   Total Games: {config.num_hand_scenarios * config.iterations_per_hand}')
-    print(f'   Model: {config.model_config[\"hidden_size\"]} hidden, {config.model_config[\"num_layers\"]} layers')
-"
+	venv/bin/python3 -c "from train_level3_enhanced import create_training_configs, EnhancedLevel3Trainer; configs = create_training_configs(); [print(f'\\n🎯 {config.name.upper()} Training:\\n   Hand Scenarios: {config.num_hand_scenarios}\\n   Iterations per Hand: {config.iterations_per_hand}\\n   Total Games: {config.num_hand_scenarios * config.iterations_per_hand}\\n   Model: {config.model_config[\"hidden_size\"]} hidden, {config.model_config[\"num_layers\"]} layers') for config in configs]"
 
 analyze-training-data: ## Analyze existing training data
 	@echo "📈 Analyzing training data..."
@@ -572,6 +547,14 @@ run-enhanced-tournament: ## Run enhanced AI tournament
 	@echo ""
 	venv/bin/python3 enhanced_ai_tournament.py --games-per-matchup 20 --save-results
 
+run-single-ai-game: ## Run a single AI vs AI game with full gameplay display
+	@echo "🎮 Running Single AI vs AI Game..."
+	@echo "   • Full gameplay display with trump selection, tricks, etc."
+	@echo "   • All AI players using trained models"
+	@echo "   • Verbose logging to see every decision"
+	@echo ""
+	venv/bin/python3 -c "from enhanced_ai_tournament import EnhancedAITournament, create_tournament_configs; configs = create_tournament_configs(); ai_names = list(configs.keys())[:2] if configs else []; single_config = {ai_names[0]: configs[ai_names[0]], ai_names[1]: configs[ai_names[1]]} if len(ai_names) >= 2 else {}; print(f'🎯 Running single game: {ai_names[0]} vs {ai_names[1]}') if len(ai_names) >= 2 else print('❌ Need at least 2 AI models'); tournament = EnhancedAITournament(single_config, 'cpu') if len(ai_names) >= 2 else None; results = tournament._run_ai_vs_ai_games(ai_names[0], ai_names[1], 1) if tournament else None; print(f'\\n🏆 Game Result: {results[0].winner} wins {results[0].winner_score}-{results[0].loser_score}') if results else None"
+
 run-quick-tournament: ## Run quick tournament (smoke test)
 	@echo "🚀 Running Quick Tournament (smoke test)..."
 	@echo "   • 5 games per matchup for fast testing"
@@ -597,17 +580,7 @@ test-ai-personalities: ## Test different AI personalities
 	@echo "   • Balanced vs Aggressive"
 	@echo "   • Performance comparison"
 	@echo ""
-	venv/bin/python3 -c "
-from enhanced_ai_tournament import EnhancedAITournament, create_tournament_configs
-configs = create_tournament_configs()
-tournament = EnhancedAITournament(configs, 'cpu')
-print('\\n🎯 Testing AI Personalities...')
-for ai_name, ai in tournament.ai_players.items():
-    print(f'🤖 {ai_name}: {ai.risk_profile_name}')
-    print(f'   Risk Profile: {ai.risk_profile:.3f}')
-    print(f'   Model Type: {ai.model_type}')
-    print()
-"
+	venv/bin/python3 -c "from enhanced_ai_tournament import EnhancedAITournament, create_tournament_configs; configs = create_tournament_configs(); tournament = EnhancedAITournament(configs, 'cpu'); print('\\n🎯 Testing AI Personalities...'); [print(f'🤖 {ai_name}: {ai.risk_profile_name}\\n   Risk Profile: {ai.risk_profile:.3f}\\n   Model Type: {ai.model_type}\\n') for ai_name, ai in tournament.ai_players.items()]"
 
 # =============================================================================
 # PERFORMANCE ANALYSIS
@@ -624,27 +597,7 @@ analyze-ai-performance: ## Analyze AI performance metrics
 		ls -la tournament_results_*.json; \
 		echo ""; \
 		echo "Analyzing latest results..."; \
-		venv/bin/python3 -c "
-import json
-import glob
-import os
-results_files = glob.glob('tournament_results_*.json')
-if results_files:
-    latest_file = max(results_files, key=os.path.getctime)
-    with open(latest_file, 'r') as f:
-        data = json.load(f)
-    print(f'📊 Latest Tournament Results: {latest_file}')
-    print(f'🏆 AI Players: {data[\"ai_players\"]}')
-    print(f'🎮 Total Games: {len(data[\"individual_results\"])}')
-    print(f'⏰ Timestamp: {data[\"timestamp\"]}')
-    print()
-    print('📈 Performance Summary:')
-    for ai_name, stats in data['tournament_stats'].items():
-        win_rate = stats.get('win_rate', 0) * 100
-        print(f'   {ai_name}: {win_rate:.1f}% win rate')
-else:
-    print('No tournament results found. Run a tournament first.')
-"; \
+		venv/bin/python3 -c "import json; import glob; import os; results_files = glob.glob('tournament_results_*.json'); latest_file = max(results_files, key=os.path.getctime) if results_files else None; data = json.load(open(latest_file, 'r')) if latest_file else None; print(f'📊 Latest Tournament Results: {latest_file}') if latest_file else print('No tournament results found. Run a tournament first.'); [print(f'🏆 AI Players: {data[\"ai_players\"]}\\n🎮 Total Games: {len(data[\"individual_results\"])}\\n⏰ Timestamp: {data[\"timestamp\"]}\\n\\n📈 Performance Summary:')] if data else None; [print(f'   {ai_name}: {stats.get(\"win_rate\", 0) * 100:.1f}% win rate') for ai_name, stats in data['tournament_stats'].items()] if data else None" if latest_file else echo "No tournament results found. Run a tournament first."; \
 	else \
 		echo "No tournament results found. Run a tournament first:"; \
 		echo "  make run-enhanced-tournament"; \
