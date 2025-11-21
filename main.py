@@ -47,10 +47,17 @@ def main() -> None:
         winner = game.get_winner()
         if winner is not None:
             tui.display_game_over(winner)
+            # Display complete game log
+            if hasattr(tui, "display_game_log"):
+                tui.display_game_log()
             break
 
         if not continue_game:
             break
+
+    # Display game log if game ended without winner
+    if hasattr(tui, "display_game_log"):
+        tui.display_game_log()
 
     print("\nThanks for playing!")
 

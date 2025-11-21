@@ -9,7 +9,7 @@ from src.players import Player
 class TrumpSelector:
     """Handles the two-round trump selection process."""
 
-    def __init__(self, players: List[Player]) -> None:
+    def __init__(self, players: List[Player], tui=None) -> None:
         """
         Initialize the trump selector.
 
@@ -17,11 +17,15 @@ class TrumpSelector:
         ----------
         players : List[Player]
             List of all players in the game.
+        tui
+            Optional TUI object for logging decisions.
         """
         self.players = players
         self.trump_suit: Optional[Suit] = None
         self.turned_card: Optional[Card] = None
         self.dealer_id: int = 0
+        self.tui = tui
+        self.trump_maker_name: Optional[str] = None
 
     def select_trump(self, turned_card: Card, dealer_id: int) -> Optional[Suit]:
         """
@@ -43,16 +47,33 @@ class TrumpSelector:
         self.dealer_id = dealer_id
         self.trump_suit = None
 
+        # Log round 1 start
+        if self.tui is not None and hasattr(self.tui, "current_hand_log"):
+            self.tui.current_hand_log.append("\nRound 1: Order Up")
+
         # Round 1: Order Up
         trump_suit = self._round_one_order_up()
         if trump_suit is not None:
             self.trump_suit = trump_suit
+            # Log trump selected
+            if self.tui is not None and hasattr(self.tui, "log_trump_selected"):
+                if self.trump_maker_name:
+                    self.tui.log_trump_selected(trump_suit, self.trump_maker_name)
             return trump_suit
+
+        # Log round 2 start
+        if self.tui is not None:
+            if hasattr(self.tui, "current_hand_log"):
+                self.tui.current_hand_log.append("\nRound 2: Call Trump")
 
         # Round 2: Call Trump
         trump_suit = self._round_two_call_trump()
         if trump_suit is not None:
             self.trump_suit = trump_suit
+            # Log trump selected
+            if self.tui is not None and hasattr(self.tui, "log_trump_selected"):
+                if self.trump_maker_name:
+                    self.tui.log_trump_selected(trump_suit, self.trump_maker_name)
             return trump_suit
 
         # All passed - redeal
@@ -79,8 +100,14 @@ class TrumpSelector:
                 continue
 
             decision = player.decide_order_up(self.turned_card, self.dealer_id, None)
+            
+            # Log decision
+            if self.tui is not None and hasattr(self.tui, "log_order_up_decision"):
+                self.tui.log_order_up_decision(player.name, decision)
+            
             if decision:
                 # Ordered up - dealer picks up and discards
+                self.trump_maker_name = player.name
                 dealer = self.players[self.dealer_id]
                 dealer.receive_card(self.turned_card)
                 discard = dealer.choose_card_to_discard()
@@ -111,13 +138,25 @@ class TrumpSelector:
             player = self.players[player_idx]
 
             decision = player.decide_call_trump(self.turned_card, None, must_choose=False)
+            
+            # Log decision
+            if self.tui is not None and hasattr(self.tui, "log_call_trump_decision"):
+                self.tui.log_call_trump_decision(player.name, decision)
+            
             if decision is not None and decision != forbidden_suit:
+                self.trump_maker_name = player.name
                 return decision
 
         # All passed before dealer - "screw the dealer" rule
         dealer = self.players[self.dealer_id]
         decision = dealer.decide_call_trump(self.turned_card, None, must_choose=True)
+        
+        # Log dealer's decision
+        if self.tui is not None and hasattr(self.tui, "log_call_trump_decision"):
+            self.tui.log_call_trump_decision(dealer.name, decision)
+        
         if decision is not None and decision != forbidden_suit:
+            self.trump_maker_name = dealer.name
             return decision
 
         # Fallback: dealer must choose something, even if it's the only option
