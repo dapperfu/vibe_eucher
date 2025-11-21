@@ -1,6 +1,6 @@
 """Text-based user interface for Euchre game."""
 
-from typing import List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from src.cards import Card, Suit
 from src.players import Player
@@ -14,6 +14,151 @@ class TextTUI:
         self.players: Optional[List[Player]] = None
         self.current_trick_cards: List[Card] = []
         self.current_trick_player_ids: List[int] = []
+        # Game log storage
+        self.game_log: List[str] = []
+        self.current_hand_log: List[str] = []
+        self.initial_hands: Dict[int, List[Card]] = {}
+
+    def start_new_hand(self) -> None:
+        """Start logging a new hand."""
+        self.current_hand_log = []
+        self.initial_hands = {}
+
+    def log_initial_hands(self, players: List[Player]) -> None:
+        """
+        Log the initial hands dealt to all players.
+
+        Parameters
+        ----------
+        players : List[Player]
+            List of all players with their initial hands.
+        """
+        self.current_hand_log.append("\n" + "=" * 70)
+        self.current_hand_log.append("INITIAL DEAL")
+        self.current_hand_log.append("=" * 70)
+        for player in players:
+            hand_str = ", ".join(str(card) for card in player.hand)
+            self.current_hand_log.append(f"{player.name}: {hand_str}")
+            self.initial_hands[player.player_id] = player.hand.copy()
+
+    def log_turned_card(self, card: Card) -> None:
+        """
+        Log the turned up card.
+
+        Parameters
+        ----------
+        card : Card
+            The card that was turned up.
+        """
+        self.current_hand_log.append(f"\nTurned up card: {card}")
+
+    def log_order_up_decision(self, player_name: str, decision: bool) -> None:
+        """
+        Log an order up decision.
+
+        Parameters
+        ----------
+        player_name : str
+            Name of the player making the decision.
+        decision : bool
+            True if ordered up, False if passed.
+        """
+        action = "Ordered up" if decision else "Passed"
+        self.current_hand_log.append(f"{player_name}: {action}")
+
+    def log_call_trump_decision(
+        self, player_name: str, decision: Optional[Suit]
+    ) -> None:
+        """
+        Log a call trump decision.
+
+        Parameters
+        ----------
+        player_name : str
+            Name of the player making the decision.
+        decision : Optional[Suit]
+            The suit called as trump, or None if passed.
+        """
+        if decision is None:
+            self.current_hand_log.append(f"{player_name}: Passed")
+        else:
+            self.current_hand_log.append(f"{player_name}: Called {decision.value} as trump")
+
+    def log_trump_selected(self, trump_suit: Suit, maker_name: str) -> None:
+        """
+        Log that trump was selected.
+
+        Parameters
+        ----------
+        trump_suit : Suit
+            The selected trump suit.
+        maker_name : str
+            Name of the player who made trump.
+        """
+        self.current_hand_log.append(f"\nTrump: {trump_suit.value} (made by {maker_name})")
+
+    def log_trick(
+        self,
+        trick_num: int,
+        played_cards: List[Card],
+        player_ids: List[int],
+        winner_id: int,
+    ) -> None:
+        """
+        Log a trick with cards played and winner.
+
+        Parameters
+        ----------
+        trick_num : int
+            The trick number (1-5).
+        played_cards : List[Card]
+            Cards played in the trick.
+        player_ids : List[int]
+            Player IDs corresponding to each card.
+        winner_id : int
+            ID of the winning player.
+        """
+        if self.players is None:
+            return
+
+        self.current_hand_log.append(f"\nTrick {trick_num}:")
+        for card, pid in zip(played_cards, player_ids):
+            player_name = self.players[pid].name
+            winner_marker = " *" if pid == winner_id else ""
+            self.current_hand_log.append(f"  {player_name}: {card}{winner_marker}")
+
+    def log_hand_score(
+        self, tricks_won: List[int], scores: Tuple[int, int]
+    ) -> None:
+        """
+        Log the hand score.
+
+        Parameters
+        ----------
+        tricks_won : List[int]
+            Tricks won by each team [team0, team1].
+        scores : Tuple[int, int]
+            Current scores (team0, team1).
+        """
+        self.current_hand_log.append(f"\nTricks won: Team 0: {tricks_won[0]}, Team 1: {tricks_won[1]}")
+        self.current_hand_log.append(f"Scores: Team 0: {scores[0]}, Team 1: {scores[1]}")
+
+    def display_game_log(self) -> None:
+        """Display the complete game log."""
+        print("\n" + "=" * 70)
+        print("GAME LOG")
+        print("=" * 70)
+        for line in self.game_log:
+            print(line)
+        print("=" * 70)
+
+    def display_hand_log(self) -> None:
+        """Display the current hand log and add it to game log."""
+        if self.current_hand_log:
+            for line in self.current_hand_log:
+                print(line)
+                self.game_log.append(line)
+            self.current_hand_log = []
 
     def set_players(self, players: List[Player]) -> None:
         """

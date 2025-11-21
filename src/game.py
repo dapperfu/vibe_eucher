@@ -92,6 +92,10 @@ class Game:
         bool
             True if game should continue, False if game is over.
         """
+        # Start new hand log
+        if self.tui is not None and hasattr(self.tui, "start_new_hand"):
+            self.tui.start_new_hand()
+
         # Deal cards
         deck = Deck()
         deck.shuffle()
@@ -101,11 +105,19 @@ class Game:
             cards = deck.deal(5)
             player.receive_hand(cards)
 
+        # Log initial hands
+        if self.tui is not None and hasattr(self.tui, "log_initial_hands"):
+            self.tui.log_initial_hands(self.players)
+
         # Turn up one card
         self.turned_card = deck.draw_one()
 
+        # Log turned card
+        if self.tui is not None and hasattr(self.tui, "log_turned_card"):
+            self.tui.log_turned_card(self.turned_card)
+
         # Select trump
-        self.trump_selector = TrumpSelector(self.players)
+        self.trump_selector = TrumpSelector(self.players, self.tui)
         self.trump_suit = self.trump_selector.select_trump(self.turned_card, self.dealer_id)
 
         # If all passed, redeal
@@ -119,8 +131,27 @@ class Game:
             winner = self.players[winner_id]
             tricks_won[winner.team] += 1
 
+            # Log trick
+            if self.tui is not None and hasattr(self.tui, "log_trick"):
+                if hasattr(self, "_last_trick_cards") and hasattr(self, "_last_trick_player_ids"):
+                    self.tui.log_trick(
+                        trick_num + 1,
+                        self._last_trick_cards,
+                        self._last_trick_player_ids,
+                        winner_id,
+                    )
+
         # Score the hand
         self._score_hand(tricks_won)
+
+        # Log hand score
+        if self.tui is not None and hasattr(self.tui, "log_hand_score"):
+            scores = self.get_scores()
+            self.tui.log_hand_score(tricks_won, scores)
+
+        # Display hand log
+        if self.tui is not None and hasattr(self.tui, "display_hand_log"):
+            self.tui.display_hand_log()
 
         # Rotate dealer
         self.dealer_id = (self.dealer_id + 1) % 4
@@ -177,6 +208,10 @@ class Game:
             # Set led suit if first card
             if i == 0:
                 led_suit = self._get_card_suit_for_led(card)
+
+        # Store trick info for logging
+        self._last_trick_cards = played_cards.copy()
+        self._last_trick_player_ids = player_ids.copy()
 
         # Determine winner
         winner_id = self.rules.determine_trick_winner(played_cards, player_ids, led_suit, self.trump_suit)
