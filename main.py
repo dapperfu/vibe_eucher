@@ -13,13 +13,13 @@ def main() -> None:
     # Configure players
     player_config = []
     print("\nConfigure players:")
-    print("Profile types: 'human', 'simple' (rule-based), 'ai'")
+        print("Profile types: 'human', 'simple' (rule-based), 'ai', 'random'")
     for i in range(4):
         name = input(f"Player {i + 1} name: ").strip() or f"Player {i + 1}"
         profile_input = (
-            input(f"{name} profile type (human/simple/ai) [ai]: ").strip().lower() or "ai"
+            input(f"{name} profile type (human/simple/ai/random) [ai]: ").strip().lower() or "ai"
         )
-        if profile_input not in ["human", "simple", "ai"]:
+        if profile_input not in ["human", "simple", "ai", "random"]:
             print(f"Invalid profile type, defaulting to 'ai'")
             profile_input = "ai"
         player_config.append((name, profile_input))
