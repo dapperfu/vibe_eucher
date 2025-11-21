@@ -22,10 +22,10 @@ class Suit(Enum):
             Unicode symbol for the suit.
         """
         symbol_map = {
-            Suit.HEARTS: "❤️",
-            Suit.DIAMONDS: "♦️",
-            Suit.CLUBS: "♣️",
-            Suit.SPADES: "♠️",
+            Suit.HEARTS: "♥",
+            Suit.DIAMONDS: "♦",
+            Suit.CLUBS: "♣",
+            Suit.SPADES: "♠",
         }
         return symbol_map[self]
 

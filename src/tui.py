@@ -37,7 +37,7 @@ class TextTUI:
         self.current_hand_log.append("INITIAL DEAL")
         self.current_hand_log.append("=" * 70)
         for player in players:
-            hand_str = ", ".join(str(card) for card in player.hand)
+            hand_str = "  ".join(repr(card) for card in player.hand)
             self.current_hand_log.append(f"{player.name}: {hand_str}")
             self.initial_hands[player.player_id] = player.hand.copy()
 
@@ -50,7 +50,7 @@ class TextTUI:
         card : Card
             The card that was turned up.
         """
-        self.current_hand_log.append(f"\nTurned up card: {card}")
+        self.current_hand_log.append(f"\nTurned up card: {repr(card)}")
 
     def log_order_up_decision(self, player_name: str, decision: bool) -> None:
         """
@@ -125,7 +125,7 @@ class TextTUI:
         for card, pid in zip(played_cards, player_ids):
             player_name = self.players[pid].name
             winner_marker = " *" if pid == winner_id else ""
-            self.current_hand_log.append(f"  {player_name}: {card}{winner_marker}")
+            self.current_hand_log.append(f"  {player_name}: {repr(card)}{winner_marker}")
 
     def log_hand_score(
         self, tricks_won: List[int], scores: Tuple[int, int]
