@@ -1,1 +1,2 @@
-"""Tests for the euchre package.""" 
+"""Euchre game test package."""
+
