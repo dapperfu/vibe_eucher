@@ -11,7 +11,36 @@ class TextTUI:
 
     def __init__(self) -> None:
         """Initialize the text UI."""
-        pass
+        self.players: Optional[List[Player]] = None
+        self.current_trick_cards: List[Card] = []
+        self.current_trick_player_ids: List[int] = []
+
+    def set_players(self, players: List[Player]) -> None:
+        """
+        Set the list of all players for table display.
+
+        Parameters
+        ----------
+        players : List[Player]
+            List of all players in the game.
+        """
+        self.players = players
+
+    def update_trick_state(
+        self, played_cards: List[Card], player_ids: List[int]
+    ) -> None:
+        """
+        Update the current trick state for table display.
+
+        Parameters
+        ----------
+        played_cards : List[Card]
+            Cards played in the current trick.
+        player_ids : List[int]
+            Player IDs corresponding to each card.
+        """
+        self.current_trick_cards = played_cards.copy()
+        self.current_trick_player_ids = player_ids.copy()
 
     def display_hand(self, player: Player) -> None:
         """
@@ -215,6 +244,120 @@ class TextTUI:
             print("Invalid choice. Discarding first card.")
             return player.hand[0]
 
+    def display_table(
+        self,
+        current_player: Player,
+        led_suit: Optional[Suit] = None,
+        trump_suit: Optional[Suit] = None,
+    ) -> None:
+        """
+        Display the table layout with players and cards in the middle.
+
+        Parameters
+        ----------
+        current_player : Player
+            The current human player viewing the table.
+        led_suit : Optional[Suit]
+            The suit that was led, if any.
+        trump_suit : Optional[Suit]
+            The current trump suit, if any.
+        """
+        if self.players is None:
+            # Fallback if players not set
+            return
+
+        current_id = current_player.player_id
+        partner_id = (current_id + 2) % 4
+        left_opponent_id = (current_id + 1) % 4
+        right_opponent_id = (current_id + 3) % 4
+
+        partner = self.players[partner_id]
+        left_opponent = self.players[left_opponent_id]
+        right_opponent = self.players[right_opponent_id]
+
+        # Create a mapping of player_id to card for this trick
+        card_map: dict[int, Optional[Card]] = {
+            current_id: None,
+            partner_id: None,
+            left_opponent_id: None,
+            right_opponent_id: None,
+        }
+
+        # Use stored trick state if available
+        played_cards = self.current_trick_cards
+        player_ids = self.current_trick_player_ids
+
+        for card, pid in zip(played_cards, player_ids):
+            card_map[pid] = card
+
+        # Build the table display
+        print("\n" + "=" * 70)
+        print("TABLE VIEW")
+        print("=" * 70)
+
+        # Top: Partner (across from you)
+        partner_card = card_map[partner_id]
+        partner_display = f"{partner.name} (Partner)"
+        if partner_card:
+            partner_display += f" - {partner_card}"
+        print(f"\n{partner_display:^70}")
+
+        # Middle section: Cards in the center, opponents on sides
+        left_card = card_map[left_opponent_id]
+        right_card = card_map[right_opponent_id]
+        current_card = card_map[current_id]
+
+        # Format cards in the middle (center of table)
+        if played_cards:
+            # Show cards prominently in the center
+            card_strings = []
+            for card, pid in zip(played_cards, player_ids):
+                player_name = self.players[pid].name
+                card_strings.append(f"  {player_name}: {card}")
+            cards_display = "\n".join(card_strings)
+        else:
+            cards_display = "  [No cards played yet]"
+
+        # Left opponent
+        left_display = f"{left_opponent.name}"
+        if left_card:
+            left_display += f"\n{left_card}"
+
+        # Right opponent
+        right_display = f"{right_opponent.name}"
+        if right_card:
+            right_display += f"\n{right_card}"
+
+        # Print middle row: Left | Cards (center) | Right
+        # Split into lines for proper alignment
+        left_lines = left_display.split("\n")
+        right_lines = right_display.split("\n")
+        card_lines = cards_display.split("\n")
+
+        max_lines = max(len(left_lines), len(card_lines), len(right_lines))
+        for i in range(max_lines):
+            left_part = left_lines[i] if i < len(left_lines) else ""
+            center_part = card_lines[i] if i < len(card_lines) else ""
+            right_part = right_lines[i] if i < len(right_lines) else ""
+            print(f"{left_part:<25} {center_part:^25} {right_part:>25}")
+
+        # Bottom: Current player (You)
+        you_display = f"{current_player.name} (You)"
+        if current_card:
+            you_display += f" - {current_card}"
+        print(f"\n{you_display:^70}")
+
+        # Display game info
+        info_parts = []
+        if led_suit:
+            info_parts.append(f"Led: {led_suit.value}")
+        if trump_suit:
+            info_parts.append(f"Trump: {trump_suit.value}")
+        if info_parts:
+            print(f"\n{' | '.join(info_parts):^70}")
+
+        print("=" * 70)
+
     def get_play_card_decision(
         self,
         player: Player,
@@ -241,15 +384,12 @@ class TextTUI:
         Card
             The card to play.
         """
+        # Display table view (uses stored trick state)
+        if self.players is not None:
+            self.display_table(player, led_suit, trump_suit)
+
+        # Display hand
         self.display_hand(player)
-        if led_suit:
-            print(f"Led suit: {led_suit.value}")
-        if trump_suit:
-            print(f"Trump suit: {trump_suit.value}")
-        if trick_cards:
-            print("Cards played so far:")
-            for card in trick_cards:
-                print(f"  {card}")
 
         print("\nChoose a card to play (1-{}): ".format(len(player.hand)), end="")
         choice = input().strip()

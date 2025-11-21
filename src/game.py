@@ -34,6 +34,7 @@ class Game:
         self.rules = RulesEngine()
         self.trump_selector: Optional[TrumpSelector] = None
         self.ai_decision_maker = AIDecisionMaker()
+        self.tui = None
 
         # Create players with profiles
         for i, (name, profile_type) in enumerate(player_config):
@@ -73,6 +74,11 @@ class Game:
         tui
             The TUI object.
         """
+        # Set players list in TUI for table display
+        if hasattr(tui, "set_players"):
+            tui.set_players(self.players)
+        self.tui = tui
+
         for player in self.players:
             if isinstance(player.profile, HumanProfile):
                 player.profile.set_tui(tui)
@@ -143,6 +149,10 @@ class Game:
         player_ids: List[int] = []
         led_suit: Optional[Suit] = None
 
+        # Reset trick state in TUI
+        if self.tui is not None and hasattr(self.tui, "update_trick_state"):
+            self.tui.update_trick_state([], [])
+
         # Each player plays a card
         for i in range(4):
             player_idx = (leader_id + i) % 4
@@ -159,6 +169,10 @@ class Game:
             player.remove_card(card)
             played_cards.append(card)
             player_ids.append(player_idx)
+
+            # Update TUI with current trick state
+            if self.tui is not None and hasattr(self.tui, "update_trick_state"):
+                self.tui.update_trick_state(played_cards, player_ids)
 
             # Set led suit if first card
             if i == 0:
