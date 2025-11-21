@@ -3,11 +3,11 @@
 from typing import List, Optional
 
 from src.cards import Card, Suit
-from src.players import HumanPlayer, Player
+from src.players import Player
 
 
-class TextUI:
-    """Text-based user interface for the game."""
+class TextTUI:
+    """Text-based Terminal User Interface for the game."""
 
     def __init__(self) -> None:
         """Initialize the text UI."""
@@ -104,7 +104,7 @@ class TextUI:
         print(f"{'=' * 50}")
 
     def get_order_up_decision(
-        self, player: HumanPlayer, turned_card: Card, dealer_id: int
+        self, player: Player, turned_card: Card, dealer_id: int
     ) -> bool:
         """
         Get user input for ordering up.
@@ -130,7 +130,7 @@ class TextUI:
         return response == "y"
 
     def get_call_trump_decision(
-        self, player: HumanPlayer, turned_card: Card
+        self, player: Player, turned_card: Card, must_choose: bool = False
     ) -> Optional[Suit]:
         """
         Get user input for calling trump.
@@ -149,13 +149,17 @@ class TextUI:
         """
         self.display_hand(player)
         print(f"\nTurned card: {turned_card} (cannot be chosen)")
-        print("Call trump:")
+        if must_choose:
+            print("You MUST choose a suit (screw the dealer rule):")
+        else:
+            print("Call trump:")
         print("  1. Hearts")
         print("  2. Diamonds")
         print("  3. Clubs")
         print("  4. Spades")
-        print("  5. Pass")
-        print("Choice (1-5): ", end="")
+        if not must_choose:
+            print("  5. Pass")
+        print("Choice (1-{}): ".format("4" if must_choose else "5"), end="")
 
         choice = input().strip()
         suit_map = {
@@ -165,19 +169,26 @@ class TextUI:
             "4": Suit.SPADES,
         }
 
-        if choice == "5":
+        if not must_choose and choice == "5":
             return None
         if choice in suit_map:
             suit = suit_map[choice]
             if suit == turned_card.suit:
+                if must_choose:
+                    print("Cannot choose the turned card's suit. Choose another.")
+                    # Recursively ask again if must choose
+                    return self.get_call_trump_decision(player, turned_card, must_choose)
                 print("Cannot choose the turned card's suit. Passing.")
                 return None
             return suit
 
+        if must_choose:
+            print("Invalid choice. You must choose a suit.")
+            return self.get_call_trump_decision(player, turned_card, must_choose)
         print("Invalid choice. Passing.")
         return None
 
-    def get_discard_decision(self, player: HumanPlayer) -> Card:
+    def get_discard_decision(self, player: Player) -> Card:
         """
         Get user input for discarding a card.
 
@@ -206,7 +217,7 @@ class TextUI:
 
     def get_play_card_decision(
         self,
-        player: HumanPlayer,
+        player: Player,
         led_suit: Optional[Suit],
         trump_suit: Optional[Suit],
         trick_cards: List[Card],

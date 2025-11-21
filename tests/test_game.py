@@ -2,10 +2,8 @@
 
 import pytest
 
-from src.ai import AIDecisionMaker
 from src.cards import Card, Rank, Suit
 from src.game import Game
-from src.players import AIPlayer
 
 
 class TestGame:
@@ -14,10 +12,10 @@ class TestGame:
     def test_game_creation(self) -> None:
         """Test game creation."""
         player_config = [
-            ("Player 1", False),
-            ("Player 2", False),
-            ("Player 3", False),
-            ("Player 4", False),
+            ("Player 1", "ai"),
+            ("Player 2", "ai"),
+            ("Player 3", "ai"),
+            ("Player 4", "ai"),
         ]
         game = Game(player_config)
         assert len(game.players) == 4
@@ -25,17 +23,17 @@ class TestGame:
 
     def test_game_creation_wrong_player_count(self) -> None:
         """Test game creation with wrong number of players."""
-        player_config = [("Player 1", False), ("Player 2", False)]
+        player_config = [("Player 1", "ai"), ("Player 2", "ai")]
         with pytest.raises(ValueError):
             Game(player_config)
 
     def test_game_scores(self) -> None:
         """Test game scoring."""
         player_config = [
-            ("Player 1", False),
-            ("Player 2", False),
-            ("Player 3", False),
-            ("Player 4", False),
+            ("Player 1", "ai"),
+            ("Player 2", "ai"),
+            ("Player 3", "ai"),
+            ("Player 4", "ai"),
         ]
         game = Game(player_config)
         scores = game.get_scores()
@@ -44,27 +42,39 @@ class TestGame:
     def test_game_not_over_initially(self) -> None:
         """Test that game is not over initially."""
         player_config = [
-            ("Player 1", False),
-            ("Player 2", False),
-            ("Player 3", False),
-            ("Player 4", False),
+            ("Player 1", "ai"),
+            ("Player 2", "ai"),
+            ("Player 3", "ai"),
+            ("Player 4", "ai"),
         ]
         game = Game(player_config)
         assert game.get_winner() is None
 
-    def test_set_ui(self) -> None:
-        """Test setting UI."""
-        from src.ui import TextUI
+    def test_set_tui(self) -> None:
+        """Test setting TUI."""
+        from src.tui import TextTUI
 
         player_config = [
-            ("Player 1", True),
-            ("Player 2", False),
-            ("Player 3", False),
-            ("Player 4", False),
+            ("Player 1", "human"),
+            ("Player 2", "ai"),
+            ("Player 3", "ai"),
+            ("Player 4", "ai"),
         ]
         game = Game(player_config)
-        ui = TextUI()
-        game.set_ui(ui)
-        # Check that human player has UI set
-        assert isinstance(game.players[0], AIPlayer) or hasattr(game.players[0], "_ui")
+        tui = TextTUI()
+        game.set_tui(tui)
+        # Check that human profile has TUI set
+        from src.player_profiles import HumanProfile
+        assert isinstance(game.players[0].profile, HumanProfile)
+        assert game.players[0].profile.tui == tui
 
+    def test_invalid_profile_type(self) -> None:
+        """Test invalid profile type."""
+        player_config = [
+            ("Player 1", "invalid"),
+            ("Player 2", "ai"),
+            ("Player 3", "ai"),
+            ("Player 4", "ai"),
+        ]
+        with pytest.raises(ValueError):
+            Game(player_config)

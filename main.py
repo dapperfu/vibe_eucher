@@ -1,7 +1,7 @@
 """Main entry point for Euchre game."""
 
 from src.game import Game
-from src.ui import TextUI
+from src.tui import TextTUI
 
 
 def main() -> None:
@@ -13,18 +13,23 @@ def main() -> None:
     # Configure players
     player_config = []
     print("\nConfigure players:")
+    print("Profile types: 'human', 'simple' (rule-based), 'ai'")
     for i in range(4):
         name = input(f"Player {i + 1} name: ").strip() or f"Player {i + 1}"
-        human_input = input(f"Is {name} human? (y/n): ").strip().lower()
-        is_human = human_input == "y"
-        player_config.append((name, is_human))
+        profile_input = (
+            input(f"{name} profile type (human/simple/ai) [ai]: ").strip().lower() or "ai"
+        )
+        if profile_input not in ["human", "simple", "ai"]:
+            print(f"Invalid profile type, defaulting to 'ai'")
+            profile_input = "ai"
+        player_config.append((name, profile_input))
 
     # Create game
     game = Game(player_config)
 
-    # Create and set UI
-    ui = TextUI()
-    game.set_ui(ui)
+    # Create and set TUI
+    tui = TextTUI()
+    game.set_tui(tui)
 
     # Play game
     while True:
@@ -36,12 +41,12 @@ def main() -> None:
 
         # Display scores
         scores = game.get_scores()
-        ui.display_scores(scores[0], scores[1])
+        tui.display_scores(scores[0], scores[1])
 
         # Check for game over
         winner = game.get_winner()
         if winner is not None:
-            ui.display_game_over(winner)
+            tui.display_game_over(winner)
             break
 
         if not continue_game:

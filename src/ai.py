@@ -3,9 +3,13 @@
 import random
 from typing import List, Optional
 
+from typing import TYPE_CHECKING
+
 from src.cards import Card, Rank, Suit
-from src.players import AIPlayer, Player
 from src.rules import RulesEngine
+
+if TYPE_CHECKING:
+    from src.players import Player
 
 
 class AIDecisionMaker:
@@ -16,7 +20,7 @@ class AIDecisionMaker:
         self.rules = RulesEngine()
 
     def decide_order_up(
-        self, player: Player, turned_card: Card, dealer_id: int, trump_suit: Optional[Suit] = None
+        self, player: "Player", turned_card: Card, dealer_id: int, trump_suit: Optional[Suit] = None
     ) -> bool:
         """
         Decide whether to order up the turned card.
@@ -58,7 +62,11 @@ class AIDecisionMaker:
         return False
 
     def decide_call_trump(
-        self, player: Player, turned_card: Card, trump_suit: Optional[Suit] = None
+        self,
+        player: "Player",
+        turned_card: Card,
+        trump_suit: Optional[Suit] = None,
+        must_choose: bool = False,
     ) -> Optional[Suit]:
         """
         Decide which suit to call as trump (or pass).
@@ -71,6 +79,8 @@ class AIDecisionMaker:
             The card that was turned up (cannot be chosen).
         trump_suit : Optional[Suit]
             Current trump suit if already determined.
+        must_choose : bool
+            If True, must choose a suit (cannot pass).
 
         Returns
         -------
@@ -78,6 +88,8 @@ class AIDecisionMaker:
             The suit to call as trump, or None to pass.
         """
         if trump_suit is not None:
+            if must_choose:
+                return trump_suit
             return None  # Trump already determined
 
         forbidden_suit = turned_card.suit
@@ -102,9 +114,13 @@ class AIDecisionMaker:
         if best_suit is not None and self._has_bower(player.hand, best_suit):
             return best_suit
 
+        # If must choose, return best suit even if weak
+        if must_choose and best_suit is not None:
+            return best_suit
+
         return None
 
-    def choose_card_to_discard(self, player: Player) -> Card:
+    def choose_card_to_discard(self, player: "Player") -> Card:
         """
         Choose a card to discard (dealer only).
 
@@ -128,7 +144,7 @@ class AIDecisionMaker:
 
     def play_card(
         self,
-        player: Player,
+        player: "Player",
         led_suit: Optional[Suit],
         trump_suit: Optional[Suit],
         trick_cards: List[Card],
