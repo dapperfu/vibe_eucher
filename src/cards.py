@@ -12,6 +12,23 @@ class Suit(Enum):
     CLUBS = "Clubs"
     SPADES = "Spades"
 
+    def unicode_symbol(self) -> str:
+        """
+        Return Unicode symbol for the suit.
+
+        Returns
+        -------
+        str
+            Unicode symbol for the suit.
+        """
+        symbol_map = {
+            Suit.HEARTS: "❤️",
+            Suit.DIAMONDS: "♦️",
+            Suit.CLUBS: "♣️",
+            Suit.SPADES: "♠️",
+        }
+        return symbol_map[self]
+
 
 class Rank(Enum):
     """Card ranks in Euchre (9, 10, J, Q, K, A)."""
@@ -72,12 +89,12 @@ class Card:
 
     def __repr__(self) -> str:
         """
-        Return string representation of the card.
+        Return string representation of the card with Unicode suit symbols.
 
         Returns
         -------
         str
-            String representation of the card.
+            String representation of the card (e.g., "K❤️", "A♠️").
         """
         rank_str = {
             Rank.NINE: "9",
@@ -87,8 +104,8 @@ class Card:
             Rank.KING: "K",
             Rank.ACE: "A",
         }[self.rank]
-        suit_str = self.suit.value[0]  # First letter of suit
-        return f"{rank_str}{suit_str}"
+        suit_symbol = self.suit.unicode_symbol()
+        return f"{rank_str}{suit_symbol}"
 
     def __str__(self) -> str:
         """
