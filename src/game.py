@@ -4,7 +4,7 @@ from typing import List, Optional, Tuple
 
 from src.ai import AIDecisionMaker
 from src.cards import Card, Deck, Suit
-from src.player_profiles import AIBasedProfile, HumanProfile, PlayerProfile, SimpleRuleBasedProfile
+from src.player_profiles import AIBasedProfile, HumanProfile, PlayerProfile, RandomProfile, SimpleRuleBasedProfile
 from src.players import Player
 from src.rules import RulesEngine
 from src.trump import TrumpSelector
@@ -49,7 +49,7 @@ class Game:
         Parameters
         ----------
         profile_type : str
-            Type of profile: "human", "simple", "ai"
+            Type of profile: "human", "simple", "ai", "random"
 
         Returns
         -------
@@ -62,6 +62,8 @@ class Game:
             return SimpleRuleBasedProfile()
         elif profile_type == "ai":
             return AIBasedProfile(self.ai_decision_maker)
+        elif profile_type == "random":
+            return RandomProfile()
         else:
             raise ValueError(f"Unknown profile type: {profile_type}")
 
