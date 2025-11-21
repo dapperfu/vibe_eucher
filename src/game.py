@@ -4,7 +4,8 @@ from typing import List, Optional, Tuple
 
 from src.ai import AIDecisionMaker
 from src.cards import Card, Deck, Suit
-from src.players import AIPlayer, HumanPlayer, Player
+from src.player_profiles import AIBasedProfile, HumanProfile, PlayerProfile, SimpleRuleBasedProfile
+from src.players import Player
 from src.rules import RulesEngine
 from src.trump import TrumpSelector
 
@@ -12,14 +13,15 @@ from src.trump import TrumpSelector
 class Game:
     """Manages the Euchre game state and flow."""
 
-    def __init__(self, player_config: List[Tuple[str, bool]]) -> None:
+    def __init__(self, player_config: List[Tuple[str, str]]) -> None:
         """
         Initialize a new game.
 
         Parameters
         ----------
-        player_config : List[Tuple[str, bool]]
-            List of (name, is_human) tuples for each player.
+        player_config : List[Tuple[str, str]]
+            List of (name, profile_type) tuples for each player.
+            profile_type can be: "human", "simple", "ai"
         """
         if len(player_config) != 4:
             raise ValueError("Euchre requires exactly 4 players")
@@ -33,26 +35,47 @@ class Game:
         self.trump_selector: Optional[TrumpSelector] = None
         self.ai_decision_maker = AIDecisionMaker()
 
-        # Create players
-        for i, (name, is_human) in enumerate(player_config):
-            if is_human:
-                player = HumanPlayer(name, i)
-            else:
-                player = AIPlayer(name, i, self.ai_decision_maker)
+        # Create players with profiles
+        for i, (name, profile_type) in enumerate(player_config):
+            profile = self._create_profile(profile_type)
+            player = Player(name, i, profile)
             self.players.append(player)
 
-    def set_ui(self, ui) -> None:
+    def _create_profile(self, profile_type: str) -> PlayerProfile:
         """
-        Set the UI object for human players.
+        Create a player profile based on type.
 
         Parameters
         ----------
-        ui
-            The UI object.
+        profile_type : str
+            Type of profile: "human", "simple", "ai"
+
+        Returns
+        -------
+        PlayerProfile
+            The created profile.
+        """
+        if profile_type == "human":
+            return HumanProfile()
+        elif profile_type == "simple":
+            return SimpleRuleBasedProfile()
+        elif profile_type == "ai":
+            return AIBasedProfile(self.ai_decision_maker)
+        else:
+            raise ValueError(f"Unknown profile type: {profile_type}")
+
+    def set_tui(self, tui) -> None:
+        """
+        Set the TUI object for human players.
+
+        Parameters
+        ----------
+        tui
+            The TUI object.
         """
         for player in self.players:
-            if isinstance(player, HumanPlayer):
-                player.set_ui(ui)
+            if isinstance(player.profile, HumanProfile):
+                player.profile.set_tui(tui)
 
     def play_hand(self) -> bool:
         """

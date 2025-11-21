@@ -93,22 +93,39 @@ class TrumpSelector:
         """
         Execute Round 2: Call Trump phase.
 
+        Implements "screw the dealer" rule: if all pass before dealer,
+        dealer must choose a suit.
+
         Returns
         -------
         Optional[Suit]
-            The trump suit if called, None otherwise.
+            The trump suit if called, None otherwise (should not happen with screw the dealer).
         """
         # Start with player left of dealer
         start_idx = (self.dealer_id + 1) % len(self.players)
         forbidden_suit = self.turned_card.suit
 
-        for i in range(len(self.players)):
+        # Check all players before dealer
+        for i in range(len(self.players) - 1):  # Exclude dealer
             player_idx = (start_idx + i) % len(self.players)
             player = self.players[player_idx]
 
-            decision = player.decide_call_trump(self.turned_card, None)
+            decision = player.decide_call_trump(self.turned_card, None, must_choose=False)
             if decision is not None and decision != forbidden_suit:
                 return decision
+
+        # All passed before dealer - "screw the dealer" rule
+        dealer = self.players[self.dealer_id]
+        decision = dealer.decide_call_trump(self.turned_card, None, must_choose=True)
+        if decision is not None and decision != forbidden_suit:
+            return decision
+
+        # Fallback: dealer must choose something, even if it's the only option
+        # This should not happen, but handle it gracefully
+        suits = [Suit.HEARTS, Suit.DIAMONDS, Suit.CLUBS, Suit.SPADES]
+        for suit in suits:
+            if suit != forbidden_suit:
+                return suit
 
         return None
 
