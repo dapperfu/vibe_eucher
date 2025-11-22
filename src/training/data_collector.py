@@ -285,7 +285,7 @@ class GameDataCollector:
             "winner": winner,
         })
 
-    def save_data(self, prefix: str = "training", save_csv: bool = True) -> None:
+    def save_data(self, prefix: str = "training", save_csv: bool = False) -> None:
         """
         Save collected data to files.
 
@@ -294,7 +294,8 @@ class GameDataCollector:
         prefix : str
             Prefix for output filenames.
         save_csv : bool
-            Whether to save CSV files. Can be disabled for faster saves.
+            Whether to save CSV files. Default False - CSV files are not used by training
+            and add significant overhead. Only enable if you need them for manual analysis.
         """
         # Save as JSON (faster than CSV for large datasets)
         order_up_file = self.output_dir / f"{prefix}_order_up.json"
@@ -315,7 +316,8 @@ class GameDataCollector:
         with open(outcomes_file, "w") as f:
             json.dump(self.game_outcomes, f, separators=(',', ':'))
 
-        # Also save as CSV for easier analysis (can be slow for large datasets)
+        # CSV files are not used by training pipeline - only save if explicitly requested
+        # They add significant overhead (pandas DataFrame creation + CSV writing)
         if save_csv:
             if self.order_up_data:
                 df = pd.DataFrame(self.order_up_data)

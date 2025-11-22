@@ -170,7 +170,7 @@ class SelfPlayTrainer:
         num_games: int = 100,
         player_combinations: Optional[List[List[Tuple[str, str]]]] = None,
         save_data: bool = True,
-        save_csv: bool = True,
+        save_csv: bool = False,
     ) -> None:
         """
         Run a round of training games with various player combinations.

@@ -1,17 +1,11 @@
 """Training infrastructure for PyTorch AI player."""
 
 import time
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import torch
 import torch.nn as nn
-from torch.cuda.amp import GradScaler, autocast
-
-try:
-    from torch.amp import autocast as autocast_new
-except ImportError:
-    # Fallback for older PyTorch
-    from torch.cuda.amp import autocast as autocast_new
+from torch.cuda.amp import GradScaler
 from torch.utils.data import DataLoader, Dataset
 
 from src.ai_players.pytorch_networks import HybridNetwork
@@ -99,22 +93,15 @@ class EuchreDataset(Dataset):
             Model-ready sample.
         """
         import json
-        import numpy as np
         from src.cards import Card, Rank, Suit
         from src.ai_players.game_state_tracker import TrickHistoryTracker
 
-        # Parse features if it's a string
+        # Parse features if it's a string (for compatibility, not used in reconstruction)
         if isinstance(sample.get("features"), str):
             try:
-                features_array = json.loads(sample["features"])
+                json.loads(sample["features"])
             except (json.JSONDecodeError, TypeError):
-                # Try eval as fallback (not recommended but works for lists)
-                try:
-                    features_array = eval(sample["features"])  # noqa: S307
-                except Exception:
-                    features_array = []
-        else:
-            features_array = sample.get("features", [])
+                pass
 
         # For now, create minimal valid structure from available data
         # Since we don't have raw game state, create reasonable defaults
@@ -171,7 +158,7 @@ class EuchreDataset(Dataset):
         Dict
             Model-ready sample.
         """
-        from src.cards import Card, Suit
+        from src.cards import Suit
         from src.ai_players.game_state_tracker import TrickHistoryTracker
 
         # Parse cards
@@ -471,16 +458,21 @@ class MultiDeviceTrainer:
                     stacked_batch[key] = [item[key] for item in batch]
             batch = stacked_batch
         else:
-            batch = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
+            batch = {
+                k: v.to(self.device) if isinstance(v, torch.Tensor) else v
+                for k, v in batch.items()
+            }
 
         # Forward pass with mixed precision if enabled
         if self.is_gpu() and self.use_mixed_precision:
             try:
                 from torch.amp import autocast as autocast_new
+
                 with autocast_new("cuda"):
                     outputs = self._forward_pass(batch)
             except (ImportError, AttributeError):
                 from torch.cuda.amp import autocast
+
                 with autocast():
                     outputs = self._forward_pass(batch)
         else:
@@ -563,14 +555,14 @@ class MultiDeviceTrainer:
                 target = target.long()
         else:
             target = torch.tensor([target], dtype=torch.long, device=self.device)
-        
+
         # Handle batch dimension - target might be batched
         batch_size = outputs["card_play"].shape[0] if "card_play" in outputs else 1
         if target.shape[0] != batch_size:
             # Expand target to match batch size
             if target.shape[0] == 1:
                 target = target.expand(batch_size)
-        
+
         # Select appropriate output head
         if action_type == "order_up":
             output = outputs["order_up"].squeeze(-1)  # Binary classification
@@ -712,7 +704,6 @@ class CumulativeTrainer:
 
         data_loader = self.device_trainer.create_data_loader(dataset, batch_size)
 
-        start_time = time.time()
         total_duration = 0.0
 
         for epoch in range(self.current_epoch, self.current_epoch + num_epochs):
