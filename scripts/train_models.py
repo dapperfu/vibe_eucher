@@ -280,10 +280,11 @@ def main() -> None:
                     should_save_csv = is_final or (game_count % csv_save_interval == 0)
                     
                     # Run training round (disable auto-save, we'll batch it)
+                    # CSV files are not used by training - skip them entirely
                     trainer.run_training_round(
                         num_games=1,
                         save_data=should_save_json,
-                        save_csv=should_save_csv and not enable_profiling,  # Skip CSV during profiling
+                        save_csv=False,  # CSV not needed - training uses JSON
                     )
                     
                     game_count += 1
@@ -305,9 +306,9 @@ def main() -> None:
                                 progress_display.console.print(f"[yellow]Checkpoint saved at game {game_count}[/yellow]")
 
             finally:
-                # Final save of all collected data
+                # Final save of all collected data (JSON only - CSV not needed)
                 print("\nSaving final collected data...")
-                trainer.data_collector.save_data(save_csv=not enable_profiling)
+                trainer.data_collector.save_data(save_csv=False)
                 
                 if live_display:
                     live_display.__exit__(None, None, None)
