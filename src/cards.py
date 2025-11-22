@@ -1,5 +1,7 @@
 """Card and Deck classes for Euchre game."""
 
+import os
+import sys
 from enum import Enum
 from typing import List, Optional
 
@@ -21,12 +23,26 @@ class Suit(Enum):
         str
             Unicode symbol for the suit.
         """
-        symbol_map = {
-            Suit.HEARTS: "♥",
-            Suit.DIAMONDS: "♦",
-            Suit.CLUBS: "♣",
-            Suit.SPADES: "♠",
-        }
+        # Check if we should use ASCII fallback
+        use_ascii = os.environ.get("EUCHRE_ASCII_SUITS", "").lower() in ("1", "true", "yes")
+        
+        if use_ascii:
+            # ASCII fallback
+            symbol_map = {
+                Suit.HEARTS: "H",
+                Suit.DIAMONDS: "D",
+                Suit.CLUBS: "C",
+                Suit.SPADES: "S",
+            }
+        else:
+            # Unicode playing card suit symbols
+            # These are the standard symbols: U+2665, U+2666, U+2663, U+2660
+            symbol_map = {
+                Suit.HEARTS: "♥",    # U+2665 BLACK HEART SUIT
+                Suit.DIAMONDS: "♦",  # U+2666 BLACK DIAMOND SUIT
+                Suit.CLUBS: "♣",     # U+2663 BLACK CLUB SUIT
+                Suit.SPADES: "♠",    # U+2660 BLACK SPADE SUIT
+            }
         return symbol_map[self]
 
 
