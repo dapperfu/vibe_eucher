@@ -80,10 +80,10 @@ class TestRLTraining:
 
         # Add some experiences
         for i in range(20):
-            state = np.random.randn(236).astype(np.float32)
+            state = np.random.randn(260).astype(np.float32)
             action = np.random.randint(0, 24)
             reward = np.random.randn()
-            next_state = np.random.randn(236).astype(np.float32)
+            next_state = np.random.randn(260).astype(np.float32)
             done = False
             replay_buffer.push(state, action, reward, next_state, done)
 
@@ -91,7 +91,7 @@ class TestRLTraining:
         train_rl_agent(agent, replay_buffer, batch_size=8)
 
         # Verify agent can select actions
-        features = np.random.randn(236).astype(np.float32)
+        features = np.random.randn(260).astype(np.float32)
         valid_indices = [0, 1, 2, 3, 4]
         action = agent.select_action(features, valid_indices, training=False)
         assert action in valid_indices

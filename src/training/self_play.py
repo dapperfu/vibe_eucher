@@ -6,6 +6,7 @@ from typing import Callable, List, Optional, Tuple
 
 from src.game import Game
 from src.training.data_collector import GameDataCollector
+from src.training.profiling import timed_operation
 
 
 class SelfPlayTrainer:
@@ -35,6 +36,7 @@ class SelfPlayTrainer:
             data_collector = GameDataCollector(output_dir)
         self.data_collector = data_collector
 
+    @timed_operation("SelfPlayTrainer.run_game_with_collection")
     def run_game_with_collection(
         self, player_config: List[Tuple[str, str]], collect_from_players: Optional[List[int]] = None
     ) -> None:
@@ -162,6 +164,7 @@ class SelfPlayTrainer:
             game_id, game.get_scores(), tricks_won_history, winner
         )
 
+    @timed_operation("SelfPlayTrainer.run_training_round")
     def run_training_round(
         self,
         num_games: int = 100,

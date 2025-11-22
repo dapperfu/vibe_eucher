@@ -199,8 +199,8 @@ class EuchreMLModel:
         self.device = self.config.device
 
         # Input size determined by feature encoder
-        # Hand (5*24=120) + Turned (24) + Trump (4) + Led (4) + Trick (3*24=72) + Positional (12) = 236
-        input_size = 236
+        # Hand (5*24=120) + Turned (24) + Trump (4) + Led (4) + Trick (3*24=72) + Played (24) + Positional (12) = 260
+        input_size = 260
 
         # Initialize models
         self.trump_net = TrumpSelectionNet(input_size, self.config.hidden_size, self.config.num_layers, self.config.dropout)

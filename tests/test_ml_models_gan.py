@@ -17,22 +17,22 @@ class TestEuchreGANGenerator:
 
     def test_forward_pass_shape(self) -> None:
         """Test that forward pass produces correct shape."""
-        generator = EuchreGANGenerator(input_size=236, hidden_size=128, output_size=24)
-        input_tensor = torch.randn(1, 236)
+        generator = EuchreGANGenerator(input_size=260, hidden_size=128, output_size=24)
+        input_tensor = torch.randn(1, 260)
         output = generator(input_tensor)
         assert output.shape == (1, 24)
 
     def test_forward_pass_batch(self) -> None:
         """Test forward pass with batch."""
-        generator = EuchreGANGenerator(input_size=236, hidden_size=128, output_size=24)
-        input_tensor = torch.randn(5, 236)
+        generator = EuchreGANGenerator(input_size=260, hidden_size=128, output_size=24)
+        input_tensor = torch.randn(5, 260)
         output = generator(input_tensor)
         assert output.shape == (5, 24)
 
     def test_output_probabilities_sum_to_one(self) -> None:
         """Test that output probabilities sum to 1."""
-        generator = EuchreGANGenerator(input_size=236, hidden_size=128, output_size=24)
-        input_tensor = torch.randn(1, 236)
+        generator = EuchreGANGenerator(input_size=260, hidden_size=128, output_size=24)
+        input_tensor = torch.randn(1, 260)
         output = generator(input_tensor)
         assert torch.allclose(output.sum(dim=1), torch.ones(1), atol=1e-5)
 
@@ -40,7 +40,7 @@ class TestEuchreGANGenerator:
         """Test device handling (CPU/GPU)."""
         config = MLConfig()
         generator = EuchreGANGenerator().to(config.device)
-        input_tensor = torch.randn(1, 236).to(config.device)
+        input_tensor = torch.randn(1, 260).to(config.device)
         output = generator(input_tensor)
         assert output.device == config.device
 
@@ -50,16 +50,16 @@ class TestEuchreGANDiscriminator:
 
     def test_forward_pass_shape(self) -> None:
         """Test that forward pass produces correct shape."""
-        # Discriminator input is features + decision (236 + 24 = 260)
-        discriminator = EuchreGANDiscriminator(input_size=260, hidden_size=128)
-        input_tensor = torch.randn(1, 260)
+        # Discriminator input is features + decision (260 + 24 = 284)
+        discriminator = EuchreGANDiscriminator(input_size=284, hidden_size=128)
+        input_tensor = torch.randn(1, 284)
         output = discriminator(input_tensor)
         assert output.shape == (1, 1)
 
     def test_output_is_probability(self) -> None:
         """Test that output is in [0, 1] range."""
-        discriminator = EuchreGANDiscriminator(input_size=260, hidden_size=128)
-        input_tensor = torch.randn(1, 260)
+        discriminator = EuchreGANDiscriminator(input_size=284, hidden_size=128)
+        input_tensor = torch.randn(1, 284)
         output = discriminator(input_tensor)
         assert 0.0 <= output.item() <= 1.0
 
@@ -94,7 +94,7 @@ class TestGANCardPlayModel:
         config = MLConfig()
         model = GANCardPlayModel(config)
         batch_size = 3
-        features_batch = np.random.randn(batch_size, 236).astype(np.float32)
+        features_batch = np.random.randn(batch_size, 260).astype(np.float32)
         valid_indices_list = [[0, 1, 2], [3, 4, 5], [6, 7, 8]]
 
         predictions = model.predict_batch(features_batch, valid_indices_list)
@@ -131,7 +131,7 @@ class TestGANCardPlayModel:
 
         # Create dummy data
         batch_size = 4
-        features = torch.randn(batch_size, 236).to(config.device)
+        features = torch.randn(batch_size, 260).to(config.device)
         decisions_onehot = torch.zeros(batch_size, 24).to(config.device)
         decisions_onehot.scatter_(1, torch.randint(0, 24, (batch_size, 1)), 1.0)
 

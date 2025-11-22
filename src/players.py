@@ -4,6 +4,7 @@ from typing import List, Optional
 
 from src.cards import Card, Suit
 from src.player_profiles import PlayerProfile
+from src.training.profiling import timed_operation
 
 
 class Player:
@@ -128,7 +129,9 @@ class Player:
         """
         return self.profile.decide_call_trump(self, turned_card, trump_suit, must_choose)
 
-    def choose_card_to_discard(self, turned_card: Optional[Card] = None, ordered_up_by: Optional[str] = None) -> Card:
+    def choose_card_to_discard(
+        self, turned_card: Optional[Card] = None, ordered_up_by: Optional[str] = None
+    ) -> Card:
         """
         Choose a card to discard (dealer only, after ordering up).
 
@@ -146,6 +149,7 @@ class Player:
         """
         return self.profile.choose_card_to_discard(self, turned_card, ordered_up_by)
 
+    @timed_operation("Player.play_card")
     def play_card(
         self,
         led_suit: Optional[Suit],
@@ -183,4 +187,5 @@ class Player:
         str
             String representation.
         """
-        return f"Player({self.name}, id={self.player_id}, profile={self.profile.__class__.__name__})"
+        profile_name = self.profile.__class__.__name__
+        return f"Player({self.name}, id={self.player_id}, profile={profile_name})"
