@@ -6,23 +6,30 @@ from src.tui import TextTUI
 
 def main() -> None:
     """Run the Euchre game."""
-    print("=" * 50)
-    print("Welcome to Euchre!")
-    print("=" * 50)
+    print("Welcome to euchre, press any key to start")
+    input()
 
     # Configure players
     player_config = []
     print("\nConfigure players:")
-        print("Profile types: 'human', 'simple' (rule-based), 'ai', 'random'")
+    print(
+        "Profile types: 'human', 'simple'/'heuristic' (rule-based), 'ai', 'random', 'ml'/'ml_sklearn' (sklearn ML), 'ml_pytorch' (PyTorch ML)"
+    )
     for i in range(4):
         name = input(f"Player {i + 1} name: ").strip() or f"Player {i + 1}"
         profile_input = (
-            input(f"{name} profile type (human/simple/ai/random) [ai]: ").strip().lower() or "ai"
+            input(f"{name} profile type (human/simple/ai/random/ml) [ai]: ").strip().lower() or "ai"
         )
-        if profile_input not in ["human", "simple", "ai", "random"]:
+        valid_types = ["human", "simple", "heuristic", "ai", "random", "ml", "ml_sklearn", "ml_pytorch"]
+        if profile_input not in valid_types:
             print(f"Invalid profile type, defaulting to 'ai'")
             profile_input = "ai"
         player_config.append((name, profile_input))
+    
+    # Display players after configuration
+    print("\nPlayers:")
+    for i, (name, profile_type) in enumerate(player_config):
+        print(f"  Player {i}: {name} ({profile_type})")
 
     # Create game
     game = Game(player_config)
@@ -33,9 +40,7 @@ def main() -> None:
 
     # Play game
     while True:
-        print("\n" + "=" * 50)
-        print("New Hand")
-        print("=" * 50)
+        print("\nNew Hand")
 
         continue_game = game.play_hand()
 

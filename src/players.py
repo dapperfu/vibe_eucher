@@ -128,22 +128,30 @@ class Player:
         """
         return self.profile.decide_call_trump(self, turned_card, trump_suit, must_choose)
 
-    def choose_card_to_discard(self) -> Card:
+    def choose_card_to_discard(self, turned_card: Optional[Card] = None, ordered_up_by: Optional[str] = None) -> Card:
         """
         Choose a card to discard (dealer only, after ordering up).
+
+        Parameters
+        ----------
+        turned_card : Optional[Card]
+            The card that was ordered up, if available.
+        ordered_up_by : Optional[str]
+            Name of the player who ordered up, if available.
 
         Returns
         -------
         Card
             The card to discard.
         """
-        return self.profile.choose_card_to_discard(self)
+        return self.profile.choose_card_to_discard(self, turned_card, ordered_up_by)
 
     def play_card(
         self,
         led_suit: Optional[Suit],
         trump_suit: Optional[Suit],
         trick_cards: List[Card],
+        trick_player_ids: List[int],
     ) -> Card:
         """
         Choose a card to play in a trick.
@@ -156,13 +164,15 @@ class Player:
             The current trump suit, if any.
         trick_cards : List[Card]
             Cards already played in the trick.
+        trick_player_ids : List[int]
+            Player IDs who played each card in trick_cards (same order).
 
         Returns
         -------
         Card
             The card to play.
         """
-        return self.profile.play_card(self, led_suit, trump_suit, trick_cards)
+        return self.profile.play_card(self, led_suit, trump_suit, trick_cards, trick_player_ids)
 
     def __repr__(self) -> str:
         """

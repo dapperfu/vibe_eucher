@@ -1,0 +1,14 @@
+# Development Workflow
+
+## Requirement
+
+After all file changes, SHALL add and commit per commit message rules.
+
+See `git/commit-format.mdc` for commit message format requirements.
+
+SHALL follow git push rules from `git/push-requirement.mdc`.
+
+---
+description: General development workflow referencing git rules
+globs: []
+alwaysApply: true

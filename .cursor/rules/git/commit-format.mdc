@@ -1,0 +1,31 @@
+# Git Commit Message Format
+
+## Requirement
+
+All git commit messages SHALL follow this format:
+
+1. First line: Brief one-liner summary
+2. Blank line
+3. List of changes (each prefixed with `- `)
+4. Blank line
+5. Separator line with exactly 5 dashes: `-----`
+6. Technical attribution section
+
+## Technical Attribution Format
+
+```
+Prompt: {{prompt}}
+Context: {{brief_description_of_what_this_code_does}}
+
+Technical details:
+- Model: {{specific_llm_model}}
+- IDE: Cursor {{cursor_version}}
+- Generation method: AI-assisted pair programming
+- Code style: {{language_specific_style_guide}}
+- Dependencies: {{key_dependencies}}
+```
+
+---
+description: Git commit message format with technical attribution
+globs: []
+alwaysApply: true

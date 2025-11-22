@@ -1,0 +1,10 @@
+# Git User Configuration
+
+## Requirement
+
+Before committing, the git user SHALL be configured to `"$(whoami) | Cursor.sh | <model>"` to identify automated commits from AI assistance.
+
+---
+description: Git user configuration for automated commits
+globs: []
+alwaysApply: true

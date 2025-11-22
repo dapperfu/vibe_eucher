@@ -1,0 +1,12 @@
+# Python UV Usage
+
+## Requirement
+
+UV SHALL be used for all package transactions other than initial setup of UV itself.
+
+UV SHALL be used for speed in package management operations.
+
+---
+description: UV package manager usage requirement
+globs: ["*.py", "**/*.py", "Makefile", "makefile", "**/Makefile", "**/makefile"]
+alwaysApply: false

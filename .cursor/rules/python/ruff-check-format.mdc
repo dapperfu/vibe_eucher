@@ -1,0 +1,14 @@
+# Python Ruff Check and Format
+
+## Requirement
+
+All Python files and notebooks SHALL be checked with ruff.
+
+All Python files and notebooks SHALL be formatted with ruff.
+
+This applies to both `.py` files and `.ipynb` notebook files.
+
+---
+description: Ruff checking and formatting requirement for Python files and notebooks
+globs: ["*.py", "**/*.py", "*.ipynb", "**/*.ipynb"]
+alwaysApply: false

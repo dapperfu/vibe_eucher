@@ -1,0 +1,10 @@
+# Python Line Length
+
+## Requirement
+
+Python line lengths SHALL be 120 characters.
+
+---
+description: Python line length requirement
+globs: ["*.py", "**/*.py"]
+alwaysApply: false

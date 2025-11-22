@@ -1,0 +1,10 @@
+# Python Documentation
+
+## Requirement
+
+All python language scripts SHALL be documented such that they meet numpy style guidelines.
+
+---
+description: Python NumPy docstring style requirement
+globs: ["*.py", "**/*.py"]
+alwaysApply: false

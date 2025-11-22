@@ -26,6 +26,9 @@ class TrumpSelector:
         self.dealer_id: int = 0
         self.tui = tui
         self.trump_maker_name: Optional[str] = None
+        # Decision history for post-hand inspection / logging
+        self.order_up_decisions: List[tuple[str, bool]] = []
+        self.call_trump_decisions: List[tuple[str, Optional[Suit]]] = []
 
     def select_trump(self, turned_card: Card, dealer_id: int) -> Optional[Suit]:
         """
@@ -102,6 +105,8 @@ class TrumpSelector:
             decision = player.decide_order_up(self.turned_card, self.dealer_id, None)
             
             # Log decision
+            # Store and log decision
+            self.order_up_decisions.append((player.name, decision))
             if self.tui is not None and hasattr(self.tui, "log_order_up_decision"):
                 self.tui.log_order_up_decision(player.name, decision)
             
@@ -110,7 +115,8 @@ class TrumpSelector:
                 self.trump_maker_name = player.name
                 dealer = self.players[self.dealer_id]
                 dealer.receive_card(self.turned_card)
-                discard = dealer.choose_card_to_discard()
+                # Pass who ordered up so the message can be correct
+                discard = dealer.choose_card_to_discard(self.turned_card, self.trump_maker_name)
                 dealer.remove_card(discard)
                 return self.turned_card.suit
 
@@ -140,6 +146,8 @@ class TrumpSelector:
             decision = player.decide_call_trump(self.turned_card, None, must_choose=False)
             
             # Log decision
+            # Store and log decision
+            self.call_trump_decisions.append((player.name, decision))
             if self.tui is not None and hasattr(self.tui, "log_call_trump_decision"):
                 self.tui.log_call_trump_decision(player.name, decision)
             
@@ -152,6 +160,8 @@ class TrumpSelector:
         decision = dealer.decide_call_trump(self.turned_card, None, must_choose=True)
         
         # Log dealer's decision
+        # Store and log dealer decision
+        self.call_trump_decisions.append((dealer.name, decision))
         if self.tui is not None and hasattr(self.tui, "log_call_trump_decision"):
             self.tui.log_call_trump_decision(dealer.name, decision)
         
@@ -167,6 +177,17 @@ class TrumpSelector:
                 return suit
 
         return None
+
+    def get_decision_history(self) -> dict:
+        """
+        Return a dict containing the recorded order-up and call-trump decisions for the hand.
+
+        Returns
+        -------
+        dict
+            Keys: `order_up` -> List[tuple[player_name, bool]], `call_trump` -> List[tuple[player_name, Optional[Suit]]]
+        """
+        return {"order_up": self.order_up_decisions.copy(), "call_trump": self.call_trump_decisions.copy()}
 
     def get_trump_suit(self) -> Optional[Suit]:
         """

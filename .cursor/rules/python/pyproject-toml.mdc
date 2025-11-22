@@ -1,0 +1,14 @@
+# Python Project Configuration
+
+## Requirement
+
+All Python projects SHALL use `pyproject.toml` for project configuration and metadata.
+
+Python projects SHALL NOT use `setup.py` for project configuration.
+
+The `pyproject.toml` file SHALL contain all project metadata, dependencies, build system configuration, and tool configurations (e.g., mypy, ruff, pytest).
+
+---
+description: Python pyproject.toml requirement instead of setup.py
+globs: ["*.py", "**/*.py", "pyproject.toml", "setup.py", "setup.cfg"]
+alwaysApply: false

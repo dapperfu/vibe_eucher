@@ -1,0 +1,18 @@
+# Endpoint Authentication Handling
+
+## Requirement
+
+If an app returns unauthenticated status, SHALL attempt authentication.
+
+If authentication fails, tests SHALL short circuit and exit gracefully.
+
+SHALL NOT proceed with unauthenticated requests to live endpoints.
+
+All test suites SHALL attempt real authentication first.
+
+Authentication failures SHALL trigger graceful test exit with clear error message.
+
+---
+description: Authentication handling for endpoint tests
+globs: ["**/*test*.py", "**/api/**/*.py", "**/tests/**/*.py"]
+alwaysApply: false

@@ -1,0 +1,12 @@
+# Makefile Target Dependencies
+
+## Requirement
+
+All makefiles SHALL use an actual file/folder where possible as a target.
+
+For example: `python -mvenv venv_$(basename $(pwd))` generates `venv_$(basename $(pwd))`. Any target that depends on Python having the venv built SHALL use `venv` as a dependency so that GNU make resolves everything correctly and in the right order.
+
+---
+description: Makefile target dependency requirements
+globs: ["Makefile", "makefile", "**/Makefile", "**/makefile"]
+alwaysApply: false

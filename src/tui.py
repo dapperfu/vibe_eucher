@@ -18,11 +18,17 @@ class TextTUI:
         self.game_log: List[str] = []
         self.current_hand_log: List[str] = []
         self.initial_hands: Dict[int, List[Card]] = {}
+        # Game state
+        self.team_scores: Tuple[int, int] = (0, 0)
+        self.current_trick_number: int = 0
+        self.dealer_id: Optional[int] = None
+        self.trump_suit: Optional[Suit] = None
 
     def start_new_hand(self) -> None:
         """Start logging a new hand."""
         self.current_hand_log = []
         self.initial_hands = {}
+        self.trump_suit = None
 
     def log_initial_hands(self, players: List[Player]) -> None:
         """
@@ -95,7 +101,33 @@ class TextTUI:
         maker_name : str
             Name of the player who made trump.
         """
+        self.trump_suit = trump_suit
         self.current_hand_log.append(f"\nTrump: {trump_suit.value} (made by {maker_name})")
+
+    def log_trump_decision_history(self, order_up: list, call_trump: list) -> None:
+        """
+        Append a concise summary of all order-up and call-trump decisions for the hand.
+
+        Parameters
+        ----------
+        order_up : list
+            List of tuples `(player_name, bool)` representing order-up decisions.
+        call_trump : list
+            List of tuples `(player_name, Optional[Suit])` representing call-trump decisions.
+        """
+        if order_up:
+            self.current_hand_log.append("\nOrder Up Decisions:")
+            for name, decision in order_up:
+                action = "Ordered up" if decision else "Passed"
+                self.current_hand_log.append(f"  {name}: {action}")
+
+        if call_trump:
+            self.current_hand_log.append("\nCall Trump Decisions:")
+            for name, decision in call_trump:
+                if decision is None:
+                    self.current_hand_log.append(f"  {name}: Passed")
+                else:
+                    self.current_hand_log.append(f"  {name}: Called {decision.value} as trump")
 
     def log_trick(
         self,
@@ -160,7 +192,7 @@ class TextTUI:
                 self.game_log.append(line)
             self.current_hand_log = []
 
-    def set_players(self, players: List[Player]) -> None:
+    def set_players(self, players: List[Player], dealer_id: Optional[int] = None) -> None:
         """
         Set the list of all players for table display.
 
@@ -168,8 +200,11 @@ class TextTUI:
         ----------
         players : List[Player]
             List of all players in the game.
+        dealer_id : Optional[int]
+            The dealer's player ID, if available.
         """
         self.players = players
+        self.dealer_id = dealer_id
 
     def update_trick_state(
         self, played_cards: List[Card], player_ids: List[int]
@@ -196,20 +231,114 @@ class TextTUI:
         player : Player
             The player whose hand to display.
         """
-        print(f"\n{player.name}'s hand:")
-        for i, card in enumerate(player.hand):
+        # Sort hand like humans would: by suit, then by rank
+        sorted_hand = self._sort_hand_human_style(player.hand)
+        
+        print(f"\n{player.name}'s hand ({len(player.hand)} cards):")
+        for i, card in enumerate(sorted_hand):
             print(f"  {i + 1}. {card}")
+    
+    def _sort_hand_human_style(self, hand: List[Card]) -> List[Card]:
+        """
+        Sort a hand like humans would: cluster by suit, then by rank within each suit.
+        
+        Parameters
+        ----------
+        hand : List[Card]
+            The hand to sort.
+        
+        Returns
+        -------
+        List[Card]
+            The sorted hand.
+        """
+        # Sort by suit first, then by rank value within each suit
+        return sorted(hand, key=self._get_card_sort_key)
+    
+    def _get_card_sort_key(self, card: Card) -> tuple[int, int]:
+        """
+        Get the sort key for a card (suit order, then rank value).
+        
+        Parameters
+        ----------
+        card : Card
+            The card to get the sort key for.
+        
+        Returns
+        -------
+        tuple[int, int]
+            Tuple of (suit_order, rank_value) for sorting.
+        """
+        # Define suit order (standard order)
+        suit_order = {
+            Suit.HEARTS: 0,
+            Suit.DIAMONDS: 1,
+            Suit.CLUBS: 2,
+            Suit.SPADES: 3,
+        }
+        
+        return (suit_order[card.suit], card.rank.value)
+    
+    def _clear_screen(self) -> None:
+        """
+        Clear the terminal screen.
+        
+        Uses ANSI escape codes for cross-platform compatibility.
+        """
+        print("\033[2J\033[H", end="")
+    
+    def _display_gameboard_header(self, current_player: Player) -> None:
+        """
+        Display gameboard header with scores and game state.
+        
+        Parameters
+        ----------
+        current_player : Player
+            The current player viewing the gameboard.
+        """
+        if self.players is None:
+            return
+        
+        # Display scores prominently at the top
+        team0_score, team1_score = self.team_scores
+        print(f"\n{'Score:':^20} {team0_score} - {team1_score}")
+        
+        if self.current_trick_number > 0:
+            print(f"Trick: {self.current_trick_number}/5")
+        
+        if self.trump_suit is not None:
+            print(f"Trump: {self.trump_suit.value} {self.trump_suit.unicode_symbol()}")
+        
+        # Show player positions around table
+        current_id = current_player.player_id
+        print("Players:")
+        for i in range(4):
+            pid = (current_id + i) % 4
+            player = self.players[pid]
+            marker = " ← YOU" if pid == current_id else ""
+            team_marker = f" [Team {player.team}]" if hasattr(player, 'team') else ""
+            dealer_marker = " (DEALER)" if self.dealer_id is not None and pid == self.dealer_id else ""
+            
+            # Add profile class for computer players
+            from src.player_profiles import HumanProfile
+            profile_marker = ""
+            if not isinstance(player.profile, HumanProfile):
+                profile_class = player.profile.__class__.__name__
+                profile_marker = f" [{profile_class}]"
+            
+            print(f"  Player {pid}: {player.name}{team_marker}{profile_marker}{dealer_marker}{marker}")
+        print()
 
     def display_turned_card(self, card: Card) -> None:
         """
-        Display the turned up card.
+        Display the turned up card prominently after the deal.
 
         Parameters
         ----------
         card : Card
             The turned card.
         """
-        print(f"\nTurned card: {card}")
+        print(f"\nTurned card: {card} ({card.suit.value})\n")
 
     def display_trump_selection(self, trump_suit: Optional[Suit]) -> None:
         """
@@ -242,18 +371,53 @@ class TextTUI:
 
     def display_trick_winner(self, winner_name: str) -> None:
         """
-        Display the trick winner.
+        Display the trick winner and wait for spacebar to continue.
 
         Parameters
         ----------
         winner_name : str
             Name of the winning player.
         """
+        # Display all cards played in the trick
+        if self.current_trick_cards and self.current_trick_player_ids and self.players:
+            print("\nCards played this trick:")
+            for card, pid in zip(self.current_trick_cards, self.current_trick_player_ids):
+                player_name = self.players[pid].name
+                print(f"  {player_name}: {card}")
+        
         print(f"\n{winner_name} wins the trick!")
+        print("Press spacebar to continue to next trick...")
+        self._wait_for_spacebar()
+    
+    def _wait_for_spacebar(self) -> None:
+        """
+        Wait for user to press spacebar (or Enter as fallback).
+        """
+        import sys
+        
+        try:
+            import tty
+            import termios
+            
+            # Try to use raw input for spacebar detection
+            fd = sys.stdin.fileno()
+            old_settings = termios.tcgetattr(fd)
+            try:
+                tty.setraw(sys.stdin.fileno())
+                while True:
+                    char = sys.stdin.read(1)
+                    if ord(char) == 32 or ord(char) == 13:  # Spacebar or Enter
+                        break
+            finally:
+                termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        except (ImportError, OSError, AttributeError):
+            # Fallback for systems without termios (e.g., Windows)
+            # Just wait for Enter key
+            input()
 
     def display_scores(self, team0_score: int, team1_score: int) -> None:
         """
-        Display current scores.
+        Display current scores and update stored scores.
 
         Parameters
         ----------
@@ -262,7 +426,19 @@ class TextTUI:
         team1_score : int
             Team 1's score.
         """
-        print(f"\nScores: Team 0: {team0_score}, Team 1: {team1_score}")
+        self.team_scores = (team0_score, team1_score)
+        # Score is now displayed in gameboard header, so we don't need a separate display here
+    
+    def update_trick_number(self, trick_number: int) -> None:
+        """
+        Update the current trick number.
+        
+        Parameters
+        ----------
+        trick_number : int
+            The current trick number (0-4).
+        """
+        self.current_trick_number = trick_number
 
     def display_game_over(self, winning_team: int) -> None:
         """
@@ -273,9 +449,7 @@ class TextTUI:
         winning_team : int
             The winning team ID (0 or 1).
         """
-        print(f"\n{'=' * 50}")
-        print(f"Game Over! Team {winning_team} wins!")
-        print(f"{'=' * 50}")
+        print(f"\nGame Over! Team {winning_team} wins!")
 
     def get_order_up_decision(
         self, player: Player, turned_card: Card, dealer_id: int
@@ -297,11 +471,30 @@ class TextTUI:
         bool
             True to order up, False to pass.
         """
+        # Clear screen and show gameboard
+        self._clear_screen()
+        self._display_gameboard_header(player)
+        
+        # Show context
+        dealer_name = self.players[dealer_id].name if self.players else f"Player {dealer_id}"
+        print(f"Order up?")
+        print(f"Dealer: {dealer_name}")
+        print(f"Turned card: {turned_card}")
+        print(f"If you order up, {dealer_name} will pick it up and discard a card.\n")
+        
+        # Display hand
         self.display_hand(player)
-        print(f"\nTurned card: {turned_card}")
-        print("Order up this card? (y/n): ", end="")
-        response = input().strip().lower()
-        return response == "y"
+        
+        # Get decision
+        while True:
+            print("\nOrder up this card? (y/n): ", end="")
+            response = input().strip().lower()
+            if response in ("y", "yes"):
+                return True
+            elif response in ("n", "no"):
+                return False
+            else:
+                print("Invalid input. Please enter 'y' for yes or 'n' for no.")
 
     def get_call_trump_decision(
         self, player: Player, turned_card: Card, must_choose: bool = False
@@ -321,48 +514,60 @@ class TextTUI:
         Optional[Suit]
             The suit to call as trump, or None to pass.
         """
-        self.display_hand(player)
-        print(f"\nTurned card: {turned_card} (cannot be chosen)")
+        # Clear screen and show gameboard
+        self._clear_screen()
+        self._display_gameboard_header(player)
+        
+        # Show context
+        print(f"Call trump")
+        print(f"Turned card: {turned_card} (cannot be chosen as trump)")
         if must_choose:
-            print("You MUST choose a suit (screw the dealer rule):")
+            print("⚠️  SCREW THE DEALER: You MUST choose a suit!")
         else:
-            print("Call trump:")
-        print("  1. Hearts")
-        print("  2. Diamonds")
-        print("  3. Clubs")
-        print("  4. Spades")
-        if not must_choose:
-            print("  5. Pass")
-        print("Choice (1-{}): ".format("4" if must_choose else "5"), end="")
+            print("All players passed on ordering up. Now choose a trump suit or pass.\n")
+        
+        # Display hand
+        self.display_hand(player)
+        
+        # Get decision
+        while True:
+            print("\nCall trump:")
+            print("  1. Hearts ♥")
+            print("  2. Diamonds ♦")
+            print("  3. Clubs ♣")
+            print("  4. Spades ♠")
+            if not must_choose:
+                print("  5. Pass")
+            print(f"\nChoice (1-{'4' if must_choose else '5'}): ", end="")
 
-        choice = input().strip()
-        suit_map = {
-            "1": Suit.HEARTS,
-            "2": Suit.DIAMONDS,
-            "3": Suit.CLUBS,
-            "4": Suit.SPADES,
-        }
+            choice = input().strip()
+            suit_map = {
+                "1": Suit.HEARTS,
+                "2": Suit.DIAMONDS,
+                "3": Suit.CLUBS,
+                "4": Suit.SPADES,
+            }
 
-        if not must_choose and choice == "5":
-            return None
-        if choice in suit_map:
-            suit = suit_map[choice]
-            if suit == turned_card.suit:
-                if must_choose:
-                    print("Cannot choose the turned card's suit. Choose another.")
-                    # Recursively ask again if must choose
-                    return self.get_call_trump_decision(player, turned_card, must_choose)
-                print("Cannot choose the turned card's suit. Passing.")
+            if not must_choose and choice == "5":
                 return None
-            return suit
+            if choice in suit_map:
+                suit = suit_map[choice]
+                if suit == turned_card.suit:
+                    print(f"❌ Cannot choose {suit.value} (same as turned card).")
+                    if must_choose:
+                        print("Please choose another suit.")
+                        continue
+                    print("Passing.")
+                    return None
+                return suit
 
-        if must_choose:
-            print("Invalid choice. You must choose a suit.")
-            return self.get_call_trump_decision(player, turned_card, must_choose)
-        print("Invalid choice. Passing.")
-        return None
+            if must_choose:
+                print("❌ Invalid choice. You must choose a suit (1-4).")
+                continue
+            print("❌ Invalid choice. Passing.")
+            return None
 
-    def get_discard_decision(self, player: Player) -> Card:
+    def get_discard_decision(self, player: Player, turned_card: Optional[Card] = None, ordered_up_by: Optional[str] = None) -> Card:
         """
         Get user input for discarding a card.
 
@@ -370,24 +575,48 @@ class TextTUI:
         ----------
         player : HumanPlayer
             The dealer player.
+        turned_card : Optional[Card]
+            The card that was ordered up, if available.
+        ordered_up_by : Optional[str]
+            Name of the player who ordered up, if available.
 
         Returns
         -------
         Card
             The card to discard.
         """
+        # Clear screen and show gameboard
+        self._clear_screen()
+        self._display_gameboard_header(player)
+        
+        print(f"Discard card")
+        if turned_card is not None:
+            if ordered_up_by and ordered_up_by != player.name:
+                print(f"{ordered_up_by} ordered up the {turned_card} ({turned_card.suit.value}).")
+                print(f"You (the dealer) must pick it up. You now have 6 cards.")
+            else:
+                print(f"The {turned_card} ({turned_card.suit.value}) was ordered up. You now have 6 cards.")
+        else:
+            print("A card was ordered up. You now have 6 cards.")
+        print("Choose one card to discard (you'll keep 5 cards).\n")
+        
+        # Display hand
         self.display_hand(player)
-        print("\nChoose a card to discard (1-6): ", end="")
-        choice = input().strip()
+        
+        # Get decision
+        while True:
+            print(f"\nChoose a card to discard (1-{len(player.hand)}): ", end="")
+            choice = input().strip()
 
-        try:
-            idx = int(choice) - 1
-            if 0 <= idx < len(player.hand):
-                return player.hand[idx]
-            raise ValueError("Invalid index")
-        except (ValueError, IndexError):
-            print("Invalid choice. Discarding first card.")
-            return player.hand[0]
+            try:
+                idx = int(choice) - 1
+                if 0 <= idx < len(player.hand):
+                    selected_card = player.hand[idx]
+                    print(f"Discarding: {selected_card}")
+                    return selected_card
+                print(f"❌ Invalid choice. Please enter a number between 1 and {len(player.hand)}.")
+            except ValueError:
+                print(f"❌ Invalid input. Please enter a number between 1 and {len(player.hand)}.")
 
     def display_table(
         self,
@@ -396,7 +625,7 @@ class TextTUI:
         trump_suit: Optional[Suit] = None,
     ) -> None:
         """
-        Display the table layout with players and cards in the middle.
+        Display cards played and game info (led suit, trump suit).
 
         Parameters
         ----------
@@ -408,100 +637,30 @@ class TextTUI:
             The current trump suit, if any.
         """
         if self.players is None:
-            # Fallback if players not set
             return
-
-        current_id = current_player.player_id
-        partner_id = (current_id + 2) % 4
-        left_opponent_id = (current_id + 1) % 4
-        right_opponent_id = (current_id + 3) % 4
-
-        partner = self.players[partner_id]
-        left_opponent = self.players[left_opponent_id]
-        right_opponent = self.players[right_opponent_id]
-
-        # Create a mapping of player_id to card for this trick
-        card_map: dict[int, Optional[Card]] = {
-            current_id: None,
-            partner_id: None,
-            left_opponent_id: None,
-            right_opponent_id: None,
-        }
 
         # Use stored trick state if available
         played_cards = self.current_trick_cards
         player_ids = self.current_trick_player_ids
 
-        for card, pid in zip(played_cards, player_ids):
-            card_map[pid] = card
-
-        # Build the table display
-        print("\n" + "=" * 70)
-        print("TABLE VIEW")
-        print("=" * 70)
-
-        # Top: Partner (across from you)
-        partner_card = card_map[partner_id]
-        partner_display = f"{partner.name} (Partner)"
-        if partner_card:
-            partner_display += f" - {partner_card}"
-        print(f"\n{partner_display:^70}")
-
-        # Middle section: Cards in the center, opponents on sides
-        left_card = card_map[left_opponent_id]
-        right_card = card_map[right_opponent_id]
-        current_card = card_map[current_id]
-
-        # Format cards in the middle (center of table)
+        # Only display if cards have been played
         if played_cards:
-            # Show cards prominently in the center
-            card_strings = []
-            for card, pid in zip(played_cards, player_ids):
+            print()
+            print("Cards played this trick:")
+            current_id = current_player.player_id
+            for i, (card, pid) in enumerate(zip(played_cards, player_ids)):
                 player_name = self.players[pid].name
-                card_strings.append(f"  {player_name}: {card}")
-            cards_display = "\n".join(card_strings)
-        else:
-            cards_display = "  [No cards played yet]"
+                marker = " ←" if pid == current_id else ""
+                print(f"  {i+1}. {player_name}: {card}{marker}")
 
-        # Left opponent
-        left_display = f"{left_opponent.name}"
-        if left_card:
-            left_display += f"\n{left_card}"
-
-        # Right opponent
-        right_display = f"{right_opponent.name}"
-        if right_card:
-            right_display += f"\n{right_card}"
-
-        # Print middle row: Left | Cards (center) | Right
-        # Split into lines for proper alignment
-        left_lines = left_display.split("\n")
-        right_lines = right_display.split("\n")
-        card_lines = cards_display.split("\n")
-
-        max_lines = max(len(left_lines), len(card_lines), len(right_lines))
-        for i in range(max_lines):
-            left_part = left_lines[i] if i < len(left_lines) else ""
-            center_part = card_lines[i] if i < len(card_lines) else ""
-            right_part = right_lines[i] if i < len(right_lines) else ""
-            print(f"{left_part:<25} {center_part:^25} {right_part:>25}")
-
-        # Bottom: Current player (You)
-        you_display = f"{current_player.name} (You)"
-        if current_card:
-            you_display += f" - {current_card}"
-        print(f"\n{you_display:^70}")
-
-        # Display game info
+        # Display game info (led suit and trump suit) for decision making
         info_parts = []
         if led_suit:
-            info_parts.append(f"Led: {led_suit.value}")
+            info_parts.append(f"Led: {led_suit.value} {led_suit.unicode_symbol()}")
         if trump_suit:
-            info_parts.append(f"Trump: {trump_suit.value}")
+            info_parts.append(f"Trump: {trump_suit.value} {trump_suit.unicode_symbol()}")
         if info_parts:
             print(f"\n{' | '.join(info_parts):^70}")
-
-        print("=" * 70)
 
     def get_play_card_decision(
         self,
@@ -529,22 +688,74 @@ class TextTUI:
         Card
             The card to play.
         """
+        # Clear screen and show gameboard
+        self._clear_screen()
+        self._display_gameboard_header(player)
+        
         # Display table view (uses stored trick state)
         if self.players is not None:
             self.display_table(player, led_suit, trump_suit)
 
-        # Display hand
-        self.display_hand(player)
+        # Get valid cards to play
+        from src.rules import RulesEngine
+        rules = RulesEngine()
+        valid_cards = rules.get_valid_plays(player.hand, led_suit, trump_suit)
+        
+        # If there are restrictions, only show playable cards
+        if valid_cards and len(valid_cards) < len(player.hand):
+            # Display only playable cards
+            print(f"\n{player.name}'s playable cards ({len(valid_cards)} of {len(player.hand)} cards):")
+            
+            # Create mapping from displayed index to actual card index
+            # First, collect valid cards with their original indices
+            card_mapping: List[tuple[int, Card]] = []
+            for i, card in enumerate(player.hand):
+                if card in valid_cards:
+                    card_mapping.append((i, card))
+            
+            # Sort the cards for display (human-style: by suit, then rank)
+            sorted_mapping = sorted(
+                card_mapping,
+                key=lambda x: self._get_card_sort_key(x[1])
+            )
+            
+            # Display only playable cards (sorted)
+            for display_idx, (actual_idx, card) in enumerate(sorted_mapping, start=1):
+                print(f"  {display_idx}. {card}")
+            
+            # Get decision
+            while True:
+                print(f"\nChoose a card to play (1-{len(valid_cards)}): ", end="")
+                choice = input().strip()
 
-        print("\nChoose a card to play (1-{}): ".format(len(player.hand)), end="")
-        choice = input().strip()
+                try:
+                    display_idx = int(choice) - 1
+                    if 0 <= display_idx < len(sorted_mapping):
+                        actual_idx, selected_card = sorted_mapping[display_idx]
+                        print(f"Playing: {selected_card}")
+                        return selected_card
+                    print(f"❌ Invalid choice. Please enter a number between 1 and {len(valid_cards)}.")
+                except ValueError:
+                    print(f"❌ Invalid input. Please enter a number between 1 and {len(valid_cards)}.")
+        else:
+            # No restrictions - show all cards (sorted)
+            sorted_hand = self._sort_hand_human_style(player.hand)
+            print(f"\n{player.name}'s hand ({len(player.hand)} cards):")
+            for i, card in enumerate(sorted_hand):
+                print(f"  {i + 1}. {card}")
+            
+            # Get decision
+            while True:
+                print(f"\nChoose a card to play (1-{len(player.hand)}): ", end="")
+                choice = input().strip()
 
-        try:
-            idx = int(choice) - 1
-            if 0 <= idx < len(player.hand):
-                return player.hand[idx]
-            raise ValueError("Invalid index")
-        except (ValueError, IndexError):
-            print("Invalid choice. Playing first card.")
-            return player.hand[0]
+                try:
+                    idx = int(choice) - 1
+                    if 0 <= idx < len(sorted_hand):
+                        selected_card = sorted_hand[idx]
+                        print(f"Playing: {selected_card}")
+                        return selected_card
+                    print(f"❌ Invalid choice. Please enter a number between 1 and {len(player.hand)}.")
+                except ValueError:
+                    print(f"❌ Invalid input. Please enter a number between 1 and {len(player.hand)}.")
 

@@ -1,0 +1,14 @@
+# Python Virtual Environment Requirement
+
+## Requirement
+
+All Python related matters SHALL use a virtual environment.
+
+Do NOT attempt to use the system pip.
+
+Do NOT attempt to install Python packages to the system.
+
+---
+description: Python virtual environment requirement
+globs: ["*.py", "**/*.py"]
+alwaysApply: false

@@ -355,7 +355,7 @@ class MLPlayer(ComputerPlayer):
 
         return predicted_suit
 
-    def choose_card_to_discard(self, player: "Player") -> Card:
+    def choose_card_to_discard(self, player: "Player", turned_card: Optional[Card] = None, ordered_up_by: Optional[str] = None) -> Card:
         """
         Use ML model to choose a card to discard.
 
@@ -363,6 +363,10 @@ class MLPlayer(ComputerPlayer):
         ----------
         player : Player
             The dealer player.
+        turned_card : Optional[Card]
+            The card that was ordered up, if available.
+        ordered_up_by : Optional[str]
+            Name of the player who ordered up, if available.
 
         Returns
         -------

@@ -1,0 +1,10 @@
+# Python Type Checking
+
+## Requirement
+
+All python language scripts SHALL use full mypy typing.
+
+---
+description: Python mypy typing requirement
+globs: ["*.py", "**/*.py"]
+alwaysApply: false
