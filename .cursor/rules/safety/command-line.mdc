@@ -1,0 +1,10 @@
+# Command Line Safety
+
+## Requirement
+
+SHALL NOT use `!` in strings meant for the command line / bash.
+
+---
+description: Command line safety restriction for exclamation marks
+globs: []
+alwaysApply: true

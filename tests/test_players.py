@@ -119,7 +119,7 @@ class TestAIBasedProfile:
             Card(Suit.DIAMONDS, Rank.KING),
         ])
 
-        card = player.play_card(None, None, [])
+        card = player.play_card(None, None, [], [])
         assert card in player.hand
 
 

@@ -1,0 +1,14 @@
+# Mitmproxy Log Handling
+
+## Requirement
+
+NEVER use strings, grep, or plain text tools on mitmproxy logs (*.log files).
+
+These files contain binary data and SHALL NOT be treated as plain text.
+
+SHALL use `mitmdump` to analyze mitmproxy/mitmweb/mitmweb logs.
+
+---
+description: Proper handling of mitmproxy log files
+globs: ["*.log", "**/*.log"]
+alwaysApply: false

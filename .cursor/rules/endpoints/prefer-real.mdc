@@ -1,0 +1,36 @@
+# Real Endpoints Preferred Over Mocks
+
+## Requirement
+
+Mock interfaces SHALL NOT be preferred. SHALL always prefer to use real endpoints with actual authentication.
+
+Live endpoints with real API keys SHALL be preferred over mocks.
+
+Real authentication tokens SHALL be used.
+
+Actual network calls to services SHALL be used.
+
+## Rationale
+
+- Real-world validation: Only real endpoints can verify the app actually works
+- API changes detection: Catch breaking changes in APIs immediately
+- Authentication flow testing: Verify real token handling and refresh logic
+- Performance testing: Measure actual network latency and response times
+- Error handling: Test real error conditions and edge cases
+
+## Mock Usage Guidelines
+
+Mocks SHALL only be used when:
+- Real endpoints are temporarily unavailable
+- Testing error handling scenarios
+- Development environment setup
+- CI/CD pipeline requirements
+
+SHALL NOT use mocks for happy path testing.
+
+SHALL NOT use mocks for authentication flows.
+
+---
+description: Preference for real endpoints over mocks
+globs: ["**/*test*.py", "**/api/**/*.py", "**/tests/**/*.py"]
+alwaysApply: false

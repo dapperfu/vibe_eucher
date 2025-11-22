@@ -1,0 +1,14 @@
+# Python Virtual Environment Paths in Makefiles
+
+## Requirement
+
+All Makefile references to pip and python installed tools like pytest SHALL use the full path to the venv bin directory.
+
+Examples:
+- `venv_{project}/bin/pytest`
+- `venv_{project}/bin/pip`
+
+---
+description: Python virtual environment path usage in Makefiles
+globs: ["Makefile", "makefile", "**/Makefile", "**/makefile"]
+alwaysApply: false

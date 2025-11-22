@@ -8,7 +8,16 @@ version = "0.1.0"
 description = "A Python implementation of the classic Euchre card game"
 readme = "README.md"
 requires-python = ">=3.8"
-dependencies = []
+dependencies = [
+    "torch>=2.0.0",
+    "numpy>=1.20.0",
+    "scikit-learn>=1.0.0",
+    "pandas>=1.3.0",
+    "click>=8.0.0",
+    "faker>=18.0.0",
+    "pony>=0.7.0",
+    "rich>=13.0.0",
+]
 
 [project.optional-dependencies]
 dev = [
@@ -17,6 +26,9 @@ dev = [
     "ruff>=0.1.0",
     "pydocstyle>=6.0.0",
 ]
+
+[project.scripts]
+eucher = "src.cli:main"
 
 [tool.setuptools]
 packages = ["src"]

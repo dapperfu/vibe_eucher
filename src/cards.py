@@ -18,14 +18,38 @@ class Suit(Enum):
         """
         Return Unicode symbol for the suit.
 
+        Automatically detects Unicode support and falls back to ASCII if needed.
+
         Returns
         -------
         str
-            Unicode symbol for the suit.
+            Unicode symbol for the suit, or ASCII fallback.
         """
-        # Check if we should use ASCII fallback
+        # Check if we should force ASCII fallback via environment variable
         use_ascii = os.environ.get("EUCHRE_ASCII_SUITS", "").lower() in ("1", "true", "yes")
-        
+
+        if not use_ascii:
+            # Try to detect Unicode support
+            # Check if stdout/stderr support Unicode by trying to encode a test character
+            try:
+                # Test if we can encode a Unicode character
+                test_char = "♥"
+                encoding = None
+                if hasattr(sys.stdout, 'encoding') and sys.stdout.encoding:
+                    encoding = sys.stdout.encoding
+                elif hasattr(sys.stderr, 'encoding') and sys.stderr.encoding:
+                    encoding = sys.stderr.encoding
+
+                if encoding:
+                    # Try to encode the character
+                    test_char.encode(encoding)
+                else:
+                    # Default to ASCII if we can't determine encoding
+                    use_ascii = True
+            except (UnicodeEncodeError, AttributeError):
+                # If encoding fails, fall back to ASCII
+                use_ascii = True
+
         if use_ascii:
             # ASCII fallback
             symbol_map = {

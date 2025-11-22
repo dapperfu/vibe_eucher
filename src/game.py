@@ -4,7 +4,18 @@ from typing import List, Optional, Tuple
 
 from src.ai import AIDecisionMaker
 from src.cards import Card, Deck, Suit
-from src.player_profiles import AIBasedProfile, HumanProfile, PlayerProfile, RandomProfile, SimpleRuleBasedProfile
+from src.ml_config import MLConfig
+from src.ml_features import GameStateEncoder
+from src.ml_model import EuchreMLModel
+from src.ml_player import MLPlayer
+from src.player_profiles import (
+    AIPlayer,
+    HeuristicPlayer,
+    HumanProfile,
+    MLBasedProfile,
+    PlayerProfile,
+    RandomPlayer,
+)
 from src.players import Player
 from src.rules import RulesEngine
 from src.trump import TrumpSelector
@@ -13,7 +24,12 @@ from src.trump import TrumpSelector
 class Game:
     """Manages the Euchre game state and flow."""
 
-    def __init__(self, player_config: List[Tuple[str, str]]) -> None:
+    def __init__(
+        self,
+        player_config: List[Tuple[str, str]],
+        trump_selection_risk: Optional[float] = None,
+        gameplay_risk: Optional[float] = None,
+    ) -> None:
         """
         Initialize a new game.
 
@@ -21,7 +37,13 @@ class Game:
         ----------
         player_config : List[Tuple[str, str]]
             List of (name, profile_type) tuples for each player.
-            profile_type can be: "human", "simple", "ai"
+            profile_type can be: "human", "simple", "ai", "random", "ml", "ml_sklearn", "ml_pytorch"
+        trump_selection_risk : Optional[float]
+            Risk factor for trump selection decisions (0.0-1.0) for ML players.
+            If None, uses MLConfig default.
+        gameplay_risk : Optional[float]
+            Risk factor for gameplay decisions (0.0-1.0) for ML players.
+            If None, uses MLConfig default.
         """
         if len(player_config) != 4:
             raise ValueError("Euchre requires exactly 4 players")
@@ -36,20 +58,34 @@ class Game:
         self.ai_decision_maker = AIDecisionMaker()
         self.tui = None
 
+        # ML model setup (lazy initialization)
+        self._ml_model: Optional[EuchreMLModel] = None
+        self._ml_encoder: Optional[GameStateEncoder] = None
+
+        # Game state tracking for ML profiles
+        self._current_trick_number: int = 0
+        self._current_tricks_won: List[int] = [0, 0]
+
+        # Store risk factors for ML players
+        self.trump_selection_risk = trump_selection_risk
+        self.gameplay_risk = gameplay_risk
+
         # Create players with profiles
         for i, (name, profile_type) in enumerate(player_config):
-            profile = self._create_profile(profile_type)
+            profile = self._create_profile(profile_type, i)
             player = Player(name, i, profile)
             self.players.append(player)
 
-    def _create_profile(self, profile_type: str) -> PlayerProfile:
+    def _create_profile(self, profile_type: str, player_id: int) -> PlayerProfile:
         """
         Create a player profile based on type.
 
         Parameters
         ----------
         profile_type : str
-            Type of profile: "human", "simple", "ai", "random"
+            Type of profile: "human", "simple", "ai", "random", "ml"
+        player_id : int
+            ID of the player (for ML profile game state access).
 
         Returns
         -------
@@ -58,14 +94,100 @@ class Game:
         """
         if profile_type == "human":
             return HumanProfile()
-        elif profile_type == "simple":
-            return SimpleRuleBasedProfile()
+        elif profile_type == "simple" or profile_type == "heuristic":
+            return HeuristicPlayer()
         elif profile_type == "ai":
-            return AIBasedProfile(self.ai_decision_maker)
+            return AIPlayer(self.ai_decision_maker)
         elif profile_type == "random":
-            return RandomProfile()
+            return RandomPlayer()
+        elif profile_type == "ml" or profile_type == "ml_sklearn":
+            return self._create_ml_player_profile(player_id, backend="supervised")
+        elif profile_type == "ml_rl":
+            return self._create_ml_player_profile(player_id, backend="rl")
+        elif profile_type == "ml_gan":
+            return self._create_ml_player_profile(player_id, backend="gan")
+        elif profile_type == "ml_pytorch":
+            return self._create_ml_profile(player_id)
         else:
             raise ValueError(f"Unknown profile type: {profile_type}")
+
+    def _create_ml_profile(self, player_id: int) -> MLBasedProfile:
+        """
+        Create an ML-based profile.
+
+        Parameters
+        ----------
+        player_id : int
+            ID of the player.
+
+        Returns
+        -------
+        MLBasedProfile
+            The ML profile.
+        """
+        # Lazy initialization of ML components
+        if self._ml_model is None:
+            config = MLConfig()
+            self._ml_model = EuchreMLModel(config)
+            self._ml_encoder = GameStateEncoder()
+
+            # Try to load existing weights
+            trump_path = config.get_model_path("order_up.pth")
+            card_path = config.get_model_path("play_card.pth")
+            discard_path = config.get_model_path("discard.pth")
+
+            if trump_path.exists() or card_path.exists() or discard_path.exists():
+                self._ml_model.load_weights(
+                    trump_path=str(trump_path) if trump_path.exists() else None,
+                    card_play_path=str(card_path) if card_path.exists() else None,
+                    discard_path=str(discard_path) if discard_path.exists() else None,
+                )
+
+        # Create game state provider function
+        def get_game_state() -> tuple[int, int, int]:
+            """Get current game state for ML profile."""
+            trick_num = getattr(self, "_current_trick_number", 0)
+            tricks_won = getattr(self, "_current_tricks_won", [0, 0])
+            return (trick_num, tricks_won[0], tricks_won[1])
+
+        return MLBasedProfile(
+            self._ml_model,
+            self._ml_encoder,
+            get_game_state,
+            trump_selection_risk=self.trump_selection_risk,
+            gameplay_risk=self.gameplay_risk,
+        )
+
+    def _create_ml_player_profile(self, player_id: int, backend: str = "supervised") -> MLPlayer:
+        """
+        Create an ML player profile.
+
+        Parameters
+        ----------
+        player_id : int
+            ID of the player.
+        backend : str
+            ML backend: "supervised", "gan", or "rl"
+
+        Returns
+        -------
+        MLPlayer
+            The ML player profile.
+        """
+        # Create game state provider function
+        def get_game_state() -> tuple[int, int, int]:
+            """Get current game state for ML player."""
+            trick_num = getattr(self, "_current_trick_number", 0)
+            tricks_won = getattr(self, "_current_tricks_won", [0, 0])
+            return (trick_num, tricks_won[0], tricks_won[1])
+
+        return MLPlayer(
+            backend=backend,
+            model_type="random_forest",
+            game_state_provider=get_game_state,
+            trump_selection_risk=self.trump_selection_risk,
+            gameplay_risk=self.gameplay_risk,
+        )
 
     def set_tui(self, tui) -> None:
         """
@@ -78,7 +200,7 @@ class Game:
         """
         # Set players list in TUI for table display
         if hasattr(tui, "set_players"):
-            tui.set_players(self.players)
+            tui.set_players(self.players, self.dealer_id)
         self.tui = tui
 
         for player in self.players:
@@ -98,9 +220,18 @@ class Game:
         if hasattr(self, "_last_trick_winner"):
             delattr(self, "_last_trick_winner")
 
+        # Reset game state tracking for ML profiles
+        self._current_trick_number = 0
+        self._current_tricks_won = [0, 0]
+
         # Start new hand log
         if self.tui is not None and hasattr(self.tui, "start_new_hand"):
             self.tui.start_new_hand()
+
+        # Update TUI with initial scores
+        if self.tui is not None and hasattr(self.tui, "display_scores"):
+            scores = self.get_scores()
+            self.tui.display_scores(scores[0], scores[1])
 
         # Deal cards
         deck = Deck()
@@ -122,20 +253,44 @@ class Game:
         if self.tui is not None and hasattr(self.tui, "log_turned_card"):
             self.tui.log_turned_card(self.turned_card)
 
+        # Display turned card prominently after deal
+        if self.tui is not None and hasattr(self.tui, "display_turned_card"):
+            self.tui.display_turned_card(self.turned_card)
+
         # Select trump
         self.trump_selector = TrumpSelector(self.players, self.tui)
         self.trump_suit = self.trump_selector.select_trump(self.turned_card, self.dealer_id)
+
+        # Log full trump-decision history into TUI for easier post-hand inspection
+        if self.tui is not None and hasattr(self.tui, "log_trump_decision_history"):
+            history = self.trump_selector.get_decision_history()
+            self.tui.log_trump_decision_history(history.get("order_up", []), history.get("call_trump", []))
 
         # If all passed, redeal
         if self.trump_suit is None:
             return True  # Continue game, redeal
 
+        # Update TUI with dealer info
+        if self.tui is not None and hasattr(self.tui, "dealer_id"):
+            self.tui.dealer_id = self.dealer_id
+
         # Play 5 tricks
         tricks_won = [0, 0]  # Team 0 and Team 1
         for trick_num in range(5):
+            self._current_trick_number = trick_num
+            # Update TUI with trick number
+            if self.tui is not None and hasattr(self.tui, "update_trick_number"):
+                self.tui.update_trick_number(trick_num + 1)
+            # Note: Scores are displayed after hand completes, not during each trick
+
             winner_id = self._play_trick()
             winner = self.players[winner_id]
             tricks_won[winner.team] += 1
+            self._current_tricks_won = tricks_won.copy()
+
+            # Display trick winner and wait for spacebar
+            if self.tui is not None and hasattr(self.tui, "display_trick_winner"):
+                self.tui.display_trick_winner(winner.name)
 
             # Log trick
             if self.tui is not None and hasattr(self.tui, "log_trick"):
@@ -196,7 +351,7 @@ class Game:
             player = self.players[player_idx]
 
             # Get card to play
-            card = player.play_card(led_suit, self.trump_suit, played_cards)
+            card = player.play_card(led_suit, self.trump_suit, played_cards, player_ids)
 
             # Validate play
             if not self.rules.can_play_card(card, player.hand, led_suit, self.trump_suit):
@@ -220,7 +375,9 @@ class Game:
         self._last_trick_player_ids = player_ids.copy()
 
         # Determine winner
-        winner_id = self.rules.determine_trick_winner(played_cards, player_ids, led_suit, self.trump_suit)
+        winner_id = self.rules.determine_trick_winner(
+            played_cards, player_ids, led_suit, self.trump_suit
+        )
         self._last_trick_winner = winner_id
         return winner_id
 
@@ -274,7 +431,6 @@ class Game:
         defending_team = 1
 
         making_tricks = tricks_won[making_team]
-        defending_tricks = tricks_won[defending_team]
 
         if making_tricks >= 5:
             # March: 2 points
