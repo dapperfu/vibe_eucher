@@ -21,6 +21,7 @@ class TextTUI:
         # Game state
         self.team_scores: Tuple[int, int] = (0, 0)
         self.current_trick_number: int = 0
+        self.current_hand_number: int = 0
         self.dealer_id: Optional[int] = None
         self.trump_suit: Optional[Suit] = None
 
@@ -29,6 +30,7 @@ class TextTUI:
         self.current_hand_log = []
         self.initial_hands = {}
         self.trump_suit = None
+        self.current_hand_number += 1
 
     def log_initial_hands(self, players: List[Player]) -> None:
         """
@@ -128,6 +130,61 @@ class TextTUI:
                     self.current_hand_log.append(f"  {name}: Passed")
                 else:
                     self.current_hand_log.append(f"  {name}: Called {decision.value} as trump")
+
+    def display_trump_decision_summary(
+        self,
+        order_up: list,
+        call_trump: list,
+        trump_suit: Optional[Suit],
+        maker_name: Optional[str],
+    ) -> None:
+        """
+        Display a summary of all trump decisions before gameplay starts.
+
+        Parameters
+        ----------
+        order_up : list
+            List of tuples `(player_name, bool)` representing order-up decisions.
+        call_trump : list
+            List of tuples `(player_name, Optional[Suit])` representing call-trump decisions.
+        trump_suit : Optional[Suit]
+            The selected trump suit.
+        maker_name : Optional[str]
+            Name of the player who made trump.
+        """
+        self._clear_screen()
+        
+        # Get a player for the header (use first player if available)
+        if self.players and len(self.players) > 0:
+            self._display_gameboard_header(self.players[0])
+        else:
+            print("\n" + "=" * 70)
+        
+        print("\nTrump Selection Summary:")
+        print("=" * 70)
+        
+        if order_up:
+            print("\nOrder Up Decisions:")
+            for name, decision in order_up:
+                action = "Ordered up" if decision else "Passed"
+                print(f"  {name}: {action}")
+
+        if call_trump:
+            print("\nCall Trump Decisions:")
+            for name, decision in call_trump:
+                if decision is None:
+                    print(f"  {name}: Passed")
+                else:
+                    print(f"  {name}: Called {decision.value} as trump")
+        
+        if trump_suit is not None:
+            print(f"\nTrump: {trump_suit.value} {trump_suit.unicode_symbol()}")
+            if maker_name:
+                print(f"Made by: {maker_name}")
+        
+        print("\n" + "=" * 70)
+        print("Press spacebar to start hand...")
+        self._wait_for_spacebar()
 
     def log_trick(
         self,
@@ -299,11 +356,19 @@ class TextTUI:
         if self.players is None:
             return
         
-        # Display scores prominently at the top
+        # Display scores prominently at the top (no indentation)
         team0_score, team1_score = self.team_scores
-        print(f"\n{'Score:':^20} {team0_score} - {team1_score}")
+        print(f"\nScore: {team0_score} - {team1_score}")
         
-        if self.current_trick_number > 0:
+        # Display hand and trick indicators
+        if self.current_hand_number > 0:
+            hand_str = f"Hand: {self.current_hand_number}"
+            if self.current_trick_number > 0:
+                trick_str = f"Trick: {self.current_trick_number}/5"
+                print(f"{hand_str} | {trick_str}")
+            else:
+                print(hand_str)
+        elif self.current_trick_number > 0:
             print(f"Trick: {self.current_trick_number}/5")
         
         if self.trump_suit is not None:
@@ -311,22 +376,59 @@ class TextTUI:
         
         # Show player positions around table
         current_id = current_player.player_id
-        print("Players:")
+        current_team = current_player.team
+        
+        # Collect player information first to calculate column widths
+        from src.player_profiles import HumanProfile
+        player_data = []
         for i in range(4):
             pid = (current_id + i) % 4
             player = self.players[pid]
-            marker = " ← YOU" if pid == current_id else ""
-            team_marker = f" [Team {player.team}]" if hasattr(player, 'team') else ""
-            dealer_marker = " (DEALER)" if self.dealer_id is not None and pid == self.dealer_id else ""
+            is_dealer = self.dealer_id is not None and pid == self.dealer_id
+            dealer_indicator = "D" if is_dealer else " "
             
-            # Add profile class for computer players
-            from src.player_profiles import HumanProfile
-            profile_marker = ""
-            if not isinstance(player.profile, HumanProfile):
+            # Get profile class name
+            if isinstance(player.profile, HumanProfile):
+                profile_class = "Human"
+            else:
                 profile_class = player.profile.__class__.__name__
-                profile_marker = f" [{profile_class}]"
             
-            print(f"  Player {pid}: {player.name}{team_marker}{profile_marker}{dealer_marker}{marker}")
+            # Get markers
+            markers = []
+            if pid == current_id:
+                markers.append(" ← YOU")
+            elif hasattr(player, 'team') and player.team == current_team:
+                markers.append(" *")
+            marker_str = "".join(markers)
+            
+            team_marker = f" [Team {player.team}]" if hasattr(player, 'team') else ""
+            
+            player_data.append({
+                'dealer': dealer_indicator,
+                'pid': pid,
+                'name': player.name,
+                'team': team_marker,
+                'profile': profile_class,
+                'markers': marker_str
+            })
+        
+        # Calculate column widths for alignment
+        max_name_len = max(len(d['name']) for d in player_data)
+        max_team_len = max(len(d['team']) for d in player_data)
+        # Profile length includes brackets: [ProfileName]
+        max_profile_len = max(len(f"[{d['profile']}]") for d in player_data)
+        
+        # Print table
+        print("Players:")
+        for data in player_data:
+            dealer_col = data['dealer']
+            player_col = f"Player {data['pid']}:"
+            name_col = data['name'].ljust(max_name_len)
+            team_col = data['team'].ljust(max_team_len)
+            profile_col = f"[{data['profile']}]".ljust(max_profile_len)
+            markers_col = data['markers']
+            
+            print(f"{dealer_col} {player_col} {name_col} {team_col} {profile_col}{markers_col}")
         print()
 
     def display_turned_card(self, card: Card) -> None:
@@ -381,9 +483,17 @@ class TextTUI:
         # Display all cards played in the trick
         if self.current_trick_cards and self.current_trick_player_ids and self.players:
             print("\nCards played this trick:")
+            # Find winner ID by name
+            winner_id: Optional[int] = None
+            for pid, player in enumerate(self.players):
+                if player.name == winner_name:
+                    winner_id = pid
+                    break
+            
             for card, pid in zip(self.current_trick_cards, self.current_trick_player_ids):
                 player_name = self.players[pid].name
-                print(f"  {player_name}: {card}")
+                winner_marker = " *" if winner_id is not None and pid == winner_id else ""
+                print(f"  {player_name}: {card}{winner_marker}")
         
         print(f"\n{winner_name} wins the trick!")
         print("Press spacebar to continue to next trick...")
@@ -600,8 +710,11 @@ class TextTUI:
             print("A card was ordered up. You now have 6 cards.")
         print("Choose one card to discard (you'll keep 5 cards).\n")
         
-        # Display hand
-        self.display_hand(player)
+        # Display hand (sorted for human-style viewing)
+        sorted_hand = self._sort_hand_human_style(player.hand)
+        print(f"\n{player.name}'s hand ({len(player.hand)} cards):")
+        for i, card in enumerate(sorted_hand):
+            print(f"  {i + 1}. {card}")
         
         # Get decision
         while True:
@@ -610,8 +723,8 @@ class TextTUI:
 
             try:
                 idx = int(choice) - 1
-                if 0 <= idx < len(player.hand):
-                    selected_card = player.hand[idx]
+                if 0 <= idx < len(sorted_hand):
+                    selected_card = sorted_hand[idx]
                     print(f"Discarding: {selected_card}")
                     return selected_card
                 print(f"❌ Invalid choice. Please enter a number between 1 and {len(player.hand)}.")
@@ -648,10 +761,34 @@ class TextTUI:
             print()
             print("Cards played this trick:")
             current_id = current_player.player_id
+            
+            # Determine current winning player if we have cards
+            current_winner_id: Optional[int] = None
+            # Use provided trump_suit or stored trump_suit
+            effective_trump_suit = trump_suit if trump_suit is not None else self.trump_suit
+            
+            # Determine led_suit if not provided but cards have been played
+            effective_led_suit = led_suit
+            if effective_led_suit is None and played_cards:
+                # Infer led suit from first card (simplified - doesn't handle bowers perfectly)
+                effective_led_suit = played_cards[0].suit
+            
+            if effective_led_suit is not None and effective_trump_suit is not None:
+                from src.rules import RulesEngine
+                rules = RulesEngine()
+                current_winner_id = rules.determine_trick_winner(
+                    played_cards, player_ids, effective_led_suit, effective_trump_suit
+                )
+            
             for i, (card, pid) in enumerate(zip(played_cards, player_ids)):
                 player_name = self.players[pid].name
-                marker = " ←" if pid == current_id else ""
-                print(f"  {i+1}. {player_name}: {card}{marker}")
+                markers = []
+                if pid == current_id:
+                    markers.append(" ←")
+                if current_winner_id is not None and pid == current_winner_id:
+                    markers.append(" *")
+                marker_str = "".join(markers)
+                print(f"  {i+1}. {player_name}: {card}{marker_str}")
 
         # Display game info (led suit and trump suit) for decision making
         info_parts = []
