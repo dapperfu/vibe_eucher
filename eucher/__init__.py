@@ -1,0 +1,2 @@
+"""Euchre game package."""
+

@@ -285,7 +285,7 @@ class GameDataCollector:
             "winner": winner,
         })
 
-    def save_data(self, prefix: str = "training") -> None:
+    def save_data(self, prefix: str = "training", save_csv: bool = True) -> None:
         """
         Save collected data to files.
 
@@ -293,38 +293,42 @@ class GameDataCollector:
         ----------
         prefix : str
             Prefix for output filenames.
+        save_csv : bool
+            Whether to save CSV files. Can be disabled for faster saves.
         """
-        # Save as JSON
+        # Save as JSON (faster than CSV for large datasets)
         order_up_file = self.output_dir / f"{prefix}_order_up.json"
         call_trump_file = self.output_dir / f"{prefix}_call_trump.json"
         play_card_file = self.output_dir / f"{prefix}_play_card.json"
         discard_file = self.output_dir / f"{prefix}_discard.json"
         outcomes_file = self.output_dir / f"{prefix}_outcomes.json"
 
+        # Use compact JSON (no indentation) for faster writes
         with open(order_up_file, "w") as f:
-            json.dump(self.order_up_data, f)
+            json.dump(self.order_up_data, f, separators=(',', ':'))
         with open(call_trump_file, "w") as f:
-            json.dump(self.call_trump_data, f)
+            json.dump(self.call_trump_data, f, separators=(',', ':'))
         with open(play_card_file, "w") as f:
-            json.dump(self.play_card_data, f)
+            json.dump(self.play_card_data, f, separators=(',', ':'))
         with open(discard_file, "w") as f:
-            json.dump(self.discard_data, f)
+            json.dump(self.discard_data, f, separators=(',', ':'))
         with open(outcomes_file, "w") as f:
-            json.dump(self.game_outcomes, f)
+            json.dump(self.game_outcomes, f, separators=(',', ':'))
 
-        # Also save as CSV for easier analysis
-        if self.order_up_data:
-            df = pd.DataFrame(self.order_up_data)
-            df.to_csv(self.output_dir / f"{prefix}_order_up.csv", index=False)
-        if self.call_trump_data:
-            df = pd.DataFrame(self.call_trump_data)
-            df.to_csv(self.output_dir / f"{prefix}_call_trump.csv", index=False)
-        if self.play_card_data:
-            df = pd.DataFrame(self.play_card_data)
-            df.to_csv(self.output_dir / f"{prefix}_play_card.csv", index=False)
-        if self.discard_data:
-            df = pd.DataFrame(self.discard_data)
-            df.to_csv(self.output_dir / f"{prefix}_discard.csv", index=False)
+        # Also save as CSV for easier analysis (can be slow for large datasets)
+        if save_csv:
+            if self.order_up_data:
+                df = pd.DataFrame(self.order_up_data)
+                df.to_csv(self.output_dir / f"{prefix}_order_up.csv", index=False)
+            if self.call_trump_data:
+                df = pd.DataFrame(self.call_trump_data)
+                df.to_csv(self.output_dir / f"{prefix}_call_trump.csv", index=False)
+            if self.play_card_data:
+                df = pd.DataFrame(self.play_card_data)
+                df.to_csv(self.output_dir / f"{prefix}_play_card.csv", index=False)
+            if self.discard_data:
+                df = pd.DataFrame(self.discard_data)
+                df.to_csv(self.output_dir / f"{prefix}_discard.csv", index=False)
 
     def load_data(self, prefix: str = "training") -> Dict[str, List[Dict[str, Any]]]:
         """

@@ -2,5 +2,9 @@ TIMING STATISTICS SUMMARY
 ================================================================================
 Operation                                Count      Total (s)    Mean (s)     Min (s)      Max (s)     
 --------------------------------------------------------------------------------
-SelfPlayTrainer.run_training_round       2          1.0235       0.5118       0.3577       0.6659      
-SelfPlayTrainer.run_game_with_collection 12         0.2424       0.0202       0.0106       0.0252      
+SelfPlayTrainer.run_training_round       3          65.1922      21.7307      12.9288      30.1601     
+SelfPlayTrainer.run_game_with_collection 18         4.2863       0.2381       0.1015       0.3580      
+Game.play_hand                           157        4.2313       0.0270       0.0178       0.1095      
+Game._play_trick                         785        3.7149       0.0047       0.0019       0.0586      
+Player.play_card                         3140       3.3714       0.0011       0.0002       0.0222      
+MLPlayer.play_card                       1430       1.1012       0.0008       0.0002       0.0163      
