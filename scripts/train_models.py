@@ -119,6 +119,17 @@ def main() -> None:
         default=None,
         help="Output file for timing statistics (default: profiles/timing_stats.txt)",
     )
+    parser.add_argument(
+        "--disable-live-display",
+        action="store_true",
+        help="Disable Rich live display to reduce overhead (useful for profiling)",
+    )
+    parser.add_argument(
+        "--display-refresh-rate",
+        type=float,
+        default=None,
+        help="Refresh rate for live display in updates per second (default: 2.0, lower for profiling)",
+    )
 
     args = parser.parse_args()
 
@@ -226,17 +237,30 @@ def main() -> None:
 
             if args.until_converged or args.duration:
                 orchestrator.start_training()
+                # Disable live display if requested or when profiling (to reduce overhead)
+                use_live_display = not args.disable_live_display and not enable_profiling
+                refresh_rate = args.display_refresh_rate if args.display_refresh_rate else (0.5 if enable_profiling else 2.0)
+                
                 progress_display = TrainingProgressDisplay(
                     orchestrator,
                     trump_selection_risk=config.trump_selection_risk,
                     gameplay_risk=config.gameplay_risk,
                 )
-                live_display = progress_display.start_live_display()
-                live_display.__enter__()
+                if use_live_display:
+                    live_display = progress_display.start_live_display(refresh_rate=refresh_rate)
+                    live_display.__enter__()
+                else:
+                    live_display = None
+                    if enable_profiling:
+                        print("Note: Live display disabled during profiling to reduce overhead.")
 
             trainer = SelfPlayTrainer(output_dir=data_dir)
 
             game_count = 0
+            # Batch save interval - save less frequently to reduce I/O overhead
+            # JSON saves are faster than CSV, so we can save JSON more often
+            save_interval = 100 if enable_profiling else 50
+            csv_save_interval = 500 if enable_profiling else 200
             try:
                 while True:
                     # Check if should continue
@@ -247,18 +271,33 @@ def main() -> None:
                         if game_count >= args.num_games:
                             break
 
-                    # Run training round
-                    trainer.run_training_round(num_games=1)
+                    # Determine if we should save data
+                    is_final = (
+                        (args.until_converged or args.duration) and not orchestrator.should_continue()
+                    ) or (not args.until_converged and not args.duration and game_count >= args.num_games - 1)
+                    
+                    should_save_json = is_final or (game_count % save_interval == 0)
+                    should_save_csv = is_final or (game_count % csv_save_interval == 0)
+                    
+                    # Run training round (disable auto-save, we'll batch it)
+                    trainer.run_training_round(
+                        num_games=1,
+                        save_data=should_save_json,
+                        save_csv=should_save_csv and not enable_profiling,  # Skip CSV during profiling
+                    )
+                    
                     game_count += 1
 
                     # Record game result (simplified - would get actual result from game)
                     if args.until_converged or args.duration:
                         orchestrator.record_game_result(won=(game_count % 2 == 0))
 
-                        # Update progress display
+                        # Update progress display (less frequently when profiling)
                         if progress_display:
                             progress_display.update()
-                            if game_count % 10 == 0:
+                            # Update live display less frequently to reduce overhead
+                            update_interval = 50 if enable_profiling else 10
+                            if live_display and game_count % update_interval == 0:
                                 progress_display.update_live_display(live_display)
 
                         if orchestrator.should_checkpoint():
@@ -266,6 +305,10 @@ def main() -> None:
                                 progress_display.console.print(f"[yellow]Checkpoint saved at game {game_count}[/yellow]")
 
             finally:
+                # Final save of all collected data
+                print("\nSaving final collected data...")
+                trainer.data_collector.save_data(save_csv=not enable_profiling)
+                
                 if live_display:
                     live_display.__exit__(None, None, None)
                     if progress_display:
