@@ -41,3 +41,29 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
+
+# Training data (large files, generated)
+training_data/*.json
+training_data/*.csv
+training_data/*.npz
+training_data/*.h5
+training_data/*.hdf5
+training_data/*.parquet
+!training_data/.gitkeep
+
+# Model checkpoints and weights (large files, generated)
+models/**/*.pt
+models/**/*.pth
+models/**/*.pkl
+models/**/*.h5
+models/**/*.hdf5
+models/checkpoints/
+!models/.gitkeep
+
+# Notebooks (can contain large outputs)
+*.ipynb
+!examples/*.ipynb
+
+# Profiles and logs
+profiles/
+*.log
