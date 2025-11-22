@@ -14,10 +14,10 @@ except ImportError:
     from torch.cuda.amp import autocast as autocast_new
 from torch.utils.data import DataLoader, Dataset
 
-from src.ai_players.pytorch_networks import HybridNetwork
-from src.ai_players.training.checkpoint_manager import CheckpointManager
-from src.ai_players.training.data_manager import TrainingDataManager
-from src.ai_players.training.memory_manager import MemoryManager
+from eucher.players.computer.ml.pytorch.pytorch_networks import HybridNetwork
+from eucher.players.computer.ml.pytorch.training.checkpoint_manager import CheckpointManager
+from eucher.players.computer.ml.pytorch.training.data_manager import TrainingDataManager
+from eucher.players.computer.ml.pytorch.training.memory_manager import MemoryManager
 
 
 class EuchreDataset(Dataset):
@@ -43,7 +43,7 @@ class EuchreDataset(Dataset):
         """
         self.data = data
         if feature_encoder is None:
-            from src.ai_players.feature_encoder import EuchreFeatureEncoder
+            from eucher.players.computer.ml.pytorch.feature_encoder import EuchreFeatureEncoder
 
             self.feature_encoder = EuchreFeatureEncoder()
         else:
@@ -100,8 +100,8 @@ class EuchreDataset(Dataset):
         """
         import json
         import numpy as np
-        from src.cards import Card, Rank, Suit
-        from src.ai_players.game_state_tracker import TrickHistoryTracker
+        from eucher.cards import Card, Rank, Suit
+        from eucher.players.computer.ml.pytorch.game_state_tracker import TrickHistoryTracker
 
         # Parse features if it's a string
         if isinstance(sample.get("features"), str):
@@ -171,8 +171,8 @@ class EuchreDataset(Dataset):
         Dict
             Model-ready sample.
         """
-        from src.cards import Card, Suit
-        from src.ai_players.game_state_tracker import TrickHistoryTracker
+        from eucher.cards import Card, Suit
+        from eucher.players.computer.ml.pytorch.game_state_tracker import TrickHistoryTracker
 
         # Parse cards
         hand = self._parse_cards(sample.get("hand", []))
@@ -237,7 +237,7 @@ class EuchreDataset(Dataset):
         List[Card]
             List of Card objects.
         """
-        from src.cards import Card, Rank, Suit
+        from eucher.cards import Card, Rank, Suit
 
         cards = []
         for item in card_data:
@@ -269,7 +269,7 @@ class EuchreDataset(Dataset):
         Optional[Card]
             Parsed card or None.
         """
-        from src.cards import Card, Rank, Suit
+        from eucher.cards import Card, Rank, Suit
 
         if not card_str or len(card_str) < 2:
             return None

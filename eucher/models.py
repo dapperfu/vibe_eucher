@@ -5,8 +5,8 @@ from datetime import datetime
 from pony.orm import Optional as PonyOptional
 from pony.orm import PrimaryKey, Required, Set
 
-from src.cards import Rank, Suit  # noqa: F401
-from src.database import db
+from eucher.cards import Rank, Suit  # noqa: F401
+from eucher.database import db
 
 
 class Player(db.Entity):  # type: ignore[name-defined]

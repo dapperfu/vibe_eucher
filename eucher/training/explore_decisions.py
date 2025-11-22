@@ -3,9 +3,9 @@
 import random
 from typing import List, Optional
 
-from src.cards import Card, Deck, Suit
-from src.game import Game
-from src.ml_training.data_collector import GameDataCollector
+from eucher.cards import Card, Deck, Suit
+from eucher.game import Game
+from eucher.ml_training.data_collector import GameDataCollector
 
 
 class DecisionExplorer:

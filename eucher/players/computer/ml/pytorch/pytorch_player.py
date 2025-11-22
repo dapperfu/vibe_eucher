@@ -5,18 +5,18 @@ from typing import TYPE_CHECKING, List, Optional
 
 import torch
 
-from src.cards import Card, Suit
-from src.player_profiles import PlayerProfile
-from src.rules import RulesEngine
+from eucher.cards import Card, Suit
+from eucher.players.profiles import PlayerProfile
+from eucher.rules import RulesEngine
 
-from src.ai_players.feature_encoder import EuchreFeatureEncoder
-from src.ai_players.game_state_tracker import BowerProbabilityEstimator, TrickHistoryTracker
-from src.ai_players.model_manager import ModelManager
-from src.ai_players.pytorch_networks import HybridNetwork, create_network
-from src.ai_players.strategic_engine import BowerDrawingStrategy, CardEvaluationSystem
+from eucher.players.computer.ml.pytorch.feature_encoder import EuchreFeatureEncoder
+from eucher.players.computer.ml.pytorch.game_state_tracker import BowerProbabilityEstimator, TrickHistoryTracker
+from eucher.players.computer.ml.pytorch.model_manager import ModelManager
+from eucher.players.computer.ml.pytorch.pytorch_networks import HybridNetwork, create_network
+from eucher.players.computer.ml.pytorch.strategic_engine import BowerDrawingStrategy, CardEvaluationSystem
 
 if TYPE_CHECKING:
-    from src.players import Player
+    from eucher.players import Player
 
 
 class PyTorchStrategicPlayer(PlayerProfile):

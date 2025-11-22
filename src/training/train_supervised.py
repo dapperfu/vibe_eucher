@@ -21,7 +21,7 @@ from src.ml_models_supervised import (
 
 def load_training_data(data_dir: Path, prefix: str = "training") -> Dict[str, np.ndarray]:
     """
-    Load training data from JSON files.
+    Load training data from NumPy .npz files (preferred) or JSON files (fallback).
 
     Parameters
     ----------
@@ -35,48 +35,28 @@ def load_training_data(data_dir: Path, prefix: str = "training") -> Dict[str, np
     Dict[str, np.ndarray]
         Dictionary with 'X' (features) and 'y' (labels) for each decision type.
     """
-    order_up_file = data_dir / f"{prefix}_order_up.json"
-    call_trump_file = data_dir / f"{prefix}_call_trump.json"
-    play_card_file = data_dir / f"{prefix}_play_card.json"
-    discard_file = data_dir / f"{prefix}_discard.json"
-
+    datasets = ["order_up", "call_trump", "play_card", "discard"]
     data = {}
 
-    # Load order up data
-    if order_up_file.exists():
-        with open(order_up_file, "r") as f:
-            order_up_data = json.load(f)
-        if order_up_data:
-            X = np.array([item["features"] for item in order_up_data])
-            y = np.array([item["decision"] for item in order_up_data])
-            data["order_up"] = {"X": X, "y": y}
+    for dataset_name in datasets:
+        # Try .npz format first (fast, binary, preserves precision)
+        npz_file = data_dir / f"{prefix}_{dataset_name}.npz"
+        json_file = data_dir / f"{prefix}_{dataset_name}.json"
 
-    # Load call trump data
-    if call_trump_file.exists():
-        with open(call_trump_file, "r") as f:
-            call_trump_data = json.load(f)
-        if call_trump_data:
-            X = np.array([item["features"] for item in call_trump_data])
-            y = np.array([item["decision"] for item in call_trump_data])
-            data["call_trump"] = {"X": X, "y": y}
-
-    # Load play card data
-    if play_card_file.exists():
-        with open(play_card_file, "r") as f:
-            play_card_data = json.load(f)
-        if play_card_data:
-            X = np.array([item["features"] for item in play_card_data])
-            y = np.array([item["decision"] for item in play_card_data])
-            data["play_card"] = {"X": X, "y": y}
-
-    # Load discard data
-    if discard_file.exists():
-        with open(discard_file, "r") as f:
-            discard_data = json.load(f)
-        if discard_data:
-            X = np.array([item["features"] for item in discard_data])
-            y = np.array([item["decision"] for item in discard_data])
-            data["discard"] = {"X": X, "y": y}
+        if npz_file.exists():
+            # Load from NumPy format (preferred)
+            loaded = np.load(npz_file)
+            X = loaded["X"]
+            y = loaded["y"]
+            data[dataset_name] = {"X": X, "y": y}
+        elif json_file.exists():
+            # Fallback to JSON format (for backward compatibility)
+            with open(json_file, "r") as f:
+                json_data = json.load(f)
+            if json_data:
+                X = np.array([item["features"] for item in json_data], dtype=np.float32)
+                y = np.array([item["decision"] for item in json_data], dtype=np.int32)
+                data[dataset_name] = {"X": X, "y": y}
 
     return data
 

@@ -6,7 +6,7 @@ from typing import Optional
 import torch
 import torch.nn as nn
 
-from src.ml_config import MLConfig
+from eucher.players.computer.ml.ml_config import MLConfig
 
 
 class TrumpSelectionNet(nn.Module):

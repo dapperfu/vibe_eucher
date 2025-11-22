@@ -7,8 +7,8 @@ import numpy as np
 import pytest
 import torch
 
-from src.ml_config import MLConfig
-from src.ml_models_rl import DQNNetwork, ExperienceReplayBuffer, RLAgent
+from eucher.players.computer.ml.ml_config import MLConfig
+from eucher.players.computer.ml.ml_models_rl import DQNNetwork, ExperienceReplayBuffer, RLAgent
 from tests.fixtures.ml_test_data import generate_game_state_features, generate_random_hand
 
 

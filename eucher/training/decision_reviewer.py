@@ -5,10 +5,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from src.cards import Card, Rank, Suit
-from src.ml_features import GameStateEncoder
-from src.training.decision_format import DecisionRecord, DecisionType, load_decisions
-from src.training.review_data import (
+from eucher.cards import Card, Rank, Suit
+from eucher.players.computer.ml.ml_features import GameStateEncoder
+from eucher.training.decision_format import DecisionRecord, DecisionType, load_decisions
+from eucher.training.review_data import (
     DecisionReview,
     ReviewStatus,
     get_review_statistics,
@@ -31,7 +31,7 @@ class DecisionReviewer:
         reviews_file : Optional[Path]
             File to save reviews.
         """
-        from src.ml_config import MLConfig
+        from eucher.players.computer.ml.ml_config import MLConfig
 
         self.config = MLConfig()
         self.encoder = GameStateEncoder()

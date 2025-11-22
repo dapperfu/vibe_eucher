@@ -4,15 +4,15 @@ import argparse
 import re
 from pathlib import Path
 
-from src.ml_config import MLConfig
-from src.training.convergence_tracker import ConvergenceTracker
-from src.training.profiling import Profiler, get_timing_stats
-from src.training.self_play import SelfPlayTrainer
-from src.training.train_gan import train_gan_for_decision_type
-from src.training.train_rl import train_rl_through_self_play
-from src.training.train_supervised import train_all_models
-from src.training.training_orchestrator import TrainingOrchestrator
-from src.training.training_scheduler import TrainingScheduler
+from eucher.players.computer.ml.ml_config import MLConfig
+from eucher.training.convergence_tracker import ConvergenceTracker
+from eucher.training.profiling import Profiler, get_timing_stats
+from eucher.training.self_play import SelfPlayTrainer
+from eucher.training.train_gan import train_gan_for_decision_type
+from eucher.training.train_rl import train_rl_through_self_play
+from eucher.training.train_supervised import train_all_models
+from eucher.training.training_orchestrator import TrainingOrchestrator
+from eucher.training.training_scheduler import TrainingScheduler
 
 
 def main() -> None:
@@ -230,7 +230,7 @@ def main() -> None:
             print("=" * 60)
 
             # Setup progress display if using orchestrator
-            from src.training.training_progress import TrainingProgressDisplay
+            from eucher.training.training_progress import TrainingProgressDisplay
 
             progress_display = None
             live_display = None

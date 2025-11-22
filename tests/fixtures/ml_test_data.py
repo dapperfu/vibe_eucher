@@ -5,8 +5,8 @@ from typing import List
 
 import numpy as np
 
-from src.cards import Card, Rank, Suit
-from src.ml_features import GameStateEncoder
+from eucher.cards import Card, Rank, Suit
+from eucher.players.computer.ml.ml_features import GameStateEncoder
 
 
 def generate_random_hand(num_cards: int = 5) -> List[Card]:

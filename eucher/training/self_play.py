@@ -4,9 +4,9 @@ import uuid
 from pathlib import Path
 from typing import Callable, List, Optional, Tuple
 
-from src.game import Game
-from src.training.data_collector import GameDataCollector
-from src.training.profiling import timed_operation
+from eucher.game import Game
+from eucher.training.data_collector import GameDataCollector
+from eucher.training.profiling import timed_operation
 
 
 class SelfPlayTrainer:
@@ -27,7 +27,7 @@ class SelfPlayTrainer:
         output_dir : Optional[Path]
             Directory for output data. If None, uses default from MLConfig.
         """
-        from src.ml_config import MLConfig
+        from eucher.players.computer.ml.ml_config import MLConfig
 
         self.config = MLConfig()
         if data_collector is None:

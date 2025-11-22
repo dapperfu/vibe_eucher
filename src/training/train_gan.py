@@ -20,6 +20,8 @@ def load_training_data_for_gan(
     """
     Load training data for GAN training.
 
+    Loads from NumPy .npz format (preferred) or JSON format (fallback).
+
     Parameters
     ----------
     data_dir : Path
@@ -34,19 +36,26 @@ def load_training_data_for_gan(
     tuple[np.ndarray, np.ndarray]
         Tuple of (features, decisions) where decisions are card indices.
     """
-    data_file = data_dir / f"{prefix}_{decision_type}.json"
+    npz_file = data_dir / f"{prefix}_{decision_type}.npz"
+    json_file = data_dir / f"{prefix}_{decision_type}.json"
 
-    if not data_file.exists():
-        raise FileNotFoundError(f"Training data file not found: {data_file}")
-
-    with open(data_file, "r") as f:
-        data = json.load(f)
-
-    if not data:
-        raise ValueError(f"No data found in {data_file}")
-
-    features = np.array([item["features"] for item in data])
-    decisions = np.array([item["decision"] for item in data])
+    if npz_file.exists():
+        # Load from NumPy format (preferred - fast, preserves precision)
+        loaded = np.load(npz_file)
+        features = loaded["X"]
+        decisions = loaded["y"]
+    elif json_file.exists():
+        # Fallback to JSON format (for backward compatibility)
+        with open(json_file, "r") as f:
+            data = json.load(f)
+        if not data:
+            raise ValueError(f"No data found in {json_file}")
+        features = np.array([item["features"] for item in data], dtype=np.float32)
+        decisions = np.array([item["decision"] for item in data], dtype=np.int32)
+    else:
+        raise FileNotFoundError(
+            f"Training data file not found: {npz_file} or {json_file}"
+        )
 
     return features, decisions
 

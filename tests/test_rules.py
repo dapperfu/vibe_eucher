@@ -1,7 +1,7 @@
 """Tests for rules module."""
 
-from src.cards import Card, Rank, Suit
-from src.rules import RulesEngine
+from eucher.cards import Card, Rank, Suit
+from eucher.rules import RulesEngine
 
 
 class TestRulesEngine:

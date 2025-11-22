@@ -6,11 +6,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from src.ml_config import MLConfig
-from src.ml_models_gan import GANCardPlayModel
-from src.ml_models_rl import RLAgent
-from src.training.train_gan import train_gan_model
-from src.training.train_rl import ExperienceReplayBuffer, train_rl_agent
+from eucher.players.computer.ml.ml_config import MLConfig
+from eucher.players.computer.ml.ml_models_gan import GANCardPlayModel
+from eucher.players.computer.ml.ml_models_rl import RLAgent
+from eucher.training.train_gan import train_gan_model
+from eucher.training.train_rl import ExperienceReplayBuffer, train_rl_agent
 from tests.fixtures.ml_test_data import generate_synthetic_decisions
 
 
@@ -117,14 +117,14 @@ class TestDataCollection:
 
     def test_data_collection_format(self) -> None:
         """Test that collected data is in correct format."""
-        from src.training.data_collector import GameDataCollector
+        from eucher.training.data_collector import GameDataCollector
 
         with tempfile.TemporaryDirectory() as tmpdir:
             collector = GameDataCollector(output_dir=Path(tmpdir))
             collector.start_game("test_game")
 
             # Record a decision
-            from src.cards import Card, Rank, Suit
+            from eucher.cards import Card, Rank, Suit
 
             hand = [Card(Suit.HEARTS, Rank.ACE), Card(Suit.HEARTS, Rank.KING)]
             turned_card = Card(Suit.HEARTS, Rank.QUEEN)

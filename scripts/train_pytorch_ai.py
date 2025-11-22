@@ -273,6 +273,7 @@ def main() -> None:
     
     # Import feature encoder for dataset
     from src.ai_players.feature_encoder import EuchreFeatureEncoder
+
     feature_encoder = EuchreFeatureEncoder()
     
     dataset = EuchreDataset(training_data, feature_encoder=feature_encoder)

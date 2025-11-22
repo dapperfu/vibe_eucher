@@ -1,7 +1,7 @@
 """Main entry point for Euchre game."""
 
-from src.game import Game
-from src.tui import TextTUI
+from eucher.game import Game
+from eucher.tui import TextTUI
 
 
 def main() -> None:

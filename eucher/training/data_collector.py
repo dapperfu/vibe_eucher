@@ -5,8 +5,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import List, Optional
 
-from src.cards import Card, Suit
-from src.ml_config import MLConfig
+from eucher.cards import Card, Suit
+from eucher.players.computer.ml.ml_config import MLConfig
 
 
 @dataclass

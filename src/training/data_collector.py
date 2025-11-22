@@ -285,9 +285,14 @@ class GameDataCollector:
             "winner": winner,
         })
 
-    def save_data(self, prefix: str = "training", save_csv: bool = False) -> None:
+    def save_data(
+        self, prefix: str = "training", save_csv: bool = False, save_json: bool = False
+    ) -> None:
         """
         Save collected data to files.
+
+        Uses NumPy .npz format by default (fast, binary, preserves precision).
+        JSON can be enabled for backward compatibility or manual inspection.
 
         Parameters
         ----------
@@ -296,25 +301,53 @@ class GameDataCollector:
         save_csv : bool
             Whether to save CSV files. Default False - CSV files are not used by training
             and add significant overhead. Only enable if you need them for manual analysis.
+        save_json : bool
+            Whether to also save JSON files. Default False - JSON is slower and can lose precision.
+            Only enable for backward compatibility or manual inspection.
         """
-        # Save as JSON (faster than CSV for large datasets)
-        order_up_file = self.output_dir / f"{prefix}_order_up.json"
-        call_trump_file = self.output_dir / f"{prefix}_call_trump.json"
-        play_card_file = self.output_dir / f"{prefix}_play_card.json"
-        discard_file = self.output_dir / f"{prefix}_discard.json"
-        outcomes_file = self.output_dir / f"{prefix}_outcomes.json"
+        # Save as NumPy .npz format (fast, binary, preserves precision, compressed)
+        # This is the preferred format for ML training data
+        datasets = [
+            ("order_up", self.order_up_data),
+            ("call_trump", self.call_trump_data),
+            ("play_card", self.play_card_data),
+            ("discard", self.discard_data),
+        ]
 
-        # Use compact JSON (no indentation) for faster writes
-        with open(order_up_file, "w") as f:
-            json.dump(self.order_up_data, f, separators=(',', ':'))
-        with open(call_trump_file, "w") as f:
-            json.dump(self.call_trump_data, f, separators=(',', ':'))
-        with open(play_card_file, "w") as f:
-            json.dump(self.play_card_data, f, separators=(',', ':'))
-        with open(discard_file, "w") as f:
-            json.dump(self.discard_data, f, separators=(',', ':'))
+        for name, data_list in datasets:
+            if data_list:
+                # Extract features and decisions as numpy arrays
+                features_list = [item["features"] for item in data_list]
+                decisions_list = [item["decision"] for item in data_list]
+
+                # Convert to numpy arrays (much faster than JSON)
+                X = np.array(features_list, dtype=np.float32)
+                y = np.array(decisions_list, dtype=np.int32)
+
+                # Save as compressed NumPy archive
+                npz_file = self.output_dir / f"{prefix}_{name}.npz"
+                np.savez_compressed(npz_file, X=X, y=y)
+
+        # Save game outcomes as JSON (small, not used for training)
+        outcomes_file = self.output_dir / f"{prefix}_outcomes.json"
         with open(outcomes_file, "w") as f:
             json.dump(self.game_outcomes, f, separators=(',', ':'))
+
+        # Optional: Save JSON for backward compatibility or manual inspection
+        if save_json:
+            order_up_file = self.output_dir / f"{prefix}_order_up.json"
+            call_trump_file = self.output_dir / f"{prefix}_call_trump.json"
+            play_card_file = self.output_dir / f"{prefix}_play_card.json"
+            discard_file = self.output_dir / f"{prefix}_discard.json"
+
+            with open(order_up_file, "w") as f:
+                json.dump(self.order_up_data, f, separators=(',', ':'))
+            with open(call_trump_file, "w") as f:
+                json.dump(self.call_trump_data, f, separators=(',', ':'))
+            with open(play_card_file, "w") as f:
+                json.dump(self.play_card_data, f, separators=(',', ':'))
+            with open(discard_file, "w") as f:
+                json.dump(self.discard_data, f, separators=(',', ':'))
 
         # CSV files are not used by training pipeline - only save if explicitly requested
         # They add significant overhead (pandas DataFrame creation + CSV writing)

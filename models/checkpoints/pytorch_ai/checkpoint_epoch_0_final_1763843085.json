@@ -1,0 +1,11 @@
+{
+  "epoch": 0,
+  "checkpoint_path": "models/checkpoints/pytorch_ai/checkpoint_epoch_0_final_1763843085.pt",
+  "timestamp": 1763843085,
+  "training_duration": 9.357539176940918,
+  "metrics": {
+    "loss": 0.8867423123709716,
+    "epoch": 0,
+    "duration": 9.357539176940918
+  }
+}

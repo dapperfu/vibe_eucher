@@ -5,34 +5,34 @@ from typing import TYPE_CHECKING, List, Optional
 
 import numpy as np
 
-from src.cards import Card, Suit
-from src.computer_player import ComputerPlayer
-from src.ml_config import MLConfig
-from src.ml_decision_weights import (
+from eucher.cards import Card, Suit
+from eucher.players.computer.base import ComputerPlayer
+from eucher.players.computer.ml.ml_config import MLConfig
+from eucher.players.computer.ml.ml_decision_weights import (
     apply_temperature_threshold,
     get_decision_weights_from_probs,
     select_action_from_weights,
 )
-from src.ml_features import GameStateEncoder
-from src.ml_models_supervised import (
+from eucher.players.computer.ml.ml_features import GameStateEncoder
+from eucher.players.computer.ml.ml_models_supervised import (
     CallTrumpClassifier,
     DiscardCardClassifier,
     OrderUpClassifier,
     PlayCardClassifier,
 )
-from src.training.profiling import timed_operation
+from eucher.training.profiling import timed_operation
 
 if TYPE_CHECKING:
-    from src.players import Player
+    from eucher.players import Player
 
 # Optional imports for GAN and RL
 try:
-    from src.ml_models_gan import GANCardPlayModel
+    from eucher.players.computer.ml.ml_models_gan import GANCardPlayModel
 except ImportError:
     GANCardPlayModel = None  # type: ignore
 
 try:
-    from src.ml_models_rl import RLAgent
+    from eucher.players.computer.ml.ml_models_rl import RLAgent
 except ImportError:
     RLAgent = None  # type: ignore
 

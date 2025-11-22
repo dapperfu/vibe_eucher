@@ -1,6 +1,6 @@
 """PyTorch-based AI player implementation."""
 
-from src.ai_players.pytorch_player import PyTorchStrategicPlayer
+from eucher.players.computer.ml.pytorch.pytorch_player import PyTorchStrategicPlayer
 
 __all__ = ["PyTorchStrategicPlayer"]
 

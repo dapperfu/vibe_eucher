@@ -3,10 +3,10 @@
 import random
 from typing import List, Optional
 
-from src.cards import Card, Suit
-from src.game import Game
-from src.ml_training.data_collector import GameDataCollector, TrainingExample
-from src.rules import RulesEngine
+from eucher.cards import Card, Suit
+from eucher.game import Game
+from eucher.ml_training.data_collector import GameDataCollector, TrainingExample
+from eucher.rules import RulesEngine
 
 
 class MonteCarloCardSelector:
@@ -211,7 +211,7 @@ class MonteCarloCardSelector:
         """
         # Simplified: generate random valid cards
         # In a full implementation, we'd track all played cards
-        from src.cards import Deck
+        from eucher.cards import Deck
 
         deck = Deck()
         all_played = set(hand) | set(trick_cards)
@@ -235,7 +235,7 @@ def main() -> None:
     selector = MonteCarloCardSelector(num_simulations=100)
 
     # Example usage
-    from src.cards import Deck
+    from eucher.cards import Deck
 
     deck = Deck()
     deck.shuffle()

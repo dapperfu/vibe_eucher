@@ -5,15 +5,15 @@ from pathlib import Path
 
 import pytest
 
-from src.training.decision_format import DecisionRecord, DecisionType
-from src.training.review_data import (
+from eucher.training.decision_format import DecisionRecord, DecisionType
+from eucher.training.review_data import (
     DecisionReview,
     ReviewStatus,
     get_review_statistics,
     load_reviews,
     save_reviews,
 )
-from src.training.decision_reviewer import DecisionReviewer
+from eucher.training.decision_reviewer import DecisionReviewer
 
 
 class TestReviewData:
@@ -113,7 +113,7 @@ class TestDecisionReviewer:
             reviews_file = Path(tmpdir) / "reviews.json"
 
             # Create test decisions file
-            from src.training.decision_format import save_decisions
+            from eucher.training.decision_format import save_decisions
 
             decisions = [
                 DecisionRecord(

@@ -6,7 +6,7 @@ Tracks played cards from won tricks and estimates probabilities of remaining car
 from collections import defaultdict
 from typing import Dict, List, Optional, Set, Tuple
 
-from src.cards import Card, Rank, Suit
+from eucher.cards import Card, Rank, Suit
 
 
 class TrickHistoryTracker:
