@@ -7,8 +7,8 @@ that were saved with it (loss, rewards, epsilon, etc.).
 from pathlib import Path
 from typing import Optional
 
-from src.ml_config import MLConfig
-from src.ml_models_rl import RLAgent
+from eucher.players.computer.ml.ml_config import MLConfig
+from eucher.players.computer.ml.ml_models_rl import RLAgent
 
 
 def show_rl_stats(model_path: Optional[Path] = None) -> None:

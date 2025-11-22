@@ -4,9 +4,9 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from src.cards import Card, Rank, Suit
-from src.ml_features import GameStateEncoder
-from src.training.decision_format import DecisionRecord, DecisionType, load_decisions, validate_decision
+from eucher.cards import Card, Rank, Suit
+from eucher.players.computer.ml.ml_features import GameStateEncoder
+from eucher.training.decision_format import DecisionRecord, DecisionType, load_decisions, validate_decision
 
 
 class ExpertDecisionLoader:

@@ -5,7 +5,7 @@ from typing import Dict, List, Optional, Tuple
 
 from pony.orm import db_session, desc, select
 
-from src.models import (
+from eucher.models import (
     CardPlay,
     Game,
     GamePlayer,

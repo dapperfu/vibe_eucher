@@ -2,10 +2,10 @@
 
 import pytest
 
-from src.ai import AIDecisionMaker
-from src.cards import Card, Rank, Suit
-from src.player_profiles import AIBasedProfile, HumanProfile, SimpleRuleBasedProfile
-from src.players import Player
+from eucher.ai import AIDecisionMaker
+from eucher.cards import Card, Rank, Suit
+from eucher.players.profiles import AIBasedProfile, HumanProfile, SimpleRuleBasedProfile
+from eucher.players import Player
 
 
 class TestPlayer:
@@ -135,7 +135,7 @@ class TestHumanProfile:
 
     def test_set_tui(self) -> None:
         """Test setting TUI."""
-        from src.tui import TextTUI
+        from eucher.tui import TextTUI
 
         profile = HumanProfile()
         tui = TextTUI()

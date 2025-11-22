@@ -4,8 +4,8 @@ import time
 from pathlib import Path
 from typing import Callable, Optional
 
-from src.training.convergence_tracker import ConvergenceTracker
-from src.training.training_scheduler import TrainingScheduler
+from eucher.training.convergence_tracker import ConvergenceTracker
+from eucher.training.training_scheduler import TrainingScheduler
 
 
 class TrainingOrchestrator:

@@ -3,8 +3,8 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from src.cards import Card, Rank, Suit
-from src.models import (
+from eucher.cards import Card, Rank, Suit
+from eucher.models import (
     CardPlay,
     Game,
     GamePlayer,

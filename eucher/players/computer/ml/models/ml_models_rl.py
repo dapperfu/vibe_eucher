@@ -9,8 +9,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from src.cards import Card, Suit
-from src.ml_config import MLConfig
+from eucher.cards import Card, Suit
+from eucher.players.computer.ml.ml_config import MLConfig
 
 
 class ExperienceReplayBuffer:
@@ -204,7 +204,7 @@ class RLAgent:
 
         # Apply temperature threshold if provided
         if temperature is not None:
-            from src.ml_decision_weights import apply_temperature_threshold
+            from eucher.players.computer.ml.ml_decision_weights import apply_temperature_threshold
 
             filtered_indices, filtered_weights = apply_temperature_threshold(
                 q_vals_normalized, temperature, valid_card_indices

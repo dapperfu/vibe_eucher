@@ -3,8 +3,8 @@
 import argparse
 from pathlib import Path
 
-from src.ml_config import MLConfig
-from src.training.self_play import SelfPlayTrainer
+from eucher.players.computer.ml.ml_config import MLConfig
+from eucher.training.self_play import SelfPlayTrainer
 
 
 def main() -> None:

@@ -8,12 +8,12 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from src.game import Game
-from src.ml_config import MLConfig
-from src.ml_features import GameStateEncoder
-from src.ml_models_rl import ExperienceReplayBuffer, RLAgent
-from src.training.convergence_tracker import ConvergenceTracker
-from src.training.training_orchestrator import TrainingOrchestrator
+from eucher.game import Game
+from eucher.players.computer.ml.ml_config import MLConfig
+from eucher.players.computer.ml.ml_features import GameStateEncoder
+from eucher.players.computer.ml.ml_models_rl import ExperienceReplayBuffer, RLAgent
+from eucher.training.convergence_tracker import ConvergenceTracker
+from eucher.training.training_orchestrator import TrainingOrchestrator
 
 
 def calculate_reward(
@@ -191,7 +191,7 @@ def train_rl_through_self_play(
     use_orchestrator = orchestrator is not None
 
     # Setup progress display
-    from src.training.training_progress import TrainingProgressDisplay
+    from eucher.training.training_progress import TrainingProgressDisplay
 
     progress_display = None
     live_display = None

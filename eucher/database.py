@@ -35,7 +35,7 @@ def init_database(database_path: Optional[str] = None, create_tables: bool = Tru
     )
 
     # Import models to register them with the database
-    from src.models import (  # noqa: F401
+    from eucher.models import (  # noqa: F401
         CardPlay,
         Game,
         GamePlayer,

@@ -8,8 +8,8 @@ from typing import List, Optional, Tuple
 import click
 from faker import Faker
 
-from src.database import init_database
-from src.db_queries import (
+from eucher.database import init_database
+from eucher.db_queries import (
     filter_games_by_profile_type,
     get_game,
     get_game_statistics,
@@ -28,14 +28,14 @@ from src.db_queries import (
     list_players,
     search_games,
 )
-from src.db_serializers import (
+from eucher.db_serializers import (
     game_to_dict,
     hand_to_dict,
     player_to_dict,
     trick_to_dict,
 )
-from src.game import Game
-from src.tui import TextTUI
+from eucher.game import Game
+from eucher.tui import TextTUI
 
 
 # Available computer player types

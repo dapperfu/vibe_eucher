@@ -2,8 +2,8 @@
 
 from typing import Dict, List, Optional, Tuple
 
-from src.cards import Card, Suit
-from src.players import Player
+from eucher.cards import Card, Suit
+from eucher.players import Player
 
 
 class TextTUI:
@@ -379,7 +379,7 @@ class TextTUI:
         current_team = current_player.team
         
         # Collect player information first to calculate column widths
-        from src.player_profiles import HumanProfile
+        from eucher.players.profiles import HumanProfile
         player_data = []
         for i in range(4):
             pid = (current_id + i) % 4
@@ -774,7 +774,7 @@ class TextTUI:
                 effective_led_suit = played_cards[0].suit
             
             if effective_led_suit is not None and effective_trump_suit is not None:
-                from src.rules import RulesEngine
+                from eucher.rules import RulesEngine
                 rules = RulesEngine()
                 current_winner_id = rules.determine_trick_winner(
                     played_cards, player_ids, effective_led_suit, effective_trump_suit
@@ -834,7 +834,7 @@ class TextTUI:
             self.display_table(player, led_suit, trump_suit)
 
         # Get valid cards to play
-        from src.rules import RulesEngine
+        from eucher.rules import RulesEngine
         rules = RulesEngine()
         valid_cards = rules.get_valid_plays(player.hand, led_suit, trump_suit)
         

@@ -2,8 +2,8 @@
 
 from typing import List, Optional
 
-from src.cards import Card, Suit
-from src.players import Player
+from eucher.cards import Card, Suit
+from eucher.players import Player
 
 
 class TrumpSelector:

@@ -5,10 +5,10 @@ Implements bower drawing strategy and card evaluation system.
 
 from typing import List, Optional, Tuple
 
-from src.cards import Card, Rank, Suit
-from src.rules import RulesEngine
+from eucher.cards import Card, Rank, Suit
+from eucher.rules import RulesEngine
 
-from src.ai_players.game_state_tracker import BowerProbabilityEstimator, TrickHistoryTracker
+from eucher.players.computer.ml.pytorch.game_state_tracker import BowerProbabilityEstimator, TrickHistoryTracker
 
 
 class CardEvaluationSystem:

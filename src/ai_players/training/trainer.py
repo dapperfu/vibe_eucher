@@ -93,8 +93,9 @@ class EuchreDataset(Dataset):
             Model-ready sample.
         """
         import json
-        from src.cards import Card, Rank, Suit
+
         from src.ai_players.game_state_tracker import TrickHistoryTracker
+        from src.cards import Card, Rank, Suit
 
         # Parse features if it's a string (for compatibility, not used in reconstruction)
         if isinstance(sample.get("features"), str):
@@ -158,8 +159,8 @@ class EuchreDataset(Dataset):
         Dict
             Model-ready sample.
         """
-        from src.cards import Suit
         from src.ai_players.game_state_tracker import TrickHistoryTracker
+        from src.cards import Suit
 
         # Parse cards
         hand = self._parse_cards(sample.get("hand", []))
@@ -541,11 +542,11 @@ class MultiDeviceTrainer:
         # Determine which output head to use based on action type
         action_type = batch.get("action_type", "play_card")
         target = batch.get("target")
-        
+
         if target is None:
             # No target - return dummy loss
             return torch.tensor(0.0, device=self.device, requires_grad=True)
-        
+
         # Ensure target is the right shape and type
         if isinstance(target, torch.Tensor):
             if target.dim() == 0:
@@ -691,7 +692,11 @@ class CumulativeTrainer:
         # Resume from checkpoint if requested
         if resume:
             try:
-                self.current_epoch, metrics, duration = self.checkpoint_manager.resume_from_checkpoint(
+                (
+                    self.current_epoch,
+                    metrics,
+                    duration,
+                ) = self.checkpoint_manager.resume_from_checkpoint(
                     self.model,
                     self._create_optimizer(learning_rate),
                 )

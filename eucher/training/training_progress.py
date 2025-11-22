@@ -9,9 +9,9 @@ from rich.panel import Panel
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 from rich.table import Table
 
-from src.training.convergence_tracker import ConvergenceTracker
-from src.training.training_orchestrator import TrainingOrchestrator
-from src.training.training_scheduler import TrainingScheduler
+from eucher.training.convergence_tracker import ConvergenceTracker
+from eucher.training.training_orchestrator import TrainingOrchestrator
+from eucher.training.training_scheduler import TrainingScheduler
 
 
 class TrainingProgressDisplay:

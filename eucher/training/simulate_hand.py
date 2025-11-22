@@ -2,9 +2,9 @@
 
 from typing import List, Optional
 
-from src.cards import Card, Deck, Suit
-from src.game import Game
-from src.ml_training.data_collector import GameDataCollector
+from eucher.cards import Card, Deck, Suit
+from eucher.game import Game
+from eucher.ml_training.data_collector import GameDataCollector
 
 
 class HandSimulator:
@@ -100,7 +100,7 @@ class HandSimulator:
                         return player.hand[0]
 
                     def play_card(self, player, led_suit, trump_suit, trick_cards, trick_player_ids):
-                        from src.rules import RulesEngine
+                        from eucher.rules import RulesEngine
                         rules = RulesEngine()
                         valid = rules.get_valid_plays(player.hand, led_suit, trump_suit)
                         import random
@@ -173,7 +173,7 @@ class HandSimulator:
                         return player.hand[0]
 
                     def play_card(self, player, led_suit, trump_suit, trick_cards, trick_player_ids):
-                        from src.rules import RulesEngine
+                        from eucher.rules import RulesEngine
                         rules = RulesEngine()
                         valid = rules.get_valid_plays(player.hand, led_suit, trump_suit)
                         import random

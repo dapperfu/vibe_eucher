@@ -6,7 +6,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from src.cards import Card, Suit
+from eucher.cards import Card, Suit
 
 
 class ReviewStatus(Enum):

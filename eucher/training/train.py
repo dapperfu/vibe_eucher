@@ -10,10 +10,10 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset
 
-from src.cards import Card, Rank, Suit
-from src.ml_config import MLConfig
-from src.ml_features import GameStateEncoder
-from src.ml_model import EuchreMLModel
+from eucher.cards import Card, Rank, Suit
+from eucher.players.computer.ml.ml_config import MLConfig
+from eucher.players.computer.ml.ml_features import GameStateEncoder
+from eucher.players.computer.ml.ml_model import EuchreMLModel
 
 
 class EuchreDataset(Dataset):

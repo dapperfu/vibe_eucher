@@ -2,7 +2,7 @@
 
 from typing import List, Tuple
 
-from src.game import Game
+from eucher.game import Game
 
 
 def create_ai_vs_ai_game(player_names: List[str] = None) -> Game:

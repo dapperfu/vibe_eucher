@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
-from src.cards import Card, Suit
+from eucher.cards import Card, Suit
 
 
 class DecisionType(Enum):

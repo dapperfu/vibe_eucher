@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from src.ml_features import GameStateEncoder
+from eucher.players.computer.ml.ml_features import GameStateEncoder
 
 
 class InputDocumentationGenerator:
@@ -137,7 +137,7 @@ class InputDocumentationGenerator:
         str
             Card name (e.g., "9_HEARTS", "JACK_CLUBS").
         """
-        from src.cards import Rank, Suit
+        from eucher.cards import Rank, Suit
 
         suits = list(Suit)
         ranks = list(Rank)

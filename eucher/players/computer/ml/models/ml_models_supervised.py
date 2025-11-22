@@ -8,8 +8,8 @@ import numpy as np
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.neural_network import MLPClassifier
 
-from src.cards import Card, Suit
-from src.ml_config import MLConfig
+from eucher.cards import Card, Suit
+from eucher.players.computer.ml.ml_config import MLConfig
 
 
 class OrderUpClassifier:

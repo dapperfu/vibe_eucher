@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.cards import Card, Deck, Rank, Suit
+from eucher.cards import Card, Deck, Rank, Suit
 
 
 class TestCard:

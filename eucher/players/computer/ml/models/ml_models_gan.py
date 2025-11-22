@@ -7,8 +7,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from src.cards import Card, Suit
-from src.ml_config import MLConfig
+from eucher.cards import Card, Suit
+from eucher.players.computer.ml.ml_config import MLConfig
 
 
 class EuchreGANGenerator(nn.Module):

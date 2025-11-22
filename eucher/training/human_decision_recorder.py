@@ -4,9 +4,9 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from src.cards import Card, Suit
-from src.ml_features import GameStateEncoder
-from src.training.decision_format import (
+from eucher.cards import Card, Suit
+from eucher.players.computer.ml.ml_features import GameStateEncoder
+from eucher.training.decision_format import (
     DecisionRecord,
     DecisionType,
     convert_decision_to_standard_format,
@@ -27,7 +27,7 @@ class HumanDecisionRecorder:
         output_file : Optional[Path]
             File to save recorded decisions. If None, uses default.
         """
-        from src.ml_config import MLConfig
+        from eucher.players.computer.ml.ml_config import MLConfig
 
         self.config = MLConfig()
         if output_file is None:
@@ -313,7 +313,7 @@ class HumanDecisionRecorder:
             List of loaded decisions.
         """
         if self.output_file.exists():
-            from src.training.decision_format import load_decisions
+            from eucher.training.decision_format import load_decisions
 
             self.recorded_decisions = load_decisions(str(self.output_file))
             return self.recorded_decisions

@@ -2,8 +2,8 @@
 
 import pytest
 
-from src.cards import Card, Rank, Suit
-from src.game import Game
+from eucher.cards import Card, Rank, Suit
+from eucher.game import Game
 
 
 class TestGame:
@@ -52,7 +52,7 @@ class TestGame:
 
     def test_set_tui(self) -> None:
         """Test setting TUI."""
-        from src.tui import TextTUI
+        from eucher.tui import TextTUI
 
         player_config = [
             ("Player 1", "human"),
@@ -64,7 +64,7 @@ class TestGame:
         tui = TextTUI()
         game.set_tui(tui)
         # Check that human profile has TUI set
-        from src.player_profiles import HumanProfile
+        from eucher.players.profiles import HumanProfile
         assert isinstance(game.players[0].profile, HumanProfile)
         assert game.players[0].profile.tui == tui
 

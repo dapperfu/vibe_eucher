@@ -7,7 +7,7 @@ from typing import Dict, Optional, Tuple
 
 import torch
 
-from src.ai_players.pytorch_networks import HybridNetwork, create_network
+from eucher.players.computer.ml.pytorch.pytorch_networks import HybridNetwork, create_network
 
 
 class ModelManager:

@@ -5,9 +5,9 @@ from typing import List, Optional
 import numpy as np
 import torch
 
-from src.cards import Card, Rank, Suit
+from eucher.cards import Card, Rank, Suit
 
-from src.ai_players.game_state_tracker import TrickHistoryTracker
+from eucher.players.computer.ml.pytorch.game_state_tracker import TrickHistoryTracker
 
 
 class EuchreFeatureEncoder:

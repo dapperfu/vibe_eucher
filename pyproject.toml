@@ -28,10 +28,10 @@ dev = [
 ]
 
 [project.scripts]
-eucher = "src.cli:main"
+eucher = "eucher.cli:main"
 
 [tool.setuptools]
-packages = ["src"]
+packages = ["eucher"]
 
 [tool.ruff]
 line-length = 100

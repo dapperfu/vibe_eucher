@@ -2,7 +2,7 @@
 
 from typing import List, Optional
 
-from src.cards import Card, Suit
+from eucher.cards import Card, Suit
 
 
 class RulesEngine:

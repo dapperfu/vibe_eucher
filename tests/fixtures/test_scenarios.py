@@ -2,7 +2,7 @@
 
 from typing import Dict, List
 
-from src.cards import Card, Rank, Suit
+from eucher.cards import Card, Rank, Suit
 from tests.fixtures.ml_test_data import (
     create_test_scenario_all_trump,
     create_test_scenario_bowers,

@@ -2,24 +2,18 @@
 
 from typing import List, Optional, Tuple
 
-from src.ai import AIDecisionMaker
-from src.cards import Card, Deck, Suit
-from src.ml_config import MLConfig
-from src.ml_features import GameStateEncoder
-from src.ml_model import EuchreMLModel
-from src.ml_player import MLPlayer
-from src.player_profiles import (
-    AIPlayer,
-    HeuristicPlayer,
-    HumanProfile,
-    MLBasedProfile,
-    PlayerProfile,
-    RandomPlayer,
-)
-from src.players import Player
-from src.rules import RulesEngine
-from src.training.profiling import timed_operation
-from src.trump import TrumpSelector
+from eucher.cards import Card, Deck, Suit
+from eucher.players import Player
+from eucher.players.computer.ai import AIDecisionMaker
+from eucher.players.computer.ml.ml_config import MLConfig
+from eucher.players.computer.ml.ml_features import GameStateEncoder
+from eucher.players.computer.ml.ml_model import EuchreMLModel
+from eucher.players.computer.ml.player import MLPlayer
+from eucher.players.computer import AIPlayer, HeuristicPlayer, RandomPlayer
+from eucher.players.profiles import HumanProfile, MLBasedProfile, PlayerProfile
+from eucher.rules import RulesEngine
+from eucher.training.profiling import timed_operation
+from eucher.trump import TrumpSelector
 
 
 class Game:
@@ -110,7 +104,7 @@ class Game:
         elif profile_type == "ml_pytorch":
             return self._create_ml_profile(player_id)
         elif profile_type == "pytorch_ai" or profile_type == "pytorch_strategic":
-            from src.ai_players.pytorch_player import PyTorchStrategicPlayer
+            from eucher.players.computer.ml.pytorch.pytorch_player import PyTorchStrategicPlayer
 
             return PyTorchStrategicPlayer()
         else:
