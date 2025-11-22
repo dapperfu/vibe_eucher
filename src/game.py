@@ -94,6 +94,10 @@ class Game:
         bool
             True if game should continue, False if game is over.
         """
+        # Reset trick winner for new hand (first trick always starts with player left of dealer)
+        if hasattr(self, "_last_trick_winner"):
+            delattr(self, "_last_trick_winner")
+
         # Start new hand log
         if self.tui is not None and hasattr(self.tui, "start_new_hand"):
             self.tui.start_new_hand()
