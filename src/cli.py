@@ -57,7 +57,8 @@ def cli() -> None:
     help="Computer player type for all opponents (if not specified, types are randomly chosen)",
 )
 @click.option("--name", default="You", help="Human player name")
-def play(opponent_type: Optional[str], name: str) -> None:
+@click.option("--seed", type=int, default=None, help="Random seed for reproducible games")
+def play(opponent_type: Optional[str], name: str, seed: Optional[int]) -> None:
     """
     Play a game of Euchre with 1 human player and 3 computer opponents.
 
@@ -65,8 +66,21 @@ def play(opponent_type: Optional[str], name: str) -> None:
     randomly assigned names using Faker. If --opponent-type is not specified,
     each opponent will have a randomly selected computer player type.
     """
+    # Initialize random seed if provided
+    if seed is not None:
+        random.seed(seed)
+        # Seed numpy random if available
+        try:
+            import numpy as np
+            np.random.seed(seed)
+        except ImportError:
+            pass
+    
     # Initialize Faker for generating opponent names
     fake = Faker()
+    # Seed Faker instance if seed is provided
+    if seed is not None:
+        fake.seed_instance(seed)
 
     # Generate 3 unique opponent names (first names only)
     opponent_names: List[str] = []

@@ -1,0 +1,38 @@
+         9072417 function calls (8115667 primitive calls) in 23.975 seconds
+
+   Ordered by: cumulative time
+   List reduced from 593 to 30 due to restriction <30>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+     14/2    0.000    0.000   23.973   11.987 /projects/vibe_eucher/src/training/profiling.py:220(wrapper)
+        2    0.000    0.000   23.973   11.986 /projects/vibe_eucher/src/training/self_play.py:167(run_training_round)
+        2    0.000    0.000   21.906   10.953 /projects/vibe_eucher/src/training/data_collector.py:288(save_data)
+       10    2.507    0.251   21.736    2.174 /usr/lib/python3.12/json/__init__.py:120(dump)
+   959820    2.454    0.000   17.938    0.000 /usr/lib/python3.12/json/encoder.py:414(_iterencode)
+1841440/959820    8.237    0.000   15.484    0.000 /usr/lib/python3.12/json/encoder.py:278(_iterencode_list)
+   959800    2.484    0.000   12.971    0.000 /usr/lib/python3.12/json/encoder.py:334(_iterencode_dict)
+2747045/2747039    3.538    0.000    3.544    0.000 {built-in method builtins.isinstance}
+       12    0.002    0.000    2.067    0.172 /projects/vibe_eucher/src/training/self_play.py:39(run_game_with_collection)
+      100    0.005    0.000    2.032    0.020 /projects/vibe_eucher/src/game.py:210(play_hand)
+      500    0.020    0.000    1.819    0.004 /projects/vibe_eucher/src/game.py:323(_play_trick)
+     2000    0.006    0.000    1.630    0.001 /projects/vibe_eucher/src/players.py:149(play_card)
+     2000    0.019    0.000    1.624    0.001 /projects/vibe_eucher/src/training/self_play.py:114(wrapper)
+   959810    1.292    0.000    1.292    0.000 {method 'write' of '_io.TextIOWrapper' objects}
+   873600    1.238    0.000    1.238    0.000 /usr/lib/python3.12/json/encoder.py:224(floatstr)
+     3322    0.067    0.000    1.097    0.000 /projects/vibe_eucher/src/ml_features.py:201(encode_game_state)
+     2000    0.034    0.000    0.787    0.000 /projects/vibe_eucher/src/training/data_collector.py:159(record_play_card_decision)
+    15390    0.131    0.000    0.714    0.000 /projects/vibe_eucher/src/ml_features.py:31(encode_card)
+      940    0.010    0.000    0.562    0.001 /projects/vibe_eucher/src/ml_player.py:428(play_card)
+     3322    0.032    0.000    0.538    0.000 /projects/vibe_eucher/src/ml_features.py:50(encode_hand)
+    37434    0.097    0.000    0.536    0.000 /projects/vibe_eucher/src/cards.py:119(__hash__)
+146095/71227    0.290    0.000    0.482    0.000 {built-in method builtins.hash}
+   108655    0.280    0.000    0.420    0.000 /usr/lib/python3.12/enum.py:1267(__hash__)
+     8000    0.037    0.000    0.326    0.000 /projects/vibe_eucher/src/rules.py:15(can_play_card)
+     2000    0.017    0.000    0.278    0.000 /projects/vibe_eucher/src/rules.py:171(get_valid_plays)
+     3322    0.018    0.000    0.229    0.000 /projects/vibe_eucher/src/ml_features.py:69(encode_trick_cards)
+    18224    0.058    0.000    0.224    0.000 /projects/vibe_eucher/src/rules.py:80(_card_matches_led_suit)
+     6000    0.028    0.000    0.209    0.000 /projects/vibe_eucher/src/rules.py:57(_can_follow_suit)
+    49429    0.130    0.000    0.193    0.000 /projects/vibe_eucher/src/cards.py:101(__eq__)
+      100    0.000    0.000    0.173    0.002 /projects/vibe_eucher/src/trump.py:33(select_trump)
+
+

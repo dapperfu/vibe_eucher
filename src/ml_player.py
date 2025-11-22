@@ -20,6 +20,7 @@ from src.ml_models_supervised import (
     OrderUpClassifier,
     PlayCardClassifier,
 )
+from src.training.profiling import timed_operation
 
 if TYPE_CHECKING:
     from src.players import Player
@@ -425,6 +426,7 @@ class MLPlayer(ComputerPlayer):
         # Fallback: discard lowest card
         return min(player.hand, key=lambda c: c.rank.value)
 
+    @timed_operation("MLPlayer.play_card")
     def play_card(
         self,
         player: "Player",

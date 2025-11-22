@@ -163,7 +163,7 @@ class InputDocumentationGenerator:
 
         with open(output_path, "w") as f:
             f.write("# Model Input Features Documentation\n\n")
-            f.write("This document describes all 236 input features used by the ML models.\n\n")
+            f.write("This document describes all 260 input features used by the ML models.\n\n")
             f.write("## Feature Overview\n\n")
             f.write("| Category | Count | Description |\n")
             f.write("|----------|-------|-------------|\n")
@@ -172,8 +172,9 @@ class InputDocumentationGenerator:
             f.write("| Trump Suit | 4 | One-hot encoding of trump suit |\n")
             f.write("| Led Suit | 4 | One-hot encoding of led suit |\n")
             f.write("| Trick Cards | 72 | 3 cards × 24 one-hot encodings |\n")
+            f.write("| Played Cards | 24 | Binary encoding of cards played in previous tricks |\n")
             f.write("| Positional | 12 | Player position, dealer, team, trick info |\n")
-            f.write("| **Total** | **236** | |\n\n")
+            f.write("| **Total** | **260** | |\n\n")
 
             # Group by category
             categories: Dict[str, List[Dict[str, Any]]] = {}
@@ -255,7 +256,7 @@ class InputDocumentationGenerator:
 </head>
 <body>
     <h1>Model Input Features Documentation</h1>
-    <p>This interactive document describes all 236 input features used by the ML models.</p>
+    <p>This interactive document describes all 260 input features used by the ML models.</p>
     
     <div>
         <input type="text" id="search" class="search-box" placeholder="Search features..." onkeyup="filterTable()">
@@ -304,13 +305,18 @@ class InputDocumentationGenerator:
             <td>3 cards × 24 one-hot encodings</td>
         </tr>
         <tr>
+            <td>Played Cards</td>
+            <td>24</td>
+            <td>Binary encoding of cards played in previous tricks</td>
+        </tr>
+        <tr>
             <td>Positional</td>
             <td>12</td>
             <td>Player position, dealer, team, trick info</td>
         </tr>
         <tr>
             <td><strong>Total</strong></td>
-            <td><strong>236</strong></td>
+            <td><strong>260</strong></td>
             <td></td>
         </tr>
     </table>

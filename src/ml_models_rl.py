@@ -84,7 +84,7 @@ class ExperienceReplayBuffer:
 class DQNNetwork(nn.Module):
     """Deep Q-Network for reinforcement learning."""
 
-    def __init__(self, input_size: int = 236, hidden_size: int = 128, output_size: int = 24) -> None:
+    def __init__(self, input_size: int = 260, hidden_size: int = 128, output_size: int = 24) -> None:
         """
         Initialize the DQN.
 

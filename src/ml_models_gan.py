@@ -14,7 +14,7 @@ from src.ml_config import MLConfig
 class EuchreGANGenerator(nn.Module):
     """Generator network for GAN-based card play decisions."""
 
-    def __init__(self, input_size: int = 236, hidden_size: int = 128, output_size: int = 24) -> None:
+    def __init__(self, input_size: int = 260, hidden_size: int = 128, output_size: int = 24) -> None:
         """
         Initialize the generator.
 
@@ -57,14 +57,14 @@ class EuchreGANGenerator(nn.Module):
 class EuchreGANDiscriminator(nn.Module):
     """Discriminator network for GAN-based decision evaluation."""
 
-    def __init__(self, input_size: int = 260, hidden_size: int = 128) -> None:
+    def __init__(self, input_size: int = 284, hidden_size: int = 128) -> None:
         """
         Initialize the discriminator.
 
         Parameters
         ----------
         input_size : int
-            Size of input (features + decision one-hot = 236 + 24 = 260).
+            Size of input (features + decision one-hot = 260 + 24 = 284).
         hidden_size : int
             Size of hidden layers.
         """
@@ -126,8 +126,8 @@ class GANCardPlayModel:
         self.device = config.device
 
         self.generator = EuchreGANGenerator().to(self.device)
-        # Discriminator input: features (236) + decision one-hot (24) = 260
-        self.discriminator = EuchreGANDiscriminator(input_size=260).to(self.device)
+        # Discriminator input: features (260) + decision one-hot (24) = 284
+        self.discriminator = EuchreGANDiscriminator(input_size=284).to(self.device)
 
     def predict(self, features: np.ndarray, valid_card_indices: List[int]) -> int:
         """

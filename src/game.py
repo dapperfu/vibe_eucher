@@ -18,6 +18,7 @@ from src.player_profiles import (
 )
 from src.players import Player
 from src.rules import RulesEngine
+from src.training.profiling import timed_operation
 from src.trump import TrumpSelector
 
 
@@ -207,6 +208,7 @@ class Game:
             if isinstance(player.profile, HumanProfile):
                 player.profile.set_tui(tui)
 
+    @timed_operation("Game.play_hand")
     def play_hand(self) -> bool:
         """
         Play a single hand.
@@ -264,7 +266,9 @@ class Game:
         # Log full trump-decision history into TUI for easier post-hand inspection
         if self.tui is not None and hasattr(self.tui, "log_trump_decision_history"):
             history = self.trump_selector.get_decision_history()
-            self.tui.log_trump_decision_history(history.get("order_up", []), history.get("call_trump", []))
+            self.tui.log_trump_decision_history(
+                history.get("order_up", []), history.get("call_trump", [])
+            )
 
         # If all passed, redeal
         if self.trump_suit is None:
@@ -273,6 +277,17 @@ class Game:
         # Update TUI with dealer info
         if self.tui is not None and hasattr(self.tui, "dealer_id"):
             self.tui.dealer_id = self.dealer_id
+
+        # Display trump decision summary before gameplay starts
+        if self.tui is not None and hasattr(self.tui, "display_trump_decision_summary"):
+            history = self.trump_selector.get_decision_history()
+            maker_name = getattr(self.trump_selector, "trump_maker_name", None)
+            self.tui.display_trump_decision_summary(
+                history.get("order_up", []),
+                history.get("call_trump", []),
+                self.trump_suit,
+                maker_name
+            )
 
         # Play 5 tricks
         tricks_won = [0, 0]  # Team 0 and Team 1
@@ -320,6 +335,7 @@ class Game:
         # Check for game end
         return not self._is_game_over()
 
+    @timed_operation("Game._play_trick")
     def _play_trick(self) -> int:
         """
         Play a single trick.

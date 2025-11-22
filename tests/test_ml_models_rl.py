@@ -17,16 +17,16 @@ class TestDQNNetwork:
 
     def test_forward_pass_produces_q_values(self) -> None:
         """Test that forward pass produces Q-values."""
-        network = DQNNetwork(input_size=236, hidden_size=128, output_size=24)
-        input_tensor = torch.randn(1, 236)
+        network = DQNNetwork(input_size=260, hidden_size=128, output_size=24)
+        input_tensor = torch.randn(1, 260)
         output = network(input_tensor)
         assert output.shape == (1, 24)
 
     def test_output_dimensions(self) -> None:
         """Test correct output dimensions."""
-        network = DQNNetwork(input_size=236, hidden_size=128, output_size=24)
+        network = DQNNetwork(input_size=260, hidden_size=128, output_size=24)
         batch_size = 5
-        input_tensor = torch.randn(batch_size, 236)
+        input_tensor = torch.randn(batch_size, 260)
         output = network(input_tensor)
         assert output.shape == (batch_size, 24)
 
@@ -34,7 +34,7 @@ class TestDQNNetwork:
         """Test device handling."""
         config = MLConfig()
         network = DQNNetwork().to(config.device)
-        input_tensor = torch.randn(1, 236).to(config.device)
+        input_tensor = torch.randn(1, 260).to(config.device)
         output = network(input_tensor)
         assert output.device == config.device
 
@@ -45,10 +45,10 @@ class TestExperienceReplayBuffer:
     def test_push_and_sample(self) -> None:
         """Test pushing experiences and sampling."""
         buffer = ExperienceReplayBuffer(capacity=100)
-        state = np.random.randn(236)
+        state = np.random.randn(260)
         action = 5
         reward = 1.0
-        next_state = np.random.randn(236)
+        next_state = np.random.randn(260)
         done = False
 
         buffer.push(state, action, reward, next_state, done)
@@ -66,8 +66,8 @@ class TestExperienceReplayBuffer:
     def test_capacity_limit(self) -> None:
         """Test that buffer respects capacity limit."""
         buffer = ExperienceReplayBuffer(capacity=10)
-        state = np.random.randn(236)
-        next_state = np.random.randn(236)
+        state = np.random.randn(260)
+        next_state = np.random.randn(260)
 
         # Push more than capacity
         for i in range(15):
@@ -78,8 +78,8 @@ class TestExperienceReplayBuffer:
     def test_sample_less_than_capacity(self) -> None:
         """Test sampling when buffer has fewer items than requested."""
         buffer = ExperienceReplayBuffer(capacity=100)
-        state = np.random.randn(236)
-        next_state = np.random.randn(236)
+        state = np.random.randn(260)
+        next_state = np.random.randn(260)
 
         # Push 5 items
         for i in range(5):
