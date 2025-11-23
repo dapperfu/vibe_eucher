@@ -6,33 +6,25 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
+from eucher.cards import Card, Suit
+from eucher.players.computer.ml.ml_features import GameStateEncoder
+
 try:
-    from src.cards import Card, Suit
-    from src.ml_features import GameStateEncoder
-    from src.training.system_info import (
+    from eucher.training.system_info import (
         format_system_info,
         get_system_info,
     )
 except ImportError:
-    # Try eucher package imports
-    from eucher.cards import Card, Suit
-    from eucher.players.computer.ml.ml_features import GameStateEncoder
-    try:
-        from eucher.training.system_info import (
-            format_system_info,
-            get_system_info,
-        )
-    except ImportError:
-        # Fallback if system_info not available
-        def get_system_info() -> Dict[str, any]:
-            """Fallback system info function."""
-            return {"timestamp": "", "hostname": "unknown"}
+    # Fallback if system_info not available
+    def get_system_info() -> Dict[str, any]:
+        """Fallback system info function."""
+        return {"timestamp": "", "hostname": "unknown"}
 
-        def format_system_info(info: Dict[str, any]) -> str:
-            """Fallback system info formatter."""
-            timestamp = info.get("timestamp", "unknown")
-            hostname = info.get("hostname", "unknown")
-            return f"Timestamp: {timestamp}\nHostname: {hostname}"
+    def format_system_info(info: Dict[str, any]) -> str:
+        """Fallback system info formatter."""
+        timestamp = info.get("timestamp", "unknown")
+        hostname = info.get("hostname", "unknown")
+        return f"Timestamp: {timestamp}\nHostname: {hostname}"
 
 
 class GameDataCollector:
@@ -47,10 +39,7 @@ class GameDataCollector:
         output_dir : Optional[Path]
             Directory to save collected data. If None, uses default from MLConfig.
         """
-        try:
-            from src.ml_config import MLConfig
-        except ImportError:
-            from eucher.players.computer.ml.ml_config import MLConfig
+        from eucher.players.computer.ml.ml_config import MLConfig
 
         self.config = MLConfig()
         if output_dir is None:

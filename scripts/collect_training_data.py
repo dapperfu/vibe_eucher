@@ -1,17 +1,17 @@
 """Script to collect training data by running games with Rich TUI."""
 
 import argparse
+import sys
 from pathlib import Path
 
-from eucher.players.computer.ml.ml_config import MLConfig
+# Add project root to path so eucher package can be imported
+project_root = Path(__file__).parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
 
-# Import from src version which has the correct API
-import sys
-src_path = Path(__file__).parent.parent / "src"
-if str(src_path) not in sys.path:
-    sys.path.insert(0, str(src_path))
-from training.self_play import SelfPlayTrainer
-from training.data_collection_progress import DataCollectionProgress
+from eucher.players.computer.ml.ml_config import MLConfig
+from eucher.training.self_play import SelfPlayTrainer
+from eucher.training.data_collection_progress import DataCollectionProgress
 
 
 def main() -> None:

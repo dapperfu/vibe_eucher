@@ -20,11 +20,11 @@ from tqdm import tqdm
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.ai_players.pytorch_player import PyTorchStrategicPlayer
-from src.cards import Card, Rank, Suit
-from src.game import Game
-from src.players import Player
-from src.player_profiles import PlayerProfile
+from eucher.ai_players.pytorch_player import PyTorchStrategicPlayer
+from eucher.cards import Card, Rank, Suit
+from eucher.game import Game
+from eucher.players import Player
+from eucher.players.profiles import PlayerProfile
 
 try:
     import torch

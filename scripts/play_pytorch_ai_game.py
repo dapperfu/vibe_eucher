@@ -14,11 +14,11 @@ from typing import List, Optional, Tuple
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.ai_players.pytorch_player import PyTorchStrategicPlayer
-from src.cards import Card, Suit
-from src.game import Game
-from src.players import Player
-from src.player_profiles import PlayerProfile
+from eucher.ai_players.pytorch_player import PyTorchStrategicPlayer
+from eucher.cards import Card, Suit
+from eucher.game import Game
+from eucher.players import Player
+from eucher.players.profiles import PlayerProfile
 
 
 class PyTorchPlayerProfile(PlayerProfile):
@@ -193,9 +193,9 @@ def create_custom_game(
     game.scores = [0, 0]
     game.trump_suit = None
     game.turned_card = None
-    from src.rules import RulesEngine
-    from src.trump import TrumpSelector
-    from src.ai import AIDecisionMaker
+    from eucher.rules import RulesEngine
+    from eucher.trump import TrumpSelector
+    from eucher.players.computer.ai import AIDecisionMaker
 
     game.rules = RulesEngine()
     game.trump_selector = None

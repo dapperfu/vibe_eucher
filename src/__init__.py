@@ -1,2 +1,0 @@
-"""Euchre game source package."""
-

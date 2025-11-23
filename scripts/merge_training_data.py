@@ -12,15 +12,12 @@ from typing import Dict, List, Optional
 import numpy as np
 
 try:
-    from src.training.system_info import get_system_info, format_system_info
+    from eucher.training.system_info import get_system_info, format_system_info
 except ImportError:
-    try:
-        from eucher.training.system_info import get_system_info, format_system_info
-    except ImportError:
-        def get_system_info() -> Dict[str, any]:
-            return {"timestamp": "", "hostname": "unknown"}
-        def format_system_info(info: Dict[str, any]) -> str:
-            return f"Timestamp: {info.get('timestamp', 'unknown')}\nHostname: {info.get('hostname', 'unknown')}"
+    def get_system_info() -> Dict[str, any]:
+        return {"timestamp": "", "hostname": "unknown"}
+    def format_system_info(info: Dict[str, any]) -> str:
+        return f"Timestamp: {info.get('timestamp', 'unknown')}\nHostname: {info.get('hostname', 'unknown')}"
 
 
 def find_training_data_files(data_dir: Path, file_extension: str = "npz") -> List[Path]:

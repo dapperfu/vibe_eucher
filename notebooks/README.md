@@ -18,6 +18,17 @@ This directory contains Jupyter notebooks for analyzing PyTorch AI player perfor
 - **20_visualizations.ipynb**: Comprehensive visualizations
 - **21_risk_factor_analysis.ipynb**: Risk factor performance analysis
 
+### 5x_* - Interactive Gameplay
+- **50_interactive_trick.ipynb**: Play a single trick interactively
+- **51_interactive_hand.ipynb**: Play a full hand interactively
+- **52_interactive_game.ipynb**: Play a full game interactively
+
+### 6x_* - AI Assistant
+- **60_ai_assistant_setup.ipynb**: Setup and benchmark AI Assistant
+- **61_ai_assistant_order_up.ipynb**: Analyze order up decisions with win probabilities
+- **62_ai_assistant_card_play.ipynb**: Analyze card play decisions with win percentages
+- **63_ai_assistant_full_analysis.ipynb**: Comprehensive decision analysis
+
 ## Usage
 
 1. Run Monte Carlo simulation first:
@@ -32,5 +43,20 @@ This directory contains Jupyter notebooks for analyzing PyTorch AI player perfor
 ## Requirements
 
 - Jupyter Notebook or JupyterLab
-- Python packages: numpy, pandas, matplotlib, seaborn, scipy
+- Python packages: numpy, pandas, matplotlib, seaborn, scipy, ipywidgets
 - Project dependencies (see requirements.txt)
+
+## Benchmarking
+
+Before using the AI Assistant (6x_* notebooks), run a benchmark to configure thinking time:
+
+```bash
+python scripts/benchmark_simulations.py
+```
+
+This will:
+- Measure simulation performance on your machine
+- Save benchmarks to `benchmarks/performance.json`
+- Configure thinking time presets (fast, quick, normal, thorough, deep)
+
+The AI Assistant uses these benchmarks to determine how many simulations to run for each thinking time preset.

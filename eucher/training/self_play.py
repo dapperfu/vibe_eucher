@@ -5,15 +5,8 @@ from pathlib import Path
 from typing import Callable, List, Optional, Tuple
 
 from eucher.game import Game
+from eucher.training.data_collector import GameDataCollector
 from eucher.training.profiling import timed_operation
-
-# Import from src version which has the correct API
-import sys
-from pathlib import Path
-src_path = Path(__file__).parent.parent.parent / "src"
-if str(src_path) not in sys.path:
-    sys.path.insert(0, str(src_path))
-from training.data_collector import GameDataCollector
 
 
 class SelfPlayTrainer:
