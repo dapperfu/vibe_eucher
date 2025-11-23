@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Dict, List, Optional
 
+import numpy as np
 import pandas as pd
 
 
@@ -35,7 +36,7 @@ class TrainingDataManager:
         dataset_name : str
             Name of dataset (e.g., "play_card", "order_up").
         format : str
-            Format to load ("csv", "json", "parquet", "auto").
+            Format to load ("csv", "json", "parquet", "npz", "auto").
 
         Returns
         -------
@@ -44,7 +45,7 @@ class TrainingDataManager:
         """
         # Try different formats
         if format == "auto":
-            formats = ["parquet", "csv", "json"]
+            formats = ["npz", "parquet", "csv", "json"]
         else:
             formats = [format]
 
@@ -79,7 +80,23 @@ class TrainingDataManager:
         pd.DataFrame
             Loaded data.
         """
-        if format == "parquet":
+        if format == "npz":
+            # Load .npz file with X (features) and y (decisions) arrays
+            data = np.load(file_path)
+            X = data["X"]
+            y = data["y"]
+            
+            # Convert to DataFrame format expected by EuchreDataset
+            # Each row should have "features" (as list) and "decision" fields
+            records = []
+            for i in range(len(X)):
+                records.append({
+                    "features": X[i].tolist(),  # Convert numpy array to list
+                    "decision": int(y[i]),  # Convert numpy scalar to Python int
+                })
+            
+            return pd.DataFrame(records)
+        elif format == "parquet":
             try:
                 return pd.read_parquet(file_path)
             except ImportError:
@@ -202,6 +219,9 @@ class TrainingDataManager:
             List of dataset names.
         """
         datasets = set()
+        for file_path in self.data_dir.glob("training_*.npz"):
+            name = file_path.stem.replace("training_", "")
+            datasets.add(name)
         for file_path in self.data_dir.glob("training_*.parquet"):
             name = file_path.stem.replace("training_", "")
             datasets.add(name)
