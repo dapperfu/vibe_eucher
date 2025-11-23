@@ -470,6 +470,7 @@ def list(as_json: bool) -> None:
     Shows information about each bot type including how they were trained
     and their playing characteristics.
     """
+    # Only list bots that are in COMPUTER_TYPES (the officially supported ones)
     bots_info = [
         {
             "name": "random",
@@ -486,18 +487,7 @@ def list(as_json: bool) -> None:
         {
             "name": "simple",
             "display_name": "Simple/Heuristic Player",
-            "personality": "Rule-based player using basic Euchre heuristics and strategies.",
-            "training_method": "None - uses hardcoded rule-based logic",
-            "characteristics": [
-                "Follows basic Euchre rules and conventions",
-                "Makes decisions based on card strength",
-                "Considers trump suit when available",
-                "Predictable but competent play"
-            ]
-        },
-        {
-            "name": "heuristic",
-            "display_name": "Heuristic Player",
+            "aliases": ["heuristic"],
             "personality": "Rule-based player using basic Euchre heuristics and strategies.",
             "training_method": "None - uses hardcoded rule-based logic",
             "characteristics": [
@@ -522,18 +512,7 @@ def list(as_json: bool) -> None:
         {
             "name": "ml",
             "display_name": "ML Player (sklearn)",
-            "personality": "Machine learning player trained on collected game data using supervised learning.",
-            "training_method": "Supervised learning - trained on collected game data using sklearn models (Random Forest, Gradient Boosting, or Neural Network)",
-            "characteristics": [
-                "Learns from historical game data",
-                "Makes decisions based on patterns in training data",
-                "Supports multiple model types (random_forest, gradient_boosting, neural_network)",
-                "Requires training data collection before use"
-            ]
-        },
-        {
-            "name": "ml_sklearn",
-            "display_name": "ML Player (sklearn)",
+            "aliases": ["ml_sklearn"],
             "personality": "Machine learning player trained on collected game data using supervised learning.",
             "training_method": "Supervised learning - trained on collected game data using sklearn models (Random Forest, Gradient Boosting, or Neural Network)",
             "characteristics": [
@@ -554,56 +533,6 @@ def list(as_json: bool) -> None:
                 "Supports risk/temperature tuning for play style",
                 "Requires trained model files"
             ]
-        },
-        {
-            "name": "ml_rl",
-            "display_name": "ML Player (Reinforcement Learning)",
-            "personality": "Reinforcement learning player trained through self-play with reward signals.",
-            "training_method": "Reinforcement learning - learns through self-play with reward signals for successful strategies",
-            "characteristics": [
-                "Learns optimal strategies through trial and error",
-                "Adapts based on game outcomes",
-                "Reward-based learning (bidding, trick play, hand outcomes)",
-                "Requires training through self-play sessions"
-            ]
-        },
-        {
-            "name": "ml_gan",
-            "display_name": "ML Player (GAN)",
-            "personality": "Generative adversarial network player that learns optimal play strategies through adversarial training.",
-            "training_method": "GAN training - learns through adversarial training on expert/human decision data",
-            "characteristics": [
-                "Generates optimal play strategies",
-                "Trained on expert decision data",
-                "Adversarial learning approach",
-                "Requires GAN training before use"
-            ]
-        },
-        {
-            "name": "pytorch_ai",
-            "display_name": "PyTorch Strategic AI",
-            "personality": "Advanced PyTorch-based strategic player with transformer architecture and strategic overrides.",
-            "training_method": "PyTorch training - transformer-based architecture trained on game data with strategic decision-making",
-            "characteristics": [
-                "Transformer-based architecture",
-                "Strategic decision overrides",
-                "Perfect memory of played cards",
-                "Deductive reasoning about unseen cards",
-                "Risk-tuned decision making"
-            ]
-        },
-        {
-            "name": "pytorch_strategic",
-            "display_name": "PyTorch Strategic AI",
-            "personality": "Advanced PyTorch-based strategic player with transformer architecture and strategic overrides.",
-            "training_method": "PyTorch training - transformer-based architecture trained on game data with strategic decision-making",
-            "characteristics": [
-                "Transformer-based architecture",
-                "Strategic decision overrides",
-                "Perfect memory of played cards",
-                "Deductive reasoning about unseen cards",
-                "Risk-tuned decision making"
-            ]
         }
     ]
     
@@ -615,7 +544,10 @@ def list(as_json: bool) -> None:
         click.echo()
         
         for bot in bots_info:
-            click.echo(f"Bot: {bot['display_name']} ({bot['name']})")
+            aliases_str = ""
+            if "aliases" in bot:
+                aliases_str = f" (aliases: {', '.join(bot['aliases'])})"
+            click.echo(f"Bot: {bot['display_name']} ({bot['name']}{aliases_str})")
             click.echo(f"  Personality: {bot['personality']}")
             click.echo(f"  Training Method: {bot['training_method']}")
             click.echo("  Characteristics:")
