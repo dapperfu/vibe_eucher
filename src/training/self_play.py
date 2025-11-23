@@ -170,7 +170,6 @@ class SelfPlayTrainer:
         num_games: int = 100,
         player_combinations: Optional[List[List[Tuple[str, str]]]] = None,
         save_data: bool = True,
-        save_csv: bool = False,
     ) -> None:
         """
         Run a round of training games with various player combinations.
@@ -183,8 +182,6 @@ class SelfPlayTrainer:
             List of player configurations to test. If None, uses default combinations.
         save_data : bool
             Whether to save collected data at the end. Set False for batched saves.
-        save_csv : bool
-            Whether to save CSV files (can be slow for large datasets).
         """
         if player_combinations is None:
             player_combinations = self._get_default_combinations()
@@ -199,7 +196,8 @@ class SelfPlayTrainer:
 
         if save_data:
             print("\nSaving collected data...")
-            self.data_collector.save_data(save_csv=save_csv)
+            saved_files = self.data_collector.save_data(use_uuid_naming=True)
+            print(f"Saved {len(saved_files)} files with UUID-based naming")
 
     def _get_default_combinations(self) -> List[List[Tuple[str, str]]]:
         """

@@ -5,8 +5,15 @@ from pathlib import Path
 from typing import Callable, List, Optional, Tuple
 
 from eucher.game import Game
-from eucher.training.data_collector import GameDataCollector
 from eucher.training.profiling import timed_operation
+
+# Import from src version which has the correct API
+import sys
+from pathlib import Path
+src_path = Path(__file__).parent.parent.parent / "src"
+if str(src_path) not in sys.path:
+    sys.path.insert(0, str(src_path))
+from training.data_collector import GameDataCollector
 
 
 class SelfPlayTrainer:
@@ -170,7 +177,6 @@ class SelfPlayTrainer:
         num_games: int = 100,
         player_combinations: Optional[List[List[Tuple[str, str]]]] = None,
         save_data: bool = True,
-        save_csv: bool = True,
     ) -> None:
         """
         Run a round of training games with various player combinations.
@@ -183,8 +189,6 @@ class SelfPlayTrainer:
             List of player configurations to test. If None, uses default combinations.
         save_data : bool
             Whether to save collected data at the end. Set False for batched saves.
-        save_csv : bool
-            Whether to save CSV files (can be slow for large datasets).
         """
         if player_combinations is None:
             player_combinations = self._get_default_combinations()
@@ -199,7 +203,7 @@ class SelfPlayTrainer:
 
         if save_data:
             print("\nSaving collected data...")
-            self.data_collector.save_data(save_csv=save_csv)
+            self.data_collector.save_data()
 
     def _get_default_combinations(self) -> List[List[Tuple[str, str]]]:
         """

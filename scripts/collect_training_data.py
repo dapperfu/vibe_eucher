@@ -1,10 +1,17 @@
-"""Script to collect training data by running games."""
+"""Script to collect training data by running games with Rich TUI."""
 
 import argparse
 from pathlib import Path
 
 from eucher.players.computer.ml.ml_config import MLConfig
-from eucher.training.self_play import SelfPlayTrainer
+
+# Import from src version which has the correct API
+import sys
+src_path = Path(__file__).parent.parent / "src"
+if str(src_path) not in sys.path:
+    sys.path.insert(0, str(src_path))
+from training.self_play import SelfPlayTrainer
+from training.data_collection_progress import DataCollectionProgress
 
 
 def main() -> None:
@@ -26,7 +33,25 @@ def main() -> None:
         "--data_prefix",
         type=str,
         default="training",
-        help="Prefix for data filenames",
+        help="Prefix for data filenames (used only with --use-prefix-naming)",
+    )
+    parser.add_argument(
+        "--use-prefix-naming",
+        action="store_true",
+        help="Use prefix-based naming instead of UUID-based naming (default: UUID)",
+    )
+    parser.add_argument(
+        "--file-extension",
+        type=str,
+        default="npz",
+        choices=["npz", "ngz"],
+        help="File extension to use (default: npz)",
+    )
+    parser.add_argument(
+        "--refresh_rate",
+        type=float,
+        default=2.0,
+        help="Display refresh rate in updates per second (default: 2.0)",
     )
 
     args = parser.parse_args()
@@ -34,23 +59,95 @@ def main() -> None:
     config = MLConfig()
     output_dir = Path(args.output_dir) if args.output_dir else config.training_data_dir
 
-    print("=" * 60)
-    print("Collecting Training Data")
-    print("=" * 60)
-    print(f"Output directory: {output_dir}")
-    print(f"Number of games: {args.num_games}")
-    print()
-
+    # Create trainer
     trainer = SelfPlayTrainer(output_dir=output_dir)
-    trainer.run_training_round(num_games=args.num_games)
 
-    print("\n" + "=" * 60)
-    print("Data Collection Complete!")
-    print("=" * 60)
-    print(f"Data saved to: {output_dir}")
-    print(f"Files: {args.data_prefix}_*.json and {args.data_prefix}_*.csv")
+    # Get default combinations
+    combinations = trainer._get_default_combinations()
+    num_combinations = len(combinations)
+    games_per_combination = args.num_games // num_combinations
+    remaining_games = args.num_games % num_combinations  # Handle remainder
+
+    # Create progress display
+    progress = DataCollectionProgress(
+        total_games=args.num_games,
+        num_combinations=num_combinations,
+        refresh_rate=args.refresh_rate,
+    )
+
+    # Start live display
+    live_display = progress.start_live_display()
+    live_display.__enter__()
+
+    try:
+        # Track previous sample counts to calculate deltas
+        prev_order_up = 0
+        prev_call_trump = 0
+        prev_play_card = 0
+        prev_discard = 0
+
+        # Run games for each combination
+        for combo_idx, combo in enumerate(combinations):
+            combo_name = f"{combo[0][1]}/{combo[1][1]}/{combo[2][1]}/{combo[3][1]}"
+            progress.set_combination(combo_idx, combo_name)
+
+            # Add extra game to first few combinations if there's a remainder
+            combo_games = games_per_combination + (1 if combo_idx < remaining_games else 0)
+            
+            for game_num in range(combo_games):
+                # Run game
+                trainer.run_game_with_collection(combo)
+
+                # Calculate samples collected in this game
+                collector = trainer.data_collector
+                order_up_delta = len(collector.order_up_data) - prev_order_up
+                call_trump_delta = len(collector.call_trump_data) - prev_call_trump
+                play_card_delta = len(collector.play_card_data) - prev_play_card
+                discard_delta = len(collector.discard_data) - prev_discard
+
+                # Update progress
+                progress.update_game_completed(
+                    order_up_samples=order_up_delta,
+                    call_trump_samples=call_trump_delta,
+                    play_card_samples=play_card_delta,
+                    discard_samples=discard_delta,
+                )
+
+                # Update previous counts
+                prev_order_up = len(collector.order_up_data)
+                prev_call_trump = len(collector.call_trump_data)
+                prev_play_card = len(collector.play_card_data)
+                prev_discard = len(collector.discard_data)
+
+                # Update live display
+                if game_num % 5 == 0:  # Update every 5 games to reduce overhead
+                    progress.update_live_display(live_display)
+
+        # Final update
+        progress.update_live_display(live_display)
+
+        # Save collected data
+        saved_files = trainer.data_collector.save_data(
+            prefix=args.data_prefix if args.use_prefix_naming else None,
+            use_uuid_naming=not args.use_prefix_naming,
+            file_extension=args.file_extension,
+        )
+
+    finally:
+        # Close live display
+        live_display.__exit__(None, None, None)
+        progress.print_summary()
+
+    # Print file locations
+    from rich.console import Console
+    console = Console()
+    console.print(f"\n[green]✓[/green] Data saved to: [bold]{output_dir}[/bold]")
+    if args.use_prefix_naming:
+        console.print(f"[green]✓[/green] Files: [bold]{args.data_prefix}_*.{args.file_extension}[/bold]")
+    else:
+        console.print(f"[green]✓[/green] Saved {len(saved_files)} files with UUID-based naming")
+        console.print(f"[green]✓[/green] File extension: [bold].{args.file_extension}[/bold]")
 
 
 if __name__ == "__main__":
     main()
-

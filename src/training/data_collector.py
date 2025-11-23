@@ -1,14 +1,38 @@
 """Data collection for training ML models."""
 
-import json
+import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import numpy as np
-import pandas as pd
 
-from src.cards import Card, Suit
-from src.ml_features import GameStateEncoder
+try:
+    from src.cards import Card, Suit
+    from src.ml_features import GameStateEncoder
+    from src.training.system_info import (
+        format_system_info,
+        get_system_info,
+    )
+except ImportError:
+    # Try eucher package imports
+    from eucher.cards import Card, Suit
+    from eucher.players.computer.ml.ml_features import GameStateEncoder
+    try:
+        from eucher.training.system_info import (
+            format_system_info,
+            get_system_info,
+        )
+    except ImportError:
+        # Fallback if system_info not available
+        def get_system_info() -> Dict[str, any]:
+            """Fallback system info function."""
+            return {"timestamp": "", "hostname": "unknown"}
+
+        def format_system_info(info: Dict[str, any]) -> str:
+            """Fallback system info formatter."""
+            timestamp = info.get("timestamp", "unknown")
+            hostname = info.get("hostname", "unknown")
+            return f"Timestamp: {timestamp}\nHostname: {hostname}"
 
 
 class GameDataCollector:
@@ -23,7 +47,10 @@ class GameDataCollector:
         output_dir : Optional[Path]
             Directory to save collected data. If None, uses default from MLConfig.
         """
-        from src.ml_config import MLConfig
+        try:
+            from src.ml_config import MLConfig
+        except ImportError:
+            from eucher.players.computer.ml.ml_config import MLConfig
 
         self.config = MLConfig()
         if output_dir is None:
@@ -286,27 +313,38 @@ class GameDataCollector:
         })
 
     def save_data(
-        self, prefix: str = "training", save_csv: bool = False, save_json: bool = False
-    ) -> None:
+        self,
+        prefix: Optional[str] = None,
+        use_uuid_naming: bool = True,
+        append: bool = True,
+        file_extension: str = "npz",
+    ) -> List[Path]:
         """
         Save collected data to files.
 
-        Uses NumPy .npz format by default (fast, binary, preserves precision).
-        JSON can be enabled for backward compatibility or manual inspection.
+        Uses UUID-based naming by default for easy rsync and accumulation across machines.
+        Each dataset gets its own UUID and metadata file.
 
         Parameters
         ----------
-        prefix : str
-            Prefix for output filenames.
-        save_csv : bool
-            Whether to save CSV files. Default False - CSV files are not used by training
-            and add significant overhead. Only enable if you need them for manual analysis.
-        save_json : bool
-            Whether to also save JSON files. Default False - JSON is slower and can lose precision.
-            Only enable for backward compatibility or manual inspection.
+        prefix : Optional[str]
+            Prefix for output filenames. If None and use_uuid_naming is False, uses "training".
+            Ignored if use_uuid_naming is True.
+        use_uuid_naming : bool
+            If True, uses UUID-based naming (<UUID>.npz with <UUID>.txt metadata).
+            If False, uses traditional prefix-based naming.
+        append : bool
+            If True and use_uuid_naming is False, appends to existing files.
+            If False, overwrites existing files.
+        file_extension : str
+            File extension to use (default: "npz"). Can be "npz" or "ngz".
+
+        Returns
+        -------
+        List[Path]
+            List of paths to saved files.
         """
-        # Save as NumPy .npz format (fast, binary, preserves precision, compressed)
-        # This is the preferred format for ML training data
+        saved_files: List[Path] = []
         datasets = [
             ("order_up", self.order_up_data),
             ("call_trump", self.call_trump_data),
@@ -314,89 +352,161 @@ class GameDataCollector:
             ("discard", self.discard_data),
         ]
 
+        # Get system info for metadata
+        system_info = get_system_info()
+        metadata_text = format_system_info(system_info)
+
         for name, data_list in datasets:
-            if data_list:
-                # Extract features and decisions as numpy arrays
-                features_list = [item["features"] for item in data_list]
-                decisions_list = [item["decision"] for item in data_list]
+            if not data_list:
+                continue
 
-                # Convert to numpy arrays (much faster than JSON)
-                X = np.array(features_list, dtype=np.float32)
-                y = np.array(decisions_list, dtype=np.int32)
+            # Extract features and decisions as numpy arrays
+            features_list = [item["features"] for item in data_list]
+            decisions_list = [item["decision"] for item in data_list]
 
-                # Save as compressed NumPy archive
-                npz_file = self.output_dir / f"{prefix}_{name}.npz"
-                np.savez_compressed(npz_file, X=X, y=y)
+            # Convert to numpy arrays (much faster than JSON)
+            X_new = np.array(features_list, dtype=np.float32)
+            y_new = np.array(decisions_list, dtype=np.int32)
 
-        # Save game outcomes as JSON (small, not used for training)
-        outcomes_file = self.output_dir / f"{prefix}_outcomes.json"
-        with open(outcomes_file, "w") as f:
-            json.dump(self.game_outcomes, f, separators=(',', ':'))
+            if use_uuid_naming:
+                # Generate UUID for this dataset
+                dataset_uuid = str(uuid.uuid4())
+                npz_file = self.output_dir / f"{dataset_uuid}.{file_extension}"
+                metadata_file = self.output_dir / f"{dataset_uuid}.txt"
 
-        # Optional: Save JSON for backward compatibility or manual inspection
-        if save_json:
-            order_up_file = self.output_dir / f"{prefix}_order_up.json"
-            call_trump_file = self.output_dir / f"{prefix}_call_trump.json"
-            play_card_file = self.output_dir / f"{prefix}_play_card.json"
-            discard_file = self.output_dir / f"{prefix}_discard.json"
+                # Save data
+                np.savez_compressed(npz_file, X=X_new, y=y_new)
+                saved_files.append(npz_file)
 
-            with open(order_up_file, "w") as f:
-                json.dump(self.order_up_data, f, separators=(',', ':'))
-            with open(call_trump_file, "w") as f:
-                json.dump(self.call_trump_data, f, separators=(',', ':'))
-            with open(play_card_file, "w") as f:
-                json.dump(self.play_card_data, f, separators=(',', ':'))
-            with open(discard_file, "w") as f:
-                json.dump(self.discard_data, f, separators=(',', ':'))
+                # Save metadata with additional dataset info
+                metadata_content = metadata_text
+                metadata_content += f"\nDataset: {name}\n"
+                metadata_content += f"UUID: {dataset_uuid}\n"
+                metadata_content += f"File: {dataset_uuid}.{file_extension}\n"
+                metadata_content += f"Records: {len(data_list)}\n"
+                metadata_content += f"Features shape: {X_new.shape}\n"
+                metadata_content += f"Decisions shape: {y_new.shape}\n"
+                game_ids = set(item.get("game_id", "") for item in data_list)
+                metadata_content += f"Game IDs: {len(game_ids)}\n"
 
-        # CSV files are not used by training pipeline - only save if explicitly requested
-        # They add significant overhead (pandas DataFrame creation + CSV writing)
-        if save_csv:
-            if self.order_up_data:
-                df = pd.DataFrame(self.order_up_data)
-                df.to_csv(self.output_dir / f"{prefix}_order_up.csv", index=False)
-            if self.call_trump_data:
-                df = pd.DataFrame(self.call_trump_data)
-                df.to_csv(self.output_dir / f"{prefix}_call_trump.csv", index=False)
-            if self.play_card_data:
-                df = pd.DataFrame(self.play_card_data)
-                df.to_csv(self.output_dir / f"{prefix}_play_card.csv", index=False)
-            if self.discard_data:
-                df = pd.DataFrame(self.discard_data)
-                df.to_csv(self.output_dir / f"{prefix}_discard.csv", index=False)
+                with open(metadata_file, "w") as f:
+                    f.write(metadata_content)
+                saved_files.append(metadata_file)
 
-    def load_data(self, prefix: str = "training") -> Dict[str, List[Dict[str, Any]]]:
+            else:
+                # Traditional prefix-based naming with optional append
+                if prefix is None:
+                    prefix = "training"
+                npz_file = self.output_dir / f"{prefix}_{name}.{file_extension}"
+
+                if append and npz_file.exists():
+                    # Load existing data and append
+                    existing = np.load(npz_file)
+                    X_existing = existing["X"]
+                    y_existing = existing["y"]
+
+                    # Concatenate new data with existing
+                    X_combined = np.concatenate(
+                        [X_existing, X_new], axis=0
+                    )
+                    y_combined = np.concatenate(
+                        [y_existing, y_new], axis=0
+                    )
+
+                    # Save combined data
+                    np.savez_compressed(npz_file, X=X_combined, y=y_combined)
+                else:
+                    # Save new data (overwrite or create new)
+                    np.savez_compressed(npz_file, X=X_new, y=y_new)
+
+                saved_files.append(npz_file)
+
+        return saved_files
+
+    def load_data(
+        self,
+        prefix: Optional[str] = None,
+        use_uuid_naming: bool = True,
+        dataset_type: Optional[str] = None,
+    ) -> Dict[str, Dict[str, np.ndarray]]:
         """
-        Load previously collected data.
+        Load previously collected data from .npz or .ngz files.
 
         Parameters
         ----------
-        prefix : str
-            Prefix for input filenames.
+        prefix : Optional[str]
+            Prefix for input filenames (used only if use_uuid_naming is False).
+            If None and use_uuid_naming is False, uses "training".
+        use_uuid_naming : bool
+            If True, loads all UUID-based files in the directory.
+            If False, loads prefix-based files.
+        dataset_type : Optional[str]
+            If provided and use_uuid_naming is True, only loads files matching this dataset type.
+            Can be "order_up", "call_trump", "play_card", or "discard".
 
         Returns
         -------
-        Dict[str, List[Dict[str, Any]]]
-            Dictionary containing loaded data.
+        Dict[str, Dict[str, np.ndarray]]
+            Dictionary containing loaded data with 'X' (features) and 'y' (labels)
+            for each dataset. If use_uuid_naming is True, keys are dataset types.
+            Data is concatenated from all matching files.
         """
-        order_up_file = self.output_dir / f"{prefix}_order_up.json"
-        call_trump_file = self.output_dir / f"{prefix}_call_trump.json"
-        play_card_file = self.output_dir / f"{prefix}_play_card.json"
-        discard_file = self.output_dir / f"{prefix}_discard.json"
+        data: Dict[str, Dict[str, np.ndarray]] = {}
 
-        data = {}
-        if order_up_file.exists():
-            with open(order_up_file, "r") as f:
-                data["order_up"] = json.load(f)
-        if call_trump_file.exists():
-            with open(call_trump_file, "r") as f:
-                data["call_trump"] = json.load(f)
-        if play_card_file.exists():
-            with open(play_card_file, "r") as f:
-                data["play_card"] = json.load(f)
-        if discard_file.exists():
-            with open(discard_file, "r") as f:
-                data["discard"] = json.load(f)
+        if use_uuid_naming:
+            # Load all UUID-based files
+            # Find all .npz and .ngz files
+            npz_files = list(self.output_dir.glob("*.npz"))
+            ngz_files = list(self.output_dir.glob("*.ngz"))
+            data_files = npz_files + ngz_files
+
+            # Group by dataset type based on metadata
+            dataset_arrays: Dict[str, List[np.ndarray]] = {}
+            dataset_labels: Dict[str, List[np.ndarray]] = {}
+
+            for data_file in data_files:
+                # Try to find corresponding metadata file
+                metadata_file = data_file.with_suffix(".txt")
+                if metadata_file.exists():
+                    # Read metadata to determine dataset type
+                    with open(metadata_file) as f:
+                        metadata = f.read()
+                        # Extract dataset type from metadata
+                        dataset_name = None
+                        for line in metadata.split("\n"):
+                            if line.startswith("Dataset:"):
+                                dataset_name = line.split(":", 1)[1].strip()
+                                break
+
+                        if dataset_name and (dataset_type is None or dataset_name == dataset_type):
+                            # Load the data
+                            loaded = np.load(data_file)
+                            if dataset_name not in dataset_arrays:
+                                dataset_arrays[dataset_name] = []
+                                dataset_labels[dataset_name] = []
+                            dataset_arrays[dataset_name].append(loaded["X"])
+                            dataset_labels[dataset_name].append(loaded["y"])
+
+            # Concatenate all data for each dataset type
+            for dataset_name, X_list in dataset_arrays.items():
+                if X_list:
+                    X_combined = np.concatenate(X_list, axis=0)
+                    y_combined = np.concatenate(dataset_labels[dataset_name], axis=0)
+                    data[dataset_name] = {"X": X_combined, "y": y_combined}
+        else:
+            # Traditional prefix-based loading
+            if prefix is None:
+                prefix = "training"
+            datasets = ["order_up", "call_trump", "play_card", "discard"]
+
+            for dataset_name in datasets:
+                # Try both .npz and .ngz extensions
+                for ext in ["npz", "ngz"]:
+                    npz_file = self.output_dir / f"{prefix}_{dataset_name}.{ext}"
+                    if npz_file.exists():
+                        loaded = np.load(npz_file)
+                        data[dataset_name] = {"X": loaded["X"], "y": loaded["y"]}
+                        break
 
         return data
 
