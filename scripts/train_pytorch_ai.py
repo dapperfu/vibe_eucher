@@ -17,11 +17,11 @@ import torch
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.ai_players.pytorch_networks import create_network
-from src.ai_players.training.checkpoint_manager import CheckpointManager
-from src.ai_players.training.data_manager import TrainingDataManager
-from src.ai_players.training.trainer import CumulativeTrainer, EuchreDataset
-from src.training.pytorch_dashboard import PyTorchTrainingDashboard
+from eucher.ai_players.pytorch_networks import create_network
+from eucher.ai_players.training.checkpoint_manager import CheckpointManager
+from eucher.ai_players.training.data_manager import TrainingDataManager
+from eucher.ai_players.training.trainer import CumulativeTrainer, EuchreDataset
+from eucher.training.pytorch_dashboard import PyTorchTrainingDashboard
 
 
 class TrainingInterrupt(Exception):
@@ -287,7 +287,7 @@ def main() -> None:
         training_data = df.to_dict("records")
     
     # Import feature encoder for dataset
-    from src.ai_players.feature_encoder import EuchreFeatureEncoder
+    from eucher.ai_players.feature_encoder import EuchreFeatureEncoder
 
     feature_encoder = EuchreFeatureEncoder()
     

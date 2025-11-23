@@ -11,7 +11,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 
 from eucher.players.computer.ml.ml_config import MLConfig
-from eucher.players.computer.ml.ml_models_gan import EuchreGANGenerator, EuchreGANDiscriminator, GANCardPlayModel
+from eucher.players.computer.ml.models.ml_models_gan import EuchreGANGenerator, EuchreGANDiscriminator, GANCardPlayModel
 
 
 def load_training_data_for_gan(

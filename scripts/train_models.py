@@ -258,9 +258,7 @@ def main() -> None:
 
             game_count = 0
             # Batch save interval - save less frequently to reduce I/O overhead
-            # JSON saves are faster than CSV, so we can save JSON more often
             save_interval = 100 if enable_profiling else 50
-            csv_save_interval = 500 if enable_profiling else 200
             try:
                 while True:
                     # Check if should continue
@@ -276,15 +274,12 @@ def main() -> None:
                         (args.until_converged or args.duration) and not orchestrator.should_continue()
                     ) or (not args.until_converged and not args.duration and game_count >= args.num_games - 1)
                     
-                    should_save_json = is_final or (game_count % save_interval == 0)
-                    should_save_csv = is_final or (game_count % csv_save_interval == 0)
+                    should_save = is_final or (game_count % save_interval == 0)
                     
                     # Run training round (disable auto-save, we'll batch it)
-                    # CSV files are not used by training - skip them entirely
                     trainer.run_training_round(
                         num_games=1,
-                        save_data=should_save_json,
-                        save_csv=False,  # CSV not needed - training uses JSON
+                        save_data=should_save,
                     )
                     
                     game_count += 1
@@ -306,9 +301,10 @@ def main() -> None:
                                 progress_display.console.print(f"[yellow]Checkpoint saved at game {game_count}[/yellow]")
 
             finally:
-                # Final save of all collected data (JSON only - CSV not needed)
+                # Final save of all collected data
                 print("\nSaving final collected data...")
-                trainer.data_collector.save_data(save_csv=False)
+                saved_files = trainer.data_collector.save_data(use_uuid_naming=True)
+                print(f"Saved {len(saved_files)} files with UUID-based naming")
                 
                 if live_display:
                     live_display.__exit__(None, None, None)

@@ -42,8 +42,8 @@ echo ""
 # Step 2: Initialize PyTorch models (this will create models with correct feature size)
 # For quick training, we just need to initialize the models - they'll be trained on-the-fly
 python -c "
-from src.ml_config import MLConfig
-from src.ml_model import EuchreMLModel
+from eucher.players.computer.ml.ml_config import MLConfig
+from eucher.players.computer.ml.ml_model import EuchreMLModel
 import torch
 
 config = MLConfig()

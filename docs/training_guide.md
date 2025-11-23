@@ -42,7 +42,7 @@ Available model types:
 Trained models are automatically loaded when creating ML players:
 
 ```python
-from src.game import Game
+from eucher.game import Game
 
 # Create game with ML players
 player_config = [
@@ -87,7 +87,7 @@ The GAN training:
 After training, create ML players with GAN backend:
 
 ```python
-from src.ml_player import MLPlayer
+from eucher.players.computer.ml.player import MLPlayer
 
 # Create GAN-based player (automatically loads trained model if available)
 gan_player = MLPlayer(backend="gan", game_state_provider=get_game_state)
@@ -122,7 +122,7 @@ The RL training:
 Create ML players with RL backend:
 
 ```python
-from src.ml_player import MLPlayer
+from eucher.players.computer.ml.player import MLPlayer
 
 # Create RL-based player
 rl_player = MLPlayer(backend="rl", game_state_provider=get_game_state, training_mode=False)
@@ -135,7 +135,7 @@ rl_player = MLPlayer(backend="rl", game_state_provider=get_game_state, training_
 To collect human decisions for training:
 
 ```python
-from src.training.human_decision_recorder import HumanDecisionRecorder
+from eucher.training.human_decision_recorder import HumanDecisionRecorder
 
 recorder = HumanDecisionRecorder()
 recorder.start_game("game_1")
@@ -159,7 +159,7 @@ recorder.save()
 Load expert decisions from files:
 
 ```python
-from src.training.expert_decision_loader import ExpertDecisionLoader
+from eucher.training.expert_decision_loader import ExpertDecisionLoader
 
 loader = ExpertDecisionLoader()
 expert_decisions = loader.load_from_json(Path("expert_decisions.json"))

@@ -11,7 +11,7 @@ from sklearn.metrics import accuracy_score, classification_report, precision_rec
 from sklearn.model_selection import train_test_split
 
 from eucher.players.computer.ml.ml_config import MLConfig
-from eucher.players.computer.ml.ml_models_supervised import (
+from eucher.players.computer.ml.models.ml_models_supervised import (
     CallTrumpClassifier,
     DiscardCardClassifier,
     OrderUpClassifier,
