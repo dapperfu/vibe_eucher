@@ -40,7 +40,7 @@ from eucher.tui import TextTUI
 
 
 # Available computer player types
-COMPUTER_TYPES = ["heuristic", "ai", "random", "ml_sklearn", "ml_pytorch"]
+COMPUTER_TYPES = ["heuristic", "ai", "random", "ml_sklearn", "ml_pytorch", "perceiver_muzero", "euchre_zero"]
 
 
 @click.group()
@@ -94,7 +94,6 @@ def play(opponent_type: Optional[str], name: str, seed: Optional[str], save_dir:
                 pass
         else:
             # For UUID, convert to numeric seed for Faker
-            from eucher.game import Game
             numeric_seed = Game._uuid_to_seed(parsed_seed)
             random.seed(numeric_seed)
             try:
@@ -110,7 +109,6 @@ def play(opponent_type: Optional[str], name: str, seed: Optional[str], save_dir:
         if isinstance(parsed_seed, int):
             fake.seed_instance(parsed_seed)
         else:
-            from eucher.game import Game
             numeric_seed = Game._uuid_to_seed(parsed_seed)
             fake.seed_instance(numeric_seed)
 
@@ -762,6 +760,35 @@ def list(as_json: bool) -> None:
                 "Learns complex patterns from game state",
                 "Supports risk/temperature tuning for play style",
                 "Requires trained model files"
+            ]
+        },
+        {
+            "name": "perceiver_muzero",
+            "display_name": "EuchrePerceiverMuZero",
+            "personality": "Advanced MuZero-style planning architecture with Perceiver-IO encoder for state representation.",
+            "training_method": "Reinforcement learning - MuZero-style self-play with Perceiver-IO encoder, learned dynamics, and MCTS planning",
+            "characteristics": [
+                "Uses Perceiver-IO for flexible token-based state encoding",
+                "MuZero-style planning with learned dynamics and prediction networks",
+                "MCTS search with 128-800 simulations per decision",
+                "Supports variant flags (screw dealer, 9-10 trade-in, go alone)",
+                "Risk modulation via temperature scaling",
+                "Learns game model implicitly through self-play",
+                "GPU-accelerated training with multi-agent self-play"
+            ]
+        },
+        {
+            "name": "euchre_zero",
+            "display_name": "EuchreZero",
+            "personality": "AlphaZero/MuZero-inspired reinforcement learning system for Euchre.",
+            "training_method": "Reinforcement learning - self-play with representation learning, learned dynamics, and MCTS",
+            "characteristics": [
+                "Search-enhanced RL architecture",
+                "Perfect memory and hidden card inference",
+                "Belief-based dynamics for hidden information",
+                "MCTS with belief sampling",
+                "Tunable risk profiles",
+                "Self-play training on GPU"
             ]
         }
     ]
