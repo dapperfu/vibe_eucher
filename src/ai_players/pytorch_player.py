@@ -37,6 +37,8 @@ class PyTorchStrategicPlayer(PlayerProfile):
         model_path: Optional[str] = None,
         device: Optional[str] = None,
         use_strategic_overrides: bool = True,
+        trump_selection_risk: Optional[float] = None,
+        gameplay_risk: Optional[float] = None,
     ) -> None:
         """Initialize PyTorch strategic player.
 
@@ -48,6 +50,10 @@ class PyTorchStrategicPlayer(PlayerProfile):
             Device string.
         use_strategic_overrides : bool
             Enable strategic overrides.
+        trump_selection_risk : Optional[float]
+            Risk factor for trump selection (0.0-1.0). If None, uses default 0.5.
+        gameplay_risk : Optional[float]
+            Risk factor for gameplay (0.0-1.0). If None, uses default 0.5.
         """
         # Setup device
         if device is None:
@@ -67,6 +73,17 @@ class PyTorchStrategicPlayer(PlayerProfile):
         )
 
         self.use_strategic_overrides = use_strategic_overrides
+
+        # Set risk factors (temperature thresholds)
+        from src.ml_config import MLConfig
+
+        config = MLConfig()
+        self.trump_selection_risk = (
+            trump_selection_risk if trump_selection_risk is not None else config.trump_selection_risk
+        )
+        self.gameplay_risk = (
+            gameplay_risk if gameplay_risk is not None else config.gameplay_risk
+        )
 
         # Load or create model
         if model_path:

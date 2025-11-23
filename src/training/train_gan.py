@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Optional
 
 import numpy as np
 import torch
@@ -11,7 +11,8 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 
 from src.ml_config import MLConfig
-from src.ml_models_gan import EuchreGANGenerator, EuchreGANDiscriminator, GANCardPlayModel
+from src.ml_models_gan import GANCardPlayModel
+from src.training.pytorch_dashboard import PyTorchTrainingDashboard
 
 
 def load_training_data_for_gan(
@@ -46,7 +47,7 @@ def load_training_data_for_gan(
         decisions = loaded["y"]
     elif json_file.exists():
         # Fallback to JSON format (for backward compatibility)
-        with open(json_file, "r") as f:
+        with open(json_file) as f:
             data = json.load(f)
         if not data:
             raise ValueError(f"No data found in {json_file}")
@@ -126,74 +127,112 @@ def train_gan_model(
     dataset = TensorDataset(features_tensor, decisions_tensor)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
+    # Create Rich dashboard
+    num_batches = len(dataloader)
+    dashboard = PyTorchTrainingDashboard(
+        num_epochs=num_epochs,
+        num_batches_per_epoch=num_batches,
+        model_type="GAN",
+        refresh_rate=2.0,
+    )
+
     # Training loop
     print(f"Training GAN for {num_epochs} epochs...")
     print(f"Dataset size: {len(features)} samples")
+    print(f"Batches per epoch: {num_batches}")
 
-    for epoch in range(num_epochs):
-        g_losses = []
-        d_losses = []
+    # Start live display
+    live_display = dashboard.start_live_display()
+    live_display.__enter__()
 
-        for batch_features, batch_decisions in dataloader:
-            batch_size_actual = batch_features.size(0)
-            real_labels = torch.ones(batch_size_actual, 1).to(device)
-            fake_labels = torch.zeros(batch_size_actual, 1).to(device)
+    try:
+        for epoch in range(num_epochs):
+            g_losses = []
+            d_losses = []
 
-            # Train Discriminator
-            d_optimizer.zero_grad()
+            # Reset batch progress for new epoch
+            dashboard.reset_batch_progress()
 
-            # Real data
-            # Create one-hot encoded decisions
-            real_decisions_onehot = torch.zeros(batch_size_actual, 24).to(device)
-            real_decisions_onehot.scatter_(1, batch_decisions.unsqueeze(1), 1.0)
+            for batch_idx, (batch_features, batch_decisions) in enumerate(dataloader):
+                batch_size_actual = batch_features.size(0)
+                real_labels = torch.ones(batch_size_actual, 1).to(device)
+                fake_labels = torch.zeros(batch_size_actual, 1).to(device)
 
-            # Concatenate features with decisions for discriminator
-            real_input = torch.cat([batch_features, real_decisions_onehot], dim=1)
-            d_real_output = discriminator(real_input)
-            d_real_loss = criterion(d_real_output, real_labels)
+                # Train Discriminator
+                d_optimizer.zero_grad()
 
-            # Fake data (from generator)
-            fake_decisions_probs = generator(batch_features)
-            # Sample from probabilities
-            fake_decisions = torch.multinomial(fake_decisions_probs, 1).squeeze(1)
-            fake_decisions_onehot = torch.zeros(batch_size_actual, 24).to(device)
-            fake_decisions_onehot.scatter_(1, fake_decisions.unsqueeze(1), 1.0)
+                # Real data
+                # Create one-hot encoded decisions
+                real_decisions_onehot = torch.zeros(batch_size_actual, 24).to(device)
+                real_decisions_onehot.scatter_(1, batch_decisions.unsqueeze(1), 1.0)
 
-            fake_input = torch.cat([batch_features, fake_decisions_onehot], dim=1)
-            d_fake_output = discriminator(fake_input.detach())
-            d_fake_loss = criterion(d_fake_output, fake_labels)
+                # Concatenate features with decisions for discriminator
+                real_input = torch.cat([batch_features, real_decisions_onehot], dim=1)
+                d_real_output = discriminator(real_input)
+                d_real_loss = criterion(d_real_output, real_labels)
 
-            d_loss = (d_real_loss + d_fake_loss) / 2
-            d_loss.backward()
-            d_optimizer.step()
+                # Fake data (from generator)
+                fake_decisions_probs = generator(batch_features)
+                # Sample from probabilities
+                fake_decisions = torch.multinomial(fake_decisions_probs, 1).squeeze(1)
+                fake_decisions_onehot = torch.zeros(batch_size_actual, 24).to(device)
+                fake_decisions_onehot.scatter_(1, fake_decisions.unsqueeze(1), 1.0)
 
-            # Train Generator
-            g_optimizer.zero_grad()
+                fake_input = torch.cat([batch_features, fake_decisions_onehot], dim=1)
+                d_fake_output = discriminator(fake_input.detach())
+                d_fake_loss = criterion(d_fake_output, fake_labels)
 
-            # Generator wants discriminator to think fake is real
-            fake_input_gen = torch.cat([batch_features, fake_decisions_onehot], dim=1)
-            d_fake_output_gen = discriminator(fake_input_gen)
-            g_loss = criterion(d_fake_output_gen, real_labels)
+                d_loss = (d_real_loss + d_fake_loss) / 2
+                d_loss.backward()
+                d_optimizer.step()
 
-            g_loss.backward()
-            g_optimizer.step()
+                # Train Generator
+                g_optimizer.zero_grad()
 
-            g_losses.append(g_loss.item())
-            d_losses.append(d_loss.item())
+                # Generator wants discriminator to think fake is real
+                fake_input_gen = torch.cat([batch_features, fake_decisions_onehot], dim=1)
+                d_fake_output_gen = discriminator(fake_input_gen)
+                g_loss = criterion(d_fake_output_gen, real_labels)
 
-        avg_g_loss = np.mean(g_losses)
-        avg_d_loss = np.mean(d_losses)
+                g_loss.backward()
+                g_optimizer.step()
 
-        if (epoch + 1) % 10 == 0:
-            print(
-                f"Epoch [{epoch + 1}/{num_epochs}] - G Loss: {avg_g_loss:.4f}, D Loss: {avg_d_loss:.4f}"
+                g_losses.append(g_loss.item())
+                d_losses.append(d_loss.item())
+
+                # Update batch progress
+                dashboard.update_batch(batch_idx)
+
+            avg_g_loss = np.mean(g_losses)
+            avg_d_loss = np.mean(d_losses)
+
+            # Get current learning rates (they might change if using scheduler)
+            current_g_lr = g_optimizer.param_groups[0]["lr"]
+            current_d_lr = d_optimizer.param_groups[0]["lr"]
+
+            # Update dashboard with epoch metrics
+            dashboard.update_epoch(
+                epoch,
+                g_loss=avg_g_loss,
+                d_loss=avg_d_loss,
+                g_lr=current_g_lr,
+                d_lr=current_d_lr,
             )
 
-        # Save checkpoint
-        if output_dir is not None and (epoch + 1) % checkpoint_interval == 0:
-            output_dir.mkdir(parents=True, exist_ok=True)
-            checkpoint_path = output_dir / f"gan_checkpoint_epoch_{epoch + 1}.pth"
-            gan_model.save(checkpoint_path)
+            # Update live display
+            dashboard.update_live_display(live_display)
+
+            # Save checkpoint
+            if output_dir is not None and (epoch + 1) % checkpoint_interval == 0:
+                output_dir.mkdir(parents=True, exist_ok=True)
+                checkpoint_path = output_dir / f"gan_checkpoint_epoch_{epoch + 1}.pth"
+                gan_model.save(checkpoint_path)
+                dashboard.console.print(f"[yellow]Checkpoint saved at epoch {epoch + 1}[/yellow]")
+
+    finally:
+        # Close live display
+        live_display.__exit__(None, None, None)
+        dashboard.print_summary()
 
     print("GAN training complete!")
 

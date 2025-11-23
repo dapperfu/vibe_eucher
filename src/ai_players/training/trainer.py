@@ -1,7 +1,7 @@
 """Training infrastructure for PyTorch AI player."""
 
 import time
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import torch
 import torch.nn as nn
@@ -666,6 +666,7 @@ class CumulativeTrainer:
         batch_size: Optional[int] = None,
         resume: bool = False,
         checkpoint_interval: int = 5,
+        dashboard: Optional[Any] = None,
     ) -> Dict:
         """Train the model.
 
@@ -683,6 +684,8 @@ class CumulativeTrainer:
             Whether to resume from checkpoint.
         checkpoint_interval : int
             Save checkpoint every N epochs.
+        dashboard : Optional[Any]
+            Optional Rich dashboard for live training metrics display.
 
         Returns
         -------
@@ -708,30 +711,65 @@ class CumulativeTrainer:
         criterion = nn.CrossEntropyLoss()
 
         data_loader = self.device_trainer.create_data_loader(dataset, batch_size)
+        num_batches = len(data_loader)
+
+        # Start dashboard if provided
+        live_display = None
+        if dashboard:
+            live_display = dashboard.start_live_display()
+            live_display.__enter__()
 
         total_duration = 0.0
 
-        for epoch in range(self.current_epoch, self.current_epoch + num_epochs):
-            epoch_start = time.time()
-            epoch_metrics = self._train_epoch(data_loader, optimizer, criterion)
-            epoch_duration = time.time() - epoch_start
-            total_duration += epoch_duration
-
-            epoch_metrics["epoch"] = epoch
-            epoch_metrics["duration"] = epoch_duration
-            self.training_history.append(epoch_metrics)
-
-            print(f"Epoch {epoch}: {epoch_metrics}")
-
-            # Save checkpoint periodically
-            if (epoch + 1) % checkpoint_interval == 0:
-                self.checkpoint_manager.save_checkpoint(
-                    epoch=epoch,
-                    model=self.model,
-                    optimizer=optimizer,
-                    metrics=epoch_metrics,
-                    training_duration=total_duration,
+        try:
+            for epoch in range(self.current_epoch, self.current_epoch + num_epochs):
+                epoch_start = time.time()
+                
+                # Reset batch progress for new epoch
+                if dashboard:
+                    dashboard.reset_batch_progress()
+                
+                epoch_metrics = self._train_epoch(
+                    data_loader, optimizer, criterion, dashboard=dashboard
                 )
+                epoch_duration = time.time() - epoch_start
+                total_duration += epoch_duration
+
+                epoch_metrics["epoch"] = epoch
+                epoch_metrics["duration"] = epoch_duration
+                self.training_history.append(epoch_metrics)
+
+                # Get current learning rate
+                current_lr = optimizer.param_groups[0]["lr"]
+
+                # Update dashboard
+                if dashboard:
+                    dashboard.update_epoch(
+                        epoch,
+                        loss=epoch_metrics["loss"],
+                        lr=current_lr,
+                    )
+                    dashboard.update_live_display(live_display)
+
+                # Save checkpoint periodically
+                if (epoch + 1) % checkpoint_interval == 0:
+                    self.checkpoint_manager.save_checkpoint(
+                        epoch=epoch,
+                        model=self.model,
+                        optimizer=optimizer,
+                        metrics=epoch_metrics,
+                        training_duration=total_duration,
+                    )
+                    if dashboard:
+                        dashboard.console.print(
+                            f"[yellow]Checkpoint saved at epoch {epoch + 1}[/yellow]"
+                        )
+        finally:
+            # Close dashboard
+            if live_display:
+                live_display.__exit__(None, None, None)
+                if dashboard:
+                    dashboard.print_summary()
 
         # Save final checkpoint
         final_metrics = self.training_history[-1] if self.training_history else {}
@@ -752,7 +790,11 @@ class CumulativeTrainer:
         }
 
     def _train_epoch(
-        self, data_loader: DataLoader, optimizer: torch.optim.Optimizer, criterion: nn.Module
+        self,
+        data_loader: DataLoader,
+        optimizer: torch.optim.Optimizer,
+        criterion: nn.Module,
+        dashboard: Optional[Any] = None,
     ) -> Dict:
         """Train for one epoch.
 
@@ -764,6 +806,8 @@ class CumulativeTrainer:
             Optimizer.
         criterion : nn.Module
             Loss function.
+        dashboard : Optional[Any]
+            Optional dashboard for progress display.
 
         Returns
         -------
@@ -774,11 +818,15 @@ class CumulativeTrainer:
         num_batches = 0
 
         accumulation_step = 0
-        for batch in data_loader:
+        for batch_idx, batch in enumerate(data_loader):
             metrics = self.device_trainer.train_step(batch, optimizer, criterion, accumulation_step)
             total_loss += metrics["loss"]
             num_batches += 1
             accumulation_step += 1
+
+            # Update dashboard with batch progress
+            if dashboard:
+                dashboard.update_batch(batch_idx)
 
         return {"loss": total_loss / num_batches if num_batches > 0 else 0.0}
 

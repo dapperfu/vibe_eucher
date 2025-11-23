@@ -21,6 +21,7 @@ from src.ai_players.pytorch_networks import create_network
 from src.ai_players.training.checkpoint_manager import CheckpointManager
 from src.ai_players.training.data_manager import TrainingDataManager
 from src.ai_players.training.trainer import CumulativeTrainer, EuchreDataset
+from src.training.pytorch_dashboard import PyTorchTrainingDashboard
 
 
 class TrainingInterrupt(Exception):
@@ -299,6 +300,23 @@ def main() -> None:
     if args.max_epochs:
         num_epochs = min(num_epochs, args.max_epochs - start_epoch)
 
+    # Create Rich dashboard for training
+    # Get number of batches for batch progress
+    from torch.utils.data import DataLoader
+
+    temp_loader = DataLoader(dataset, batch_size=args.batch_size or 32, shuffle=False)
+    num_batches = len(temp_loader)
+
+    dashboard = PyTorchTrainingDashboard(
+        num_epochs=num_epochs,
+        num_batches_per_epoch=num_batches,
+        model_type="Supervised",
+        refresh_rate=2.0,
+    )
+
+    print(f"Starting training with Rich dashboard...")
+    print(f"Epochs: {num_epochs}, Batches per epoch: {num_batches}")
+
     try:
         # Train
         results = trainer.train(
@@ -308,6 +326,7 @@ def main() -> None:
             batch_size=args.batch_size,
             resume=args.resume,
             checkpoint_interval=args.checkpoint_interval,
+            dashboard=dashboard,
         )
 
         print(f"\nTraining completed!")
