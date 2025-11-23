@@ -485,9 +485,8 @@ def list(as_json: bool) -> None:
             ]
         },
         {
-            "name": "simple",
-            "display_name": "Simple/Heuristic Player",
-            "aliases": ["heuristic"],
+            "name": "heuristic",
+            "display_name": "Heuristic Player",
             "personality": "Rule-based player using basic Euchre heuristics and strategies.",
             "training_method": "None - uses hardcoded rule-based logic",
             "characteristics": [
@@ -510,9 +509,8 @@ def list(as_json: bool) -> None:
             ]
         },
         {
-            "name": "ml",
+            "name": "ml_sklearn",
             "display_name": "ML Player (sklearn)",
-            "aliases": ["ml_sklearn"],
             "personality": "Machine learning player trained on collected game data using supervised learning.",
             "training_method": "Supervised learning - trained on collected game data using sklearn models (Random Forest, Gradient Boosting, or Neural Network)",
             "characteristics": [
@@ -544,10 +542,7 @@ def list(as_json: bool) -> None:
         click.echo()
         
         for bot in bots_info:
-            aliases_str = ""
-            if "aliases" in bot:
-                aliases_str = f" (aliases: {', '.join(bot['aliases'])})"
-            click.echo(f"Bot: {bot['display_name']} ({bot['name']}{aliases_str})")
+            click.echo(f"Bot: {bot['display_name']} ({bot['name']})")
             click.echo(f"  Personality: {bot['personality']}")
             click.echo(f"  Training Method: {bot['training_method']}")
             click.echo("  Characteristics:")
