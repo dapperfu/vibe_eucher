@@ -1,7 +1,7 @@
 """Merge training data from separate datasets (UUID-based files).
 
 This tool merges training data collected across different machines or sessions
-into consolidated datasets. It reads all UUID-based .npz/.ngz files and their
+into consolidated datasets. It reads all UUID-based .npz files and their
 metadata, groups them by dataset type, and creates merged output files.
 """
 
@@ -259,7 +259,7 @@ def main() -> None:
         "--file-extension",
         type=str,
         default="npz",
-        choices=["npz", "ngz"],
+        choices=["npz"],
         help="File extension to process (default: npz)",
     )
     parser.add_argument(

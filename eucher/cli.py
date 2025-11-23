@@ -3,7 +3,8 @@
 import json
 import random
 from datetime import datetime
-from typing import List, Optional, Tuple
+from pathlib import Path
+from typing import List, Optional, Tuple, Union
 
 import click
 from faker import Faker
@@ -39,7 +40,7 @@ from eucher.tui import TextTUI
 
 
 # Available computer player types
-COMPUTER_TYPES = ["simple", "heuristic", "ai", "random", "ml", "ml_sklearn", "ml_pytorch"]
+COMPUTER_TYPES = ["heuristic", "ai", "random", "ml_sklearn", "ml_pytorch"]
 
 
 @click.group()
@@ -57,30 +58,61 @@ def cli() -> None:
     help="Computer player type for all opponents (if not specified, types are randomly chosen)",
 )
 @click.option("--name", default="You", help="Human player name")
-@click.option("--seed", type=int, default=None, help="Random seed for reproducible games")
-def play(opponent_type: Optional[str], name: str, seed: Optional[int]) -> None:
+@click.option("--seed", type=str, default=None, help="Random seed for reproducible games (integer or UUID string)")
+@click.option("--save-dir", type=click.Path(file_okay=False, dir_okay=True), default=None, help="Directory to save game file")
+def play(opponent_type: Optional[str], name: str, seed: Optional[str], save_dir: Optional[str]) -> None:
     """
     Play a game of Euchre with 1 human player and 3 computer opponents.
 
     The human player will be Player 0, and 3 computer opponents will be
     randomly assigned names using Faker. If --opponent-type is not specified,
     each opponent will have a randomly selected computer player type.
+
+    The seed can be an integer or a UUID string. If a UUID is provided, it will
+    be used to seed the random number generator and the game will be saved as
+    <uuid>.gz if --save-dir is provided.
     """
-    # Initialize random seed if provided
+    # Parse seed - can be integer or UUID string
+    parsed_seed: Optional[Union[int, str]] = None
     if seed is not None:
-        random.seed(seed)
-        # Seed numpy random if available
+        # Try to parse as integer first
         try:
-            import numpy as np
-            np.random.seed(seed)
-        except ImportError:
-            pass
+            parsed_seed = int(seed)
+        except ValueError:
+            # If not an integer, treat as UUID string
+            parsed_seed = seed
+    
+    # Initialize random seed if provided (for Faker compatibility)
+    if parsed_seed is not None:
+        if isinstance(parsed_seed, int):
+            random.seed(parsed_seed)
+            # Seed numpy random if available
+            try:
+                import numpy as np
+                np.random.seed(parsed_seed)
+            except ImportError:
+                pass
+        else:
+            # For UUID, convert to numeric seed for Faker
+            from eucher.game import Game
+            numeric_seed = Game._uuid_to_seed(parsed_seed)
+            random.seed(numeric_seed)
+            try:
+                import numpy as np
+                np.random.seed(numeric_seed)
+            except ImportError:
+                pass
     
     # Initialize Faker for generating opponent names
     fake = Faker()
     # Seed Faker instance if seed is provided
-    if seed is not None:
-        fake.seed_instance(seed)
+    if parsed_seed is not None:
+        if isinstance(parsed_seed, int):
+            fake.seed_instance(parsed_seed)
+        else:
+            from eucher.game import Game
+            numeric_seed = Game._uuid_to_seed(parsed_seed)
+            fake.seed_instance(numeric_seed)
 
     # Generate 3 unique opponent names (first names only)
     opponent_names: List[str] = []
@@ -118,10 +150,16 @@ def play(opponent_type: Optional[str], name: str, seed: Optional[int]) -> None:
 
     # Create game
     try:
-        game = Game(player_config)
+        game = Game(player_config, seed=parsed_seed)
     except ValueError as e:
         click.echo(f"Error creating game: {e}", err=True)
         raise click.Abort()
+
+    # Display game UUID if available
+    if hasattr(game, 'game_uuid'):
+        click.echo(f"Game UUID: {game.game_uuid}")
+        click.echo(f"To replay this game, use: --seed {game.game_uuid}")
+        click.echo()
 
     # Create and set TUI
     tui = TextTUI()
@@ -154,6 +192,15 @@ def play(opponent_type: Optional[str], name: str, seed: Optional[int]) -> None:
     # Display game log if game ended without winner
     if hasattr(tui, "display_game_log"):
         tui.display_game_log()
+
+    # Save game if save_dir is provided
+    if save_dir is not None and hasattr(game, 'game_uuid'):
+        try:
+            from eucher.game_file import save_game
+            save_path = save_game(game, Path(save_dir))
+            click.echo(f"\nGame saved to: {save_path}")
+        except Exception as e:
+            click.echo(f"Error saving game: {e}", err=True)
 
     click.echo("\nThanks for playing!")
 
@@ -459,6 +506,191 @@ def filter_profile(profile_type: str, as_json: bool) -> None:
 def ai() -> None:
     """AI and bot-related commands."""
     pass
+
+
+@cli.group()
+def game() -> None:
+    """Game file management commands."""
+    pass
+
+
+@game.command()
+@click.argument("game_file", type=str)
+@click.option("--seed", type=str, default=None, help="Override seed (integer or UUID)")
+@click.option("--output-dir", type=click.Path(file_okay=False, dir_okay=True), default="games", help="Directory to save game file")
+def save(game_file: str, seed: Optional[str], output_dir: str) -> None:
+    """
+    Save a game to a file.
+
+    GAME_FILE can be a path to a game file or a UUID string.
+    If a UUID is provided, it will look for <uuid>.gz in common directories.
+    """
+    from eucher.game_file import load_game, save_game
+    from pathlib import Path
+
+    try:
+        # Load the game
+        game = load_game(game_file, seed=seed)
+        click.echo(f"Loaded game with UUID: {game.game_uuid}")
+
+        # Save it
+        output_path = Path(output_dir)
+        saved_path = save_game(game, output_path)
+        click.echo(f"Game saved to: {saved_path}")
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        raise click.Abort()
+
+
+@game.command()
+@click.argument("game_file", type=str)
+@click.option("--seed", type=str, default=None, help="Override seed (integer or UUID)")
+def load(game_file: str, seed: Optional[str]) -> None:
+    """
+    Load and display information about a saved game.
+
+    GAME_FILE can be a path to a game file or a UUID string.
+    """
+    from eucher.game_file import load_game
+
+    try:
+        game = load_game(game_file, seed=seed)
+        click.echo(f"Game UUID: {game.game_uuid}")
+        click.echo(f"Players: {[p.name for p in game.players]}")
+        click.echo(f"Dealer ID: {game.dealer_id}")
+        click.echo(f"Scores: Team 0: {game.scores[0]}, Team 1: {game.scores[1]}")
+        if game.trump_suit:
+            click.echo(f"Trump Suit: {game.trump_suit.value}")
+        if game.turned_card:
+            click.echo(f"Turned Card: {game.turned_card}")
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        raise click.Abort()
+
+
+@cli.command()
+@click.argument("game_id", type=str)
+@click.option("--data-dir", type=click.Path(file_okay=False, dir_okay=True), default=None, help="Directory containing training data")
+def replay(game_id: str, data_dir: Optional[str]) -> None:
+    """
+    Replay a game from training data files.
+
+    GAME_ID can be a UUID string (file name without extension) or a full file path.
+    The script will look for <game_id>.gz or <game_id>.npz in the training data directory.
+    """
+    import sys
+    from pathlib import Path
+    
+    # Import here to avoid circular dependencies
+    from eucher.players.computer.ml.ml_config import MLConfig
+    from eucher.players.computer.ml.ml_features import GameStateEncoder
+    
+    # Get data directory
+    if data_dir:
+        data_dir_path = Path(data_dir)
+    else:
+        config = MLConfig()
+        data_dir_path = config.training_data_dir
+    
+    if not data_dir_path.exists():
+        click.echo(f"Error: Data directory does not exist: {data_dir_path}", err=True)
+        raise click.Abort()
+    
+    # First try to load as a full game replay (.gz)
+    game_file = data_dir_path / f"{game_id}.gz"
+    is_game_replay = game_file.exists()
+    
+    if not is_game_replay:
+        # Try as training data file (.npz)
+        game_file = data_dir_path / f"{game_id}.npz"
+        if not game_file.exists():
+            click.echo(f"Error: File not found: {game_id}.gz or {game_id}.npz", err=True)
+            click.echo(f"Looking in: {data_dir_path}", err=True)
+            raise click.Abort()
+    
+    if is_game_replay:
+        # Load full game replay
+        from eucher.game_file import load_game
+        try:
+            game = load_game(game_file)
+            click.echo("=" * 80)
+            click.echo(f"Game Replay: {game_id}")
+            click.echo("=" * 80)
+            click.echo()
+            click.echo(f"Game UUID: {game.game_uuid}")
+            click.echo(f"Players: {[p.name for p in game.players]}")
+            click.echo(f"Dealer ID: {game.dealer_id}")
+            click.echo(f"Scores: Team 0: {game.scores[0]}, Team 1: {game.scores[1]}")
+            if game.trump_suit:
+                click.echo(f"Trump Suit: {game.trump_suit.value}")
+            if game.turned_card:
+                click.echo(f"Turned Card: {game.turned_card}")
+            click.echo()
+            click.echo("Note: This is a game state snapshot. Full move-by-move replay")
+            click.echo("requires additional game history data.")
+            click.echo("=" * 80)
+        except Exception as e:
+            click.echo(f"Error loading game replay: {e}", err=True)
+            raise click.Abort()
+    else:
+        # Load training data file
+        try:
+            import numpy as np
+            loaded = np.load(game_file)
+            X = loaded["X"]
+            y = loaded["y"]
+        except Exception as e:
+            click.echo(f"Error loading file: {e}", err=True)
+            raise click.Abort()
+        
+        # Load metadata
+        metadata_file = game_file.with_suffix(".txt")
+        dataset_type = "unknown"
+        if metadata_file.exists():
+            with open(metadata_file) as f:
+                metadata = f.read()
+                for line in metadata.split("\n"):
+                    if line.startswith("Dataset:"):
+                        dataset_type = line.split(":", 1)[1].strip()
+                        break
+        
+        click.echo("=" * 80)
+        click.echo(f"Training Data File: {game_id}")
+        click.echo(f"Dataset Type: {dataset_type}")
+        click.echo(f"File: {game_file.name}")
+        click.echo("=" * 80)
+        click.echo()
+        
+        click.echo(f"Total decisions: {len(y)}")
+        click.echo()
+        
+        encoder = GameStateEncoder()
+        
+        # Display decisions
+        for i, (features, decision) in enumerate(zip(X, y)):
+            click.echo(f"Decision {i + 1}:")
+            click.echo(f"  Decision value: {decision}")
+            
+            if dataset_type == "play_card" or dataset_type == "discard":
+                card = encoder.decode_card_index(int(decision))
+                if card:
+                    click.echo(f"  Card: {card}")
+                else:
+                    click.echo(f"  Card: (invalid index {decision})")
+            elif dataset_type == "call_trump":
+                suit_map = {0: "Pass", 1: "Hearts", 2: "Diamonds", 3: "Clubs", 4: "Spades"}
+                suit_name = suit_map.get(int(decision), f"Unknown ({decision})")
+                click.echo(f"  Trump suit: {suit_name}")
+            elif dataset_type == "order_up":
+                decision_text = "Order up" if int(decision) == 1 else "Pass"
+                click.echo(f"  Decision: {decision_text}")
+            
+            click.echo()
+        
+        click.echo("=" * 80)
+        click.echo("Note: This shows training data decisions. For full game replays,")
+        click.echo("look for corresponding .gz files with the same game_id.")
+        click.echo("=" * 80)
 
 
 @ai.command()

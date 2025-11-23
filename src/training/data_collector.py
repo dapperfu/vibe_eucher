@@ -326,7 +326,7 @@ class GameDataCollector:
             If True and use_uuid_naming is False, appends to existing files.
             If False, overwrites existing files.
         file_extension : str
-            File extension to use (default: "npz"). Can be "npz" or "ngz".
+            File extension to use (default: "npz").
 
         Returns
         -------
@@ -360,7 +360,9 @@ class GameDataCollector:
             if use_uuid_naming:
                 # Generate UUID for this dataset
                 dataset_uuid = str(uuid.uuid4())
-                npz_file = self.output_dir / f"{dataset_uuid}.{file_extension}"
+                # Note: np.savez_compressed always saves as .npz format
+                actual_extension = "npz"  # numpy always uses .npz
+                npz_file = self.output_dir / f"{dataset_uuid}.{actual_extension}"
                 metadata_file = self.output_dir / f"{dataset_uuid}.txt"
 
                 # Save data
@@ -371,12 +373,15 @@ class GameDataCollector:
                 metadata_content = metadata_text
                 metadata_content += f"\nDataset: {name}\n"
                 metadata_content += f"UUID: {dataset_uuid}\n"
-                metadata_content += f"File: {dataset_uuid}.{file_extension}\n"
+                metadata_content += f"File: {dataset_uuid}.{actual_extension}\n"
                 metadata_content += f"Records: {len(data_list)}\n"
                 metadata_content += f"Features shape: {X_new.shape}\n"
                 metadata_content += f"Decisions shape: {y_new.shape}\n"
                 game_ids = set(item.get("game_id", "") for item in data_list)
                 metadata_content += f"Game IDs: {len(game_ids)}\n"
+                # Save list of game IDs for this dataset
+                if game_ids:
+                    metadata_content += f"Game ID List: {','.join(sorted(game_ids))}\n"
 
                 with open(metadata_file, "w") as f:
                     f.write(metadata_content)
@@ -419,7 +424,7 @@ class GameDataCollector:
         dataset_type: Optional[str] = None,
     ) -> Dict[str, Dict[str, np.ndarray]]:
         """
-        Load previously collected data from .npz or .ngz files.
+        Load previously collected data from .npz files.
 
         Parameters
         ----------
@@ -444,10 +449,8 @@ class GameDataCollector:
 
         if use_uuid_naming:
             # Load all UUID-based files
-            # Find all .npz and .ngz files
-            npz_files = list(self.output_dir.glob("*.npz"))
-            ngz_files = list(self.output_dir.glob("*.ngz"))
-            data_files = npz_files + ngz_files
+            # Find all .npz files
+            data_files = list(self.output_dir.glob("*.npz"))
 
             # Group by dataset type based on metadata
             dataset_arrays: Dict[str, List[np.ndarray]] = {}
@@ -489,13 +492,11 @@ class GameDataCollector:
             datasets = ["order_up", "call_trump", "play_card", "discard"]
 
             for dataset_name in datasets:
-                # Try both .npz and .ngz extensions
-                for ext in ["npz", "ngz"]:
-                    npz_file = self.output_dir / f"{prefix}_{dataset_name}.{ext}"
-                    if npz_file.exists():
-                        loaded = np.load(npz_file)
-                        data[dataset_name] = {"X": loaded["X"], "y": loaded["y"]}
-                        break
+                # Load .npz file
+                npz_file = self.output_dir / f"{prefix}_{dataset_name}.npz"
+                if npz_file.exists():
+                    loaded = np.load(npz_file)
+                    data[dataset_name] = {"X": loaded["X"], "y": loaded["y"]}
 
         return data
 
