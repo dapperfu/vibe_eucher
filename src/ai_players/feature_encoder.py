@@ -45,13 +45,15 @@ class EuchreFeatureEncoder:
         # Rank vocabulary: 6 ranks
         self.num_ranks = 6
 
-    def encode_hand(self, hand: List[Card]) -> torch.Tensor:
+    def encode_hand(self, hand: List[Card], device: Optional[torch.device] = None) -> torch.Tensor:
         """Encode player's hand as a feature vector.
 
         Parameters
         ----------
         hand : List[Card]
             Player's hand (should be 5 cards after discard, 6 before).
+        device : Optional[torch.device]
+            Device to create tensor on.
 
         Returns
         -------
@@ -62,7 +64,7 @@ class EuchreFeatureEncoder:
         # One-hot encoding for each card position
         # Feature vector per card: [suit_one_hot(4), rank_one_hot(6), is_trump(1), trump_rank(1)]
         feature_dim = self.num_suits + self.num_ranks + 2  # 12 features per card
-        hand_features = torch.zeros(6, feature_dim)
+        hand_features = torch.zeros(6, feature_dim, device=device)
 
         for i, card in enumerate(hand[:6]):
             # Suit one-hot
@@ -77,7 +79,7 @@ class EuchreFeatureEncoder:
 
         return hand_features
 
-    def encode_card(self, card: Card, trump_suit: Optional[Suit] = None) -> torch.Tensor:
+    def encode_card(self, card: Card, trump_suit: Optional[Suit] = None, device: Optional[torch.device] = None) -> torch.Tensor:
         """Encode a single card as a feature vector.
 
         Parameters
@@ -86,6 +88,8 @@ class EuchreFeatureEncoder:
             The card to encode.
         trump_suit : Optional[Suit]
             Current trump suit, if any.
+        device : Optional[torch.device]
+            Device to create tensor on.
 
         Returns
         -------
@@ -93,7 +97,7 @@ class EuchreFeatureEncoder:
             Card encoding tensor of shape (feature_dim,).
         """
         feature_dim = self.num_suits + self.num_ranks + 2
-        features = torch.zeros(feature_dim)
+        features = torch.zeros(feature_dim, device=device)
 
         # Suit one-hot
         suit_idx = list(Suit).index(card.suit)
@@ -114,7 +118,7 @@ class EuchreFeatureEncoder:
         return features
 
     def encode_trick_history(
-        self, trick_history: List[dict], trump_suit: Optional[Suit] = None
+        self, trick_history: List[dict], trump_suit: Optional[Suit] = None, device: Optional[torch.device] = None
     ) -> torch.Tensor:
         """Encode trick history as a sequence.
 
@@ -124,6 +128,8 @@ class EuchreFeatureEncoder:
             List of completed tricks, each with 'cards' and 'winner_team'.
         trump_suit : Optional[Suit]
             Current trump suit, if any.
+        device : Optional[torch.device]
+            Device to create tensor on.
 
         Returns
         -------
@@ -132,17 +138,17 @@ class EuchreFeatureEncoder:
             Each trick has 4 cards, padded if necessary.
         """
         card_feature_dim = self.num_suits + self.num_ranks + 2
-        history_tensor = torch.zeros(self.max_trick_history, 4, card_feature_dim)
+        history_tensor = torch.zeros(self.max_trick_history, 4, card_feature_dim, device=device)
 
         for trick_idx, trick in enumerate(trick_history[: self.max_trick_history]):
             cards = trick.get("cards", [])
             for card_idx, card in enumerate(cards[:4]):
-                history_tensor[trick_idx, card_idx] = self.encode_card(card, trump_suit)
+                history_tensor[trick_idx, card_idx] = self.encode_card(card, trump_suit, device=device)
 
         return history_tensor
 
     def encode_won_tricks_summary(
-        self, tracker: TrickHistoryTracker, trump_suit: Optional[Suit] = None
+        self, tracker: TrickHistoryTracker, trump_suit: Optional[Suit] = None, device: Optional[torch.device] = None
     ) -> torch.Tensor:
         """Encode summary of won tricks.
 
@@ -152,6 +158,8 @@ class EuchreFeatureEncoder:
             Trick history tracker.
         trump_suit : Optional[Suit]
             Current trump suit, if any.
+        device : Optional[torch.device]
+            Device to create tensor on.
 
         Returns
         -------
@@ -169,7 +177,7 @@ class EuchreFeatureEncoder:
         # - Team tricks won (2)
         # - Trump cards seen (1)
         # Total: 8 features
-        summary = torch.zeros(8)
+        summary = torch.zeros(8, device=device)
 
         summary[0] = len(cards_seen) / 24.0  # Normalized cards seen
 
@@ -196,6 +204,7 @@ class EuchreFeatureEncoder:
         player_position: int,
         dealer_id: int,
         trump_suit: Optional[Suit] = None,
+        device: Optional[torch.device] = None,
     ) -> torch.Tensor:
         """Encode game context features.
 
@@ -213,6 +222,8 @@ class EuchreFeatureEncoder:
             Dealer ID (0-3).
         trump_suit : Optional[Suit]
             Current trump suit, if any.
+        device : Optional[torch.device]
+            Device to create tensor on.
 
         Returns
         -------
@@ -228,7 +239,7 @@ class EuchreFeatureEncoder:
         # - Is dealer (1)
         # - Trump suit one-hot (4)
         # Total: 13 features
-        context = torch.zeros(13)
+        context = torch.zeros(13, device=device)
 
         context[0] = trick_number / 5.0  # Normalized trick number
         context[1] = team_score / 10.0  # Normalized score
@@ -296,17 +307,20 @@ class EuchreFeatureEncoder:
             - 'game_context': game context
             - 'current_trick': current trick encoding (if provided)
         """
+        # Get device if available from instance
+        device = getattr(self, 'device', None)
+        
         return {
-            "hand": self.encode_hand(hand),
-            "trick_history": self.encode_trick_history(trick_history, trump_suit),
-            "won_tricks_summary": self.encode_won_tricks_summary(tracker, trump_suit),
+            "hand": self.encode_hand(hand, device=device),
+            "trick_history": self.encode_trick_history(trick_history, trump_suit, device=device),
+            "won_tricks_summary": self.encode_won_tricks_summary(tracker, trump_suit, device=device),
             "game_context": self.encode_game_context(
-                trick_number, team_score, opponent_score, player_position, dealer_id, trump_suit
+                trick_number, team_score, opponent_score, player_position, dealer_id, trump_suit, device=device
             ),
             "current_trick": (
-                torch.stack([self.encode_card(card, trump_suit) for card in current_trick])
+                torch.stack([self.encode_card(card, trump_suit, device=device) for card in current_trick])
                 if current_trick
-                else torch.zeros(4, self.num_suits + self.num_ranks + 2)
+                else torch.zeros(4, self.num_suits + self.num_ranks + 2, device=device)
             ),
         }
 

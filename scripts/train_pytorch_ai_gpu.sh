@@ -22,7 +22,7 @@ if command -v nvidia-smi &> /dev/null; then
     GPU_MEMORY=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits | head -n1)
     if [ "${GPU_MEMORY}" -lt 13000 ]; then
         # RTX 3060 (12GB) configuration
-        BATCH_SIZE="--batch-size 32"
+        BATCH_SIZE="--batch-size 256"
         echo "Detected RTX 3060 (12GB), using batch size 32"
     elif [ "${GPU_MEMORY}" -lt 25000 ]; then
         # P40 (24GB) configuration

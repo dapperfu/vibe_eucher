@@ -38,6 +38,15 @@ class MLConfig:
         self.trump_selection_risk: float = 0.5  # Risk factor for trump selection decisions (order up, call trump)
         self.gameplay_risk: float = 0.5  # Risk factor for gameplay decisions (play card, discard)
 
+        # Transformer RL specific parameters
+        self.transformer_rl_model_path: Optional[str] = None
+        self.transformer_rl_use_deduction: bool = True
+        self.transformer_rl_d_model: int = 256
+        self.transformer_rl_nhead: int = 8
+        self.transformer_rl_num_layers: int = 4
+        self.transformer_rl_dim_feedforward: int = 512
+        self.transformer_rl_dropout: float = 0.1
+
     def _get_device(self) -> torch.device:
         """
         Get the best available device (GPU or CPU).

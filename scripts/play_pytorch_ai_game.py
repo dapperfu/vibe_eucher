@@ -21,6 +21,257 @@ from src.players import Player
 from src.player_profiles import PlayerProfile
 
 
+class LoggingTUI:
+    """TUI that logs gameplay details to GameLogger instead of printing."""
+
+    def __init__(self, logger: "GameLogger") -> None:
+        """Initialize logging TUI.
+
+        Parameters
+        ----------
+        logger : GameLogger
+            Logger to write gameplay details to.
+        """
+        self.logger = logger
+        self.players: Optional[List[Player]] = None
+        self.current_hand_log: List[str] = []
+        self.dealer_id: Optional[int] = None
+        self.trump_suit: Optional[Suit] = None
+
+    def start_new_hand(self) -> None:
+        """Start logging a new hand."""
+        self.current_hand_log = []
+        self.trump_suit = None
+
+    def set_players(self, players: List[Player], dealer_id: Optional[int] = None) -> None:
+        """Set the list of all players.
+
+        Parameters
+        ----------
+        players : List[Player]
+            List of all players in the game.
+        dealer_id : Optional[int]
+            The dealer's player ID, if available.
+        """
+        self.players = players
+        self.dealer_id = dealer_id
+
+    def log_initial_hands(self, players: List[Player]) -> None:
+        """Log the initial hands dealt to all players.
+
+        Parameters
+        ----------
+        players : List[Player]
+            List of all players with their initial hands.
+        """
+        self.current_hand_log.append("")
+        self.current_hand_log.append("INITIAL DEAL")
+        self.current_hand_log.append("-" * 70)
+        for player in players:
+            cards = [str(card) for card in player.hand]
+            # Format as 3 cards in first row, 2 cards in second row
+            # First row: player name + first 3 cards
+            first_row_cards = "  ".join(cards[:3])
+            first_row = f"{player.name}: {first_row_cards}"
+            self.current_hand_log.append(first_row)
+            
+            # Second row: indent to align with cards (account for player name + ": ")
+            indent = len(player.name) + 2
+            second_row_cards = "  ".join(cards[3:])
+            second_row = " " * indent + second_row_cards
+            self.current_hand_log.append(second_row)
+
+    def log_turned_card(self, card: Card) -> None:
+        """Log the turned up card.
+
+        Parameters
+        ----------
+        card : Card
+            The card that was turned up.
+        """
+        self.current_hand_log.append(f"Turned up card: {str(card)}")
+
+    def log_trump_decision_history(self, order_up: list, call_trump: list) -> None:
+        """Log all order-up and call-trump decisions for the hand.
+
+        Parameters
+        ----------
+        order_up : list
+            List of tuples `(player_name, bool)` representing order-up decisions.
+        call_trump : list
+            List of tuples `(player_name, Optional[Suit])` representing call-trump decisions.
+        """
+        if order_up:
+            self.current_hand_log.append("")
+            self.current_hand_log.append("Order Up Decisions:")
+            for name, decision in order_up:
+                action = "Ordered up" if decision else "Passed"
+                self.current_hand_log.append(f"  {name}: {action}")
+
+        if call_trump:
+            self.current_hand_log.append("")
+            self.current_hand_log.append("Call Trump Decisions:")
+            for name, decision in call_trump:
+                if decision is None:
+                    self.current_hand_log.append(f"  {name}: Passed")
+                else:
+                    self.current_hand_log.append(f"  {name}: Called {decision.value} as trump")
+
+    def log_trump_selected(self, trump_suit: Suit, maker_name: str) -> None:
+        """Log that trump was selected.
+
+        Parameters
+        ----------
+        trump_suit : Suit
+            The selected trump suit.
+        maker_name : str
+            Name of the player who made trump.
+        """
+        self.trump_suit = trump_suit
+        self.current_hand_log.append(f"Trump: {trump_suit.value} (made by {maker_name})")
+
+    def log_trick(
+        self,
+        trick_num: int,
+        played_cards: List[Card],
+        player_ids: List[int],
+        winner_id: int,
+    ) -> None:
+        """Log a trick with cards played and winner.
+
+        Parameters
+        ----------
+        trick_num : int
+            The trick number (1-5).
+        played_cards : List[Card]
+            Cards played in the trick.
+        player_ids : List[int]
+            Player IDs corresponding to each card.
+        winner_id : int
+            ID of the winning player.
+        """
+        if self.players is None:
+            return
+
+        self.current_hand_log.append("")
+        self.current_hand_log.append(f"Trick {trick_num}:")
+        for card, pid in zip(played_cards, player_ids):
+            player_name = self.players[pid].name
+            if pid == winner_id:
+                # Make winning card bold using ANSI escape codes
+                card_str = f"\033[1m{str(card)}\033[0m"
+            else:
+                card_str = str(card)
+            self.current_hand_log.append(f"  {player_name}: {card_str}")
+
+    def log_hand_score(
+        self, tricks_won: List[int], scores: Tuple[int, int]
+    ) -> None:
+        """Log the hand score.
+
+        Parameters
+        ----------
+        tricks_won : List[int]
+            Tricks won by each team [team0, team1].
+        scores : Tuple[int, int]
+            Current scores (team0, team1).
+        """
+        self.current_hand_log.append("")
+        self.current_hand_log.append(f"Tricks won: Team 0: {tricks_won[0]}, Team 1: {tricks_won[1]}")
+        self.current_hand_log.append(f"Scores: Team 0: {scores[0]}, Team 1: {scores[1]}")
+
+    def display_hand_log(self) -> None:
+        """Display the current hand log and add it to logger."""
+        if self.current_hand_log:
+            for line in self.current_hand_log:
+                self.logger.log(line)
+            self.current_hand_log = []
+
+    def display_trump_decision_summary(
+        self,
+        order_up: list,
+        call_trump: list,
+        trump_suit: Optional[Suit],
+        maker_name: Optional[str],
+    ) -> None:
+        """Display a summary of all trump decisions (no-op for logging TUI).
+
+        Parameters
+        ----------
+        order_up : list
+            List of tuples `(player_name, bool)` representing order-up decisions.
+        call_trump : list
+            List of tuples `(player_name, Optional[Suit])` representing call-trump decisions.
+        trump_suit : Optional[Suit]
+            The selected trump suit.
+        maker_name : Optional[str]
+            Name of the player who made trump.
+        """
+        # Already logged via log_trump_decision_history, so no-op
+        pass
+
+    def display_trick_winner(self, winner_name: str) -> None:
+        """Display the trick winner (no-op for logging TUI).
+
+        Parameters
+        ----------
+        winner_name : str
+            Name of the winning player.
+        """
+        # Already logged via log_trick, so no-op
+        pass
+
+    def update_trick_state(
+        self, played_cards: List[Card], player_ids: List[int]
+    ) -> None:
+        """Update the current trick state (no-op for logging TUI).
+
+        Parameters
+        ----------
+        played_cards : List[Card]
+            Cards played in the current trick.
+        player_ids : List[int]
+            Player IDs corresponding to each card.
+        """
+        # Not needed for logging
+        pass
+
+    def update_trick_number(self, trick_number: int) -> None:
+        """Update the current trick number (no-op for logging TUI).
+
+        Parameters
+        ----------
+        trick_number : int
+            The current trick number (0-4).
+        """
+        # Not needed for logging
+        pass
+
+    def display_scores(self, team0_score: int, team1_score: int) -> None:
+        """Display current scores (no-op for logging TUI).
+
+        Parameters
+        ----------
+        team0_score : int
+            Team 0's score.
+        team1_score : int
+            Team 1's score.
+        """
+        # Scores are logged via log_hand_score
+        pass
+
+    def display_turned_card(self, card: Card) -> None:
+        """Display the turned up card (no-op for logging TUI).
+
+        Parameters
+        ----------
+        card : Card
+            The turned card.
+        """
+        # Already logged via log_turned_card
+        pass
+
+
 class PyTorchPlayerProfile(PlayerProfile):
     """Wrapper profile that uses PyTorchStrategicPlayer with risk factors."""
 
@@ -283,6 +534,11 @@ def play_pytorch_ai_game(
         for i, profile in enumerate(profiles):
             game.players[i].profile = profile
 
+        # Set up logging TUI to capture gameplay details
+        logging_tui = LoggingTUI(logger)
+        game.tui = logging_tui
+        logging_tui.set_players(game.players, game.dealer_id)
+
         logger.log("Game created successfully")
         logger.log("")
 
@@ -293,9 +549,14 @@ def play_pytorch_ai_game(
             logger.log(f"Hand {hand_num}")
             logger.log("=" * 80)
 
+            # Update TUI with current dealer
+            if game.tui is not None:
+                game.tui.dealer_id = game.dealer_id
+
             continue_game = game.play_hand()
 
-            # Log hand results
+            # Hand log is already written by TUI.display_hand_log() during play_hand()
+            # Just log the summary
             logger.log(f"Hand {hand_num} complete")
             logger.log(f"Current scores: Team 0 = {game.scores[0]}, Team 1 = {game.scores[1]}")
             logger.log("")

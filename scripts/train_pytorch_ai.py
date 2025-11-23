@@ -178,9 +178,9 @@ def main() -> None:
         help="Training data directory (default: training_data)",
     )
     parser.add_argument(
-        "--resume",
+        "--no-resume",
         action="store_true",
-        help="Resume from latest checkpoint",
+        help="Do not resume from latest checkpoint (start from scratch)",
     )
     parser.add_argument(
         "--batch-size",
@@ -217,8 +217,8 @@ def main() -> None:
     # Create model
     model = create_network(device=device)
 
-    # Load checkpoint if resuming
-    if args.resume:
+    # Load checkpoint if resuming (default behavior)
+    if not args.no_resume:
         try:
             checkpoint, _ = checkpoint_manager.load_checkpoint(device=device)
             model.load_state_dict(checkpoint["model_state_dict"])
@@ -228,49 +228,63 @@ def main() -> None:
             print("No checkpoint found, starting from scratch")
             start_epoch = 0
     else:
+        print("Starting from scratch (--no-resume flag set)")
         start_epoch = 0
 
-    # Load training data
+    # Load training data (only .npz files are supported)
     datasets = data_manager.list_datasets()
     if not datasets:
         print("No training datasets found!")
-        return
-
-    print(f"Found datasets: {datasets}")
-
-    # For now, use play_card dataset as example
-    # In practice, you'd combine multiple datasets
-    dataset_name = "play_card" if "play_card" in datasets else datasets[0]
-    df = data_manager.load_dataset(dataset_name)
-
-    if df.empty:
-        print(f"Dataset {dataset_name} is empty!")
-        return
-
-    # Parse features column if it's a string
-    if "features" in df.columns:
-        import json
-        import ast
+        print(f"Expected .npz files in: {args.data_dir}")
+        print("Looking for files matching: training_*.npz")
+        print("\nTo collect training data, run:")
+        print("  python collect_training_data.py --num_games 100")
+        print("\nOr use the script:")
+        print("  python scripts/collect_training_data.py --num_games 100")
+        print("\nGenerating random training data to start training from scratch...")
+        print("(Model will start with random weights and learn from random data initially)")
         
-        def parse_features(val):
-            if pd.isna(val):
-                return []
-            if isinstance(val, str):
-                try:
-                    # Try JSON first
-                    return json.loads(val)
-                except (json.JSONDecodeError, ValueError):
-                    try:
-                        # Try Python literal eval
-                        return ast.literal_eval(val)
-                    except (ValueError, SyntaxError):
-                        return []
-            return val if isinstance(val, list) else []
+        # Generate synthetic random training data and save as .npz
+        # Feature size from GameStateEncoder: 260 features
+        # Decision: card index (0-23) for play_card dataset
+        import numpy as np
+        import random
         
-        df["features"] = df["features"].apply(parse_features)
+        num_samples = 1000  # Generate 1000 random samples
+        feature_size = 260
+        num_cards = 24
+        
+        print(f"Generating {num_samples} random training samples...")
+        
+        # Generate random features and decisions as numpy arrays
+        X = np.random.rand(num_samples, feature_size).astype(np.float32)
+        y = np.random.randint(0, num_cards, size=num_samples).astype(np.int32)
+        
+        # Save as .npz file
+        npz_path = Path(args.data_dir) / "training_play_card.npz"
+        np.savez_compressed(npz_path, X=X, y=y)
+        print(f"Saved random training data to {npz_path}")
+        
+        # Load it back as DataFrame for compatibility
+        df = data_manager.load_dataset("play_card")
+        training_data = df.to_dict("records")
+        
+        print(f"Generated {len(training_data)} random training samples")
+    else:
+        print(f"Found datasets: {datasets}")
 
-    # Convert to dataset format
-    training_data = df.to_dict("records")
+        # For now, use play_card dataset as example
+        # In practice, you'd combine multiple datasets
+        dataset_name = "play_card" if "play_card" in datasets else datasets[0]
+        df = data_manager.load_dataset(dataset_name)
+
+        if df.empty:
+            print(f"Dataset {dataset_name} is empty or could not be loaded!")
+            return
+
+        # Features should already be in list format from .npz loading
+        # Convert to dataset format
+        training_data = df.to_dict("records")
     
     # Import feature encoder for dataset
     from src.ai_players.feature_encoder import EuchreFeatureEncoder
@@ -324,7 +338,7 @@ def main() -> None:
             num_epochs=num_epochs,
             learning_rate=args.learning_rate,
             batch_size=args.batch_size,
-            resume=args.resume,
+            resume=not args.no_resume,
             checkpoint_interval=args.checkpoint_interval,
             dashboard=dashboard,
         )

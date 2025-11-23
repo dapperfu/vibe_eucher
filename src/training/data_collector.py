@@ -291,22 +291,19 @@ class GameDataCollector:
         """
         Save collected data to files.
 
-        Uses NumPy .npz format by default (fast, binary, preserves precision).
-        JSON can be enabled for backward compatibility or manual inspection.
+        Saves in NumPy .npz format (fast, binary, preserves precision, compressed).
+        This is the only format supported by the training pipeline.
 
         Parameters
         ----------
         prefix : str
             Prefix for output filenames.
         save_csv : bool
-            Whether to save CSV files. Default False - CSV files are not used by training
-            and add significant overhead. Only enable if you need them for manual analysis.
+            Deprecated - CSV files are not used by training pipeline.
         save_json : bool
             Whether to also save JSON files. Default False - JSON is slower and can lose precision.
             Only enable for backward compatibility or manual inspection.
         """
-        # Save as NumPy .npz format (fast, binary, preserves precision, compressed)
-        # This is the preferred format for ML training data
         datasets = [
             ("order_up", self.order_up_data),
             ("call_trump", self.call_trump_data),
@@ -324,7 +321,7 @@ class GameDataCollector:
                 X = np.array(features_list, dtype=np.float32)
                 y = np.array(decisions_list, dtype=np.int32)
 
-                # Save as compressed NumPy archive
+                # Save as compressed NumPy archive (.npz format)
                 npz_file = self.output_dir / f"{prefix}_{name}.npz"
                 np.savez_compressed(npz_file, X=X, y=y)
 
@@ -348,22 +345,6 @@ class GameDataCollector:
                 json.dump(self.play_card_data, f, separators=(',', ':'))
             with open(discard_file, "w") as f:
                 json.dump(self.discard_data, f, separators=(',', ':'))
-
-        # CSV files are not used by training pipeline - only save if explicitly requested
-        # They add significant overhead (pandas DataFrame creation + CSV writing)
-        if save_csv:
-            if self.order_up_data:
-                df = pd.DataFrame(self.order_up_data)
-                df.to_csv(self.output_dir / f"{prefix}_order_up.csv", index=False)
-            if self.call_trump_data:
-                df = pd.DataFrame(self.call_trump_data)
-                df.to_csv(self.output_dir / f"{prefix}_call_trump.csv", index=False)
-            if self.play_card_data:
-                df = pd.DataFrame(self.play_card_data)
-                df.to_csv(self.output_dir / f"{prefix}_play_card.csv", index=False)
-            if self.discard_data:
-                df = pd.DataFrame(self.discard_data)
-                df.to_csv(self.output_dir / f"{prefix}_discard.csv", index=False)
 
     def load_data(self, prefix: str = "training") -> Dict[str, List[Dict[str, Any]]]:
         """

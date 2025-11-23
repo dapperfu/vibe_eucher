@@ -27,73 +27,50 @@ class TrainingDataManager:
         self.data_dir = Path(data_dir)
         self.data_dir.mkdir(parents=True, exist_ok=True)
 
-    def load_dataset(self, dataset_name: str, format: str = "auto") -> pd.DataFrame:
-        """Load existing training dataset.
+    def load_dataset(self, dataset_name: str, format: str = "npz") -> pd.DataFrame:
+        """Load existing training dataset from .npz file.
 
         Parameters
         ----------
         dataset_name : str
             Name of dataset (e.g., "play_card", "order_up").
         format : str
-            Format to load ("csv", "json", "parquet", "auto").
+            Format to load (only "npz" is supported).
 
         Returns
         -------
         pd.DataFrame
-            Loaded dataset.
+            Loaded dataset with 'features' and 'decision' columns.
         """
-        # Try different formats
-        if format == "auto":
-            formats = ["parquet", "csv", "json"]
-        else:
-            formats = [format]
-
-        for fmt in formats:
-            file_path = self.data_dir / f"training_{dataset_name}.{fmt}"
-            if file_path.exists():
-                try:
-                    return self._load_file(file_path, fmt)
-                except ImportError:
-                    # If parquet fails due to missing pyarrow, try CSV
-                    if fmt == "parquet":
-                        csv_path = file_path.with_suffix(".csv")
-                        if csv_path.exists():
-                            return self._load_file(csv_path, "csv")
-                    continue
-
-        # Return empty DataFrame if not found
-        return pd.DataFrame()
-
-    def _load_file(self, file_path: Path, format: str) -> pd.DataFrame:
-        """Load file in specified format.
-
-        Parameters
-        ----------
-        file_path : Path
-            Path to file.
-        format : str
-            File format.
-
-        Returns
-        -------
-        pd.DataFrame
-            Loaded data.
-        """
-        if format == "parquet":
-            try:
-                return pd.read_parquet(file_path)
-            except ImportError:
-                # Fallback to CSV if pyarrow not available
-                csv_path = file_path.with_suffix(".csv")
-                if csv_path.exists():
-                    return pd.read_csv(csv_path)
-                raise
-        elif format == "csv":
-            return pd.read_csv(file_path)
-        elif format == "json":
-            return pd.read_json(file_path, orient="records")
-        else:
-            raise ValueError(f"Unsupported format: {format}")
+        import numpy as np
+        
+        # Only support .npz format
+        file_path = self.data_dir / f"training_{dataset_name}.npz"
+        
+        if not file_path.exists():
+            return pd.DataFrame()
+        
+        try:
+            # Load .npz file
+            loaded = np.load(file_path)
+            X = loaded["X"]  # Features array
+            y = loaded["y"]  # Decisions array
+            
+            # Convert to DataFrame format expected by training script
+            # Convert features array to list of lists
+            features_list = [X[i].tolist() for i in range(len(X))]
+            decisions_list = y.tolist()
+            
+            # Create DataFrame
+            df = pd.DataFrame({
+                "features": features_list,
+                "decision": decisions_list,
+            })
+            
+            return df
+        except (KeyError, ValueError, IOError) as e:
+            print(f"Error loading {file_path}: {e}")
+            return pd.DataFrame()
 
     def append_data(
         self, dataset_name: str, new_data: List[Dict], format: str = "parquet"
@@ -194,7 +171,7 @@ class TrainingDataManager:
         }
 
     def list_datasets(self) -> List[str]:
-        """List all available datasets.
+        """List all available datasets (only .npz files).
 
         Returns
         -------
@@ -202,13 +179,7 @@ class TrainingDataManager:
             List of dataset names.
         """
         datasets = set()
-        for file_path in self.data_dir.glob("training_*.parquet"):
-            name = file_path.stem.replace("training_", "")
-            datasets.add(name)
-        for file_path in self.data_dir.glob("training_*.csv"):
-            name = file_path.stem.replace("training_", "")
-            datasets.add(name)
-        for file_path in self.data_dir.glob("training_*.json"):
+        for file_path in self.data_dir.glob("training_*.npz"):
             name = file_path.stem.replace("training_", "")
             datasets.add(name)
 

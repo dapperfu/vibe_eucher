@@ -14,7 +14,7 @@ from eucher.players.computer.ml.ml_decision_weights import (
     select_action_from_weights,
 )
 from eucher.players.computer.ml.ml_features import GameStateEncoder
-from eucher.players.computer.ml.ml_models_supervised import (
+from eucher.players.computer.ml.models.ml_models_supervised import (
     CallTrumpClassifier,
     DiscardCardClassifier,
     OrderUpClassifier,
@@ -27,12 +27,12 @@ if TYPE_CHECKING:
 
 # Optional imports for GAN and RL
 try:
-    from eucher.players.computer.ml.ml_models_gan import GANCardPlayModel
+    from eucher.players.computer.ml.models.ml_models_gan import GANCardPlayModel
 except ImportError:
     GANCardPlayModel = None  # type: ignore
 
 try:
-    from eucher.players.computer.ml.ml_models_rl import RLAgent
+    from eucher.players.computer.ml.models.ml_models_rl import RLAgent
 except ImportError:
     RLAgent = None  # type: ignore
 

@@ -113,6 +113,13 @@ class Game:
             from src.ai_players.pytorch_player import PyTorchStrategicPlayer
 
             return PyTorchStrategicPlayer()
+        elif profile_type == "transformer_rl":
+            from src.ai_players.transformer_rl.transformer_rl_player import TransformerRLPlayer
+
+            return TransformerRLPlayer(
+                risk_factor=self.gameplay_risk if self.gameplay_risk is not None else 0.5,
+                use_deduction=True,
+            )
         else:
             raise ValueError(f"Unknown profile type: {profile_type}")
 
