@@ -116,7 +116,7 @@ def find_trade_in_situation(game: Game) -> Optional[Tuple[Player, List[Card]]]:
 
 def generate_random_hand_with_trade_in(
     max_attempts: int = 10000, seed: Optional[int] = None, show_progress: bool = False
-) -> Optional[Tuple[Game, Player, List[Card]]]:
+) -> Optional[Tuple[Game, Player, List[Card], int]]:
     """
     Generate a random hand until someone has a 9-10 trade-in situation.
 
@@ -131,8 +131,8 @@ def generate_random_hand_with_trade_in(
 
     Returns
     -------
-    Optional[Tuple[Game, Player, List[Card]]]
-        Tuple of (game, player, eligible_cards) if found, None otherwise.
+    Optional[Tuple[Game, Player, List[Card], int]]
+        Tuple of (game, player, eligible_cards, attempts_taken) if found, None otherwise.
     """
     if seed is not None:
         random.seed(seed)
@@ -171,7 +171,7 @@ def generate_random_hand_with_trade_in(
             if show_progress:
                 print(f"    Found trade-in situation after {attempt + 1} attempts!")
             player, eligible_cards = trade_in_situation
-            return (game, player, eligible_cards)
+            return (game, player, eligible_cards, attempt + 1)
 
     if show_progress:
         print(f"    No trade-in situation found after {max_attempts} attempts.")
@@ -321,18 +321,11 @@ def run_monte_carlo_simulation(
         print(f"{'='*80}")
 
         simulation_count = 0
-        attempt_count = 0
+        total_attempts = 0
         last_progress_update = 0
 
         print(f"  Searching for trade-in situations (this may take a while)...")
-        while simulation_count < num_simulations and attempt_count < num_simulations * max_attempts_per_sim:
-            attempt_count += 1
-
-            # Show progress every 5000 attempts
-            if attempt_count - last_progress_update >= 5000:
-                print(f"  Attempt {attempt_count}: Found {simulation_count}/{num_simulations} situations...")
-                last_progress_update = attempt_count
-
+        while simulation_count < num_simulations and total_attempts < num_simulations * max_attempts_per_sim:
             # Generate a random hand with trade-in situation
             result = generate_random_hand_with_trade_in(
                 max_attempts=max_attempts_per_sim, seed=None, show_progress=False
@@ -340,12 +333,19 @@ def run_monte_carlo_simulation(
 
             if result is None:
                 # If we exhausted attempts, break
-                if attempt_count >= num_simulations * max_attempts_per_sim:
-                    print(f"  Warning: Only found {simulation_count} situations after {attempt_count} attempts")
+                total_attempts += max_attempts_per_sim
+                if total_attempts >= num_simulations * max_attempts_per_sim:
+                    print(f"  Warning: Only found {simulation_count} situations after {total_attempts} attempts")
                     break
                 continue
 
-            base_game, trade_in_player, eligible_cards = result
+            base_game, trade_in_player, eligible_cards, attempts_taken = result
+            total_attempts += attempts_taken
+
+            # Show progress every 5000 attempts
+            if total_attempts - last_progress_update >= 5000:
+                print(f"  Attempt {total_attempts}: Found {simulation_count}/{num_simulations} situations...")
+                last_progress_update = total_attempts
 
             # Replace the trade-in player with the specified type
             player_config = [
@@ -376,9 +376,9 @@ def run_monte_carlo_simulation(
             results[player_type].append((result_trade_in, result_no_trade_in))
             simulation_count += 1
 
-            print(f"  Found situation {simulation_count}/{num_simulations} (after {attempt_count} attempts)")
+            print(f"  Found situation {simulation_count}/{num_simulations} (took {attempts_taken} attempts, total: {total_attempts})")
             if simulation_count % 10 == 0:
-                print(f"  Completed {simulation_count}/{num_simulations} simulations...")
+                print(f"  Completed {simulation_count}/{num_simulations} simulations (avg {total_attempts/simulation_count:.1f} attempts per situation)...")
 
         # Calculate statistics
         trade_in_wins = sum(1 for r1, r2 in results[player_type] if r1.team_won)
