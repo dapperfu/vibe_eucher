@@ -3,7 +3,7 @@
 import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from eucher.cards import Card, Suit
 from eucher.players.computer.ml.ml_config import MLConfig
@@ -76,24 +76,43 @@ class TrainingExample:
 class GameDataCollector:
     """Collects training data during gameplay."""
 
-    def __init__(self, config: Optional[MLConfig] = None) -> None:
+    def __init__(self, output_dir: Optional[Path] = None, config: Optional[MLConfig] = None) -> None:
         """
         Initialize the data collector.
 
         Parameters
         ----------
+        output_dir : Optional[Path]
+            Directory to save collected data. If None, uses default from MLConfig.
         config : Optional[MLConfig]
             ML configuration. If None, creates a new config.
         """
         self.config = config or MLConfig()
+        if output_dir is None:
+            output_dir = self.config.training_data_dir
+        self.output_dir = Path(output_dir)
+        self.output_dir.mkdir(parents=True, exist_ok=True)
         self.examples: List[TrainingExample] = []
         self.current_hand_examples: List[TrainingExample] = []
+        self.current_game_id: Optional[str] = None
+        self.game_outcomes: List[Dict[str, Any]] = []
+
+    def start_game(self, game_id: str) -> None:
+        """
+        Start tracking a new game.
+
+        Parameters
+        ----------
+        game_id : str
+            Unique identifier for the game.
+        """
+        self.current_game_id = game_id
 
     def start_new_hand(self) -> None:
         """Start collecting data for a new hand."""
         self.current_hand_examples = []
 
-    def record_order_up_decision(
+    def _record_order_up_decision_internal(
         self,
         hand: List[Card],
         turned_card: Card,
@@ -105,7 +124,7 @@ class GameDataCollector:
         points_scored: Optional[List[int]] = None,
     ) -> None:
         """
-        Record an order_up decision.
+        Record an order_up decision (internal method).
 
         Parameters
         ----------
@@ -145,7 +164,46 @@ class GameDataCollector:
         )
         self.current_hand_examples.append(example)
 
-    def record_call_trump_decision(
+    def record_order_up_decision(
+        self,
+        player_id: int,
+        hand: List[Card],
+        turned_card: Card,
+        dealer_id: int,
+        decision: bool,
+        game_state: Dict[str, Any],
+    ) -> None:
+        """
+        Record an order_up decision (wrapper for self_play compatibility).
+
+        Parameters
+        ----------
+        player_id : int
+            ID of the player.
+        hand : List[Card]
+            Player's hand.
+        turned_card : Card
+            The turned card.
+        dealer_id : int
+            ID of the dealer.
+        decision : bool
+            True to order up, False to pass.
+        game_state : Dict[str, Any]
+            Game state dictionary with trick_number, tricks_won_team0, tricks_won_team1.
+        """
+        team = player_id % 2
+        self._record_order_up_decision_internal(
+            hand=hand,
+            turned_card=turned_card,
+            player_id=player_id,
+            dealer_id=dealer_id,
+            team=team,
+            decision=decision,
+            tricks_won=None,
+            points_scored=None,
+        )
+
+    def _record_call_trump_decision_internal(
         self,
         hand: List[Card],
         turned_card: Card,
@@ -157,7 +215,7 @@ class GameDataCollector:
         points_scored: Optional[List[int]] = None,
     ) -> None:
         """
-        Record a call_trump decision.
+        Record a call_trump decision (internal method).
 
         Parameters
         ----------
@@ -197,7 +255,95 @@ class GameDataCollector:
         )
         self.current_hand_examples.append(example)
 
-    def record_card_play(
+    def record_call_trump_decision(
+        self,
+        player_id: int,
+        hand: List[Card],
+        turned_card: Card,
+        decision: Optional[Suit],
+        game_state: Dict[str, Any],
+    ) -> None:
+        """
+        Record a call_trump decision (wrapper for self_play compatibility).
+
+        Parameters
+        ----------
+        player_id : int
+            ID of the player.
+        hand : List[Card]
+            Player's hand.
+        turned_card : Card
+            The turned card.
+        decision : Optional[Suit]
+            Suit chosen, or None to pass.
+        game_state : Dict[str, Any]
+            Game state dictionary with trick_number, tricks_won_team0, tricks_won_team1.
+        """
+        team = player_id % 2
+        dealer_id = game_state.get("dealer_id", 0)
+        self._record_call_trump_decision_internal(
+            hand=hand,
+            turned_card=turned_card,
+            player_id=player_id,
+            dealer_id=dealer_id,
+            team=team,
+            decision=decision,
+            tricks_won=None,
+            points_scored=None,
+        )
+
+    def record_play_card_decision(
+        self,
+        player_id: int,
+        hand: List[Card],
+        led_suit: Optional[Suit],
+        trump_suit: Optional[Suit],
+        trick_cards: List[Card],
+        decision: Card,
+        game_state: Dict[str, Any],
+    ) -> None:
+        """
+        Record a play_card decision (wrapper for self_play compatibility).
+
+        Parameters
+        ----------
+        player_id : int
+            ID of the player.
+        hand : List[Card]
+            Player's hand before playing.
+        led_suit : Optional[Suit]
+            Suit that was led.
+        trump_suit : Optional[Suit]
+            Current trump suit.
+        trick_cards : List[Card]
+            Cards already played in trick.
+        decision : Card
+            Card that was played.
+        game_state : Dict[str, Any]
+            Game state dictionary with trick_number, tricks_won_team0, tricks_won_team1.
+        """
+        team = player_id % 2
+        trick_number = game_state.get("trick_number", 0)
+        tricks_won_team0 = game_state.get("tricks_won_team0", 0)
+        tricks_won_team1 = game_state.get("tricks_won_team1", 0)
+        dealer_id = game_state.get("dealer_id", 0)
+        self._record_card_play_internal(
+            hand=hand,
+            trump_suit=trump_suit,
+            led_suit=led_suit,
+            trick_cards=trick_cards,
+            player_id=player_id,
+            dealer_id=dealer_id,
+            team=team,
+            trick_number=trick_number,
+            tricks_won_team0=tricks_won_team0,
+            tricks_won_team1=tricks_won_team1,
+            card_played=decision,
+            tricks_won=None,
+            points_scored=None,
+        )
+
+    def _record_card_play_internal(
         self,
         hand: List[Card],
         trump_suit: Optional[Suit],
@@ -214,7 +360,7 @@ class GameDataCollector:
         points_scored: Optional[List[int]] = None,
     ) -> None:
         """
-        Record a card play decision.
+        Record a card play decision (internal method).
 
         Parameters
         ----------
@@ -264,7 +410,42 @@ class GameDataCollector:
         )
         self.current_hand_examples.append(example)
 
-    def record_discard(
+    def record_discard_decision(
+        self,
+        player_id: int,
+        hand: List[Card],
+        decision: Card,
+        game_state: Dict[str, Any],
+    ) -> None:
+        """
+        Record a discard decision (wrapper for self_play compatibility).
+
+        Parameters
+        ----------
+        player_id : int
+            ID of the player (dealer).
+        hand : List[Card]
+            Player's hand (6 cards) before discarding.
+        decision : Card
+            Card that was discarded.
+        game_state : Dict[str, Any]
+            Game state dictionary with trick_number, tricks_won_team0, tricks_won_team1.
+        """
+        team = player_id % 2
+        dealer_id = game_state.get("dealer_id", player_id)
+        trump_suit = game_state.get("trump_suit", None)
+        self._record_discard_internal(
+            hand=hand,
+            trump_suit=trump_suit,
+            player_id=player_id,
+            dealer_id=dealer_id,
+            team=team,
+            card_discarded=decision,
+            tricks_won=None,
+            points_scored=None,
+        )
+
+    def _record_discard_internal(
         self,
         hand: List[Card],
         trump_suit: Optional[Suit],
@@ -276,7 +457,7 @@ class GameDataCollector:
         points_scored: Optional[List[int]] = None,
     ) -> None:
         """
-        Record a discard decision.
+        Record a discard decision (internal method).
 
         Parameters
         ----------
@@ -372,8 +553,77 @@ class GameDataCollector:
 
         self.examples = [TrainingExample.from_dict(ex) for ex in data]
 
+    def record_game_outcome(
+        self,
+        game_id: str,
+        scores: List[int],
+        tricks_won_history: List[List[int]],
+        winner: Optional[int],
+    ) -> None:
+        """
+        Record the outcome of a game.
+
+        Parameters
+        ----------
+        game_id : str
+            Unique identifier for the game.
+        scores : List[int]
+            Final scores for each team [team0, team1].
+        tricks_won_history : List[List[int]]
+            History of tricks won per hand [[team0, team1], ...].
+        winner : Optional[int]
+            Winning team (0 or 1), or None if no winner yet.
+        """
+        outcome = {
+            "game_id": game_id,
+            "scores": scores,
+            "tricks_won_history": tricks_won_history,
+            "winner": winner,
+        }
+        self.game_outcomes.append(outcome)
+
+        # Update all examples from this game with final outcomes
+        if tricks_won_history:
+            final_tricks = tricks_won_history[-1]
+            for example in self.examples:
+                if example.tricks_won_by_team is None:
+                    example.tricks_won_by_team = final_tricks
+                if example.points_scored is None:
+                    example.points_scored = scores
+                # Calculate outcome if not set
+                if example.outcome is None:
+                    if example.team == 0:
+                        example.outcome = float(scores[0] - scores[1])
+                    else:
+                        example.outcome = float(scores[1] - scores[0])
+
+    def save_data(self, save_csv: bool = True) -> None:
+        """
+        Save collected data to files.
+
+        Parameters
+        ----------
+        save_csv : bool
+            Whether to save CSV files (can be slow for large datasets).
+        """
+        # Save JSON data
+        json_path = self.output_dir / "training_data.json"
+        self.save(filepath=str(json_path))
+
+        # Save game outcomes
+        outcomes_path = self.output_dir / "game_outcomes.json"
+        with open(outcomes_path, "w") as f:
+            json.dump(self.game_outcomes, f, indent=2)
+
+        if save_csv:
+            # Save CSV files (simplified - would need proper DataFrame conversion)
+            # For now, just save the JSON data
+            pass
+
     def clear(self) -> None:
         """Clear all collected examples."""
         self.examples = []
         self.current_hand_examples = []
+        self.current_game_id = None
+        self.game_outcomes = []
 
