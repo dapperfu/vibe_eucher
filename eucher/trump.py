@@ -154,6 +154,10 @@ class TrumpSelector:
 
             decision = player.decide_call_trump(self.turned_card, None, must_choose=False)
             
+            # Safety check: reject forbidden suit even if player returns it
+            if decision == forbidden_suit:
+                decision = None  # Treat as pass if player incorrectly returned forbidden suit
+            
             # Log decision
             # Store and log decision
             self.call_trump_decisions.append((player.name, decision))
@@ -168,6 +172,15 @@ class TrumpSelector:
         dealer = self.players[self.dealer_id]
         self.screw_the_dealer_occurred = True  # Track that screw the dealer occurred
         decision = dealer.decide_call_trump(self.turned_card, None, must_choose=True)
+        
+        # Safety check: reject forbidden suit even if dealer returns it
+        if decision == forbidden_suit:
+            # Dealer must choose, so pick first available suit
+            suits = [Suit.HEARTS, Suit.DIAMONDS, Suit.CLUBS, Suit.SPADES]
+            for suit in suits:
+                if suit != forbidden_suit:
+                    decision = suit
+                    break
         
         # Log dealer's decision
         # Store and log dealer decision

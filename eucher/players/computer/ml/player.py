@@ -473,8 +473,17 @@ class MLPlayer(ComputerPlayer):
             tricks_won_team1=tricks_won_team1,
         )
 
-        # Get all card indices (not just valid ones - let model learn through penalties)
-        all_indices = list(range(len(player.hand)))
+        # Get valid cards to prevent reneges
+        valid_cards = self.rules.get_valid_plays(player.hand, led_suit, trump_suit)
+        if not valid_cards:
+            # Fallback: if no valid cards (shouldn't happen), return first card
+            return player.hand[0]
+        
+        # Get valid card indices
+        valid_indices = [i for i, card in enumerate(player.hand) if card in valid_cards]
+        if not valid_indices:
+            # Fallback if no valid indices found
+            return valid_cards[0]
 
         # Use appropriate backend
         if self.backend == "supervised":
@@ -486,38 +495,38 @@ class MLPlayer(ComputerPlayer):
                 probs = self.play_card_classifier.predict_proba(X)[0]
                 weights = get_decision_weights_from_probs(probs)
 
-                # Apply temperature threshold for gameplay decisions
-                predicted_idx, _ = select_action_from_weights(weights, all_indices, self.gameplay_risk)
+                # Apply temperature threshold for gameplay decisions (only on valid cards)
+                predicted_idx, _ = select_action_from_weights(weights, valid_indices, self.gameplay_risk)
 
                 # Return card from hand
                 predicted_card = self.encoder.decode_card_index(predicted_idx)
-                if predicted_card is not None and predicted_card in player.hand:
+                if predicted_card is not None and predicted_card in valid_cards:
                     return predicted_card
             # Model not fitted or prediction failed, use fallback
-            return player.hand[0]
+            return valid_cards[0]
         elif self.backend == "gan":
             features_np = features.numpy()
-            predicted_idx = self.gan_model.predict(features_np, all_indices)
+            predicted_idx = self.gan_model.predict(features_np, valid_indices)
             # Return card from hand
             predicted_card = self.encoder.decode_card_index(predicted_idx)
-            if predicted_card is not None and predicted_card in player.hand:
+            if predicted_card is not None and predicted_card in valid_cards:
                 return predicted_card
-            return player.hand[0]
+            return valid_cards[0]
         elif self.backend == "rl":
             features_np = features.numpy()
             # RL agent needs to be updated to support temperature thresholds
             # For now, use existing method but could be enhanced
             predicted_idx = self.rl_agent.select_action(
-                features_np, all_indices, training=self.training_mode, temperature=self.gameplay_risk
+                features_np, valid_indices, training=self.training_mode, temperature=self.gameplay_risk
             )
             # Return card from hand
             predicted_card = self.encoder.decode_card_index(predicted_idx)
-            if predicted_card is not None and predicted_card in player.hand:
+            if predicted_card is not None and predicted_card in valid_cards:
                 return predicted_card
-            return player.hand[0]
+            return valid_cards[0]
         else:
             # Fallback
-            return player.hand[0]
+            return valid_cards[0]
 
     def decide_going_alone(self, player: "Player", trump_suit: Suit) -> bool:
         """

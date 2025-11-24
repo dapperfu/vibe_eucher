@@ -318,7 +318,13 @@ class PyTorchStrategicPlayer(PlayerProfile):
         # Update trick history if trick was completed
         # (This would be called after trick completion, but we track current trick here)
 
-        # Check for strategic override (bower drawing)
+        # Get valid cards to prevent reneges
+        valid_cards = self.rules.get_valid_plays(player.hand, led_suit, trump_suit)
+        if not valid_cards:
+            # Fallback: if no valid cards (shouldn't happen), return first card
+            return player.hand[0]
+
+        # Check for strategic override (bower drawing) - but only if it's valid
         if (
             self.use_strategic_overrides
             and trump_suit is not None
@@ -336,7 +342,7 @@ class PyTorchStrategicPlayer(PlayerProfile):
                 is_leading=True,
             )
 
-            if should_draw and draw_card and draw_card in player.hand:
+            if should_draw and draw_card and draw_card in valid_cards:
                 return draw_card
 
         # Encode game state
@@ -367,16 +373,16 @@ class PyTorchStrategicPlayer(PlayerProfile):
 
             card_play_logits = outputs["card_play"][0]
 
-            # Select from all cards in hand (let model learn through penalties)
-            all_indices = list(range(len(player.hand)))
-            if not all_indices:
-                return player.hand[0]
+            # Select from valid cards only to prevent reneges
+            valid_indices = [i for i, card in enumerate(player.hand) if card in valid_cards]
+            if not valid_indices:
+                return valid_cards[0]
 
-            # Get scores for all cards
-            all_scores = [card_play_logits[i].item() for i in all_indices]
-            best_idx = all_indices[torch.argmax(torch.tensor(all_scores)).item()]
+            # Get scores for valid cards only
+            valid_scores = [card_play_logits[i].item() for i in valid_indices]
+            best_valid_idx = valid_indices[torch.argmax(torch.tensor(valid_scores)).item()]
 
-            return player.hand[best_idx]
+            return player.hand[best_valid_idx]
 
     def record_trick_completion(
         self, played_cards: List[Card], player_ids: List[int], winner_team: int, winner_player_id: int
