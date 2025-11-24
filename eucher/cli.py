@@ -202,6 +202,11 @@ def play(opponent_type: Optional[str], name: str, seed: Optional[str], save_dir:
             # Display complete game log
             if hasattr(tui, "display_game_log"):
                 tui.display_game_log()
+            
+            # Display game summary statistics
+            from eucher.game_stats import display_game_summary
+            final_scores = game.get_scores()
+            display_game_summary(game.stats, game.players, final_scores, winner)
             break
 
         if not continue_game:
@@ -210,6 +215,13 @@ def play(opponent_type: Optional[str], name: str, seed: Optional[str], save_dir:
     # Display game log if game ended without winner
     if hasattr(tui, "display_game_log"):
         tui.display_game_log()
+    
+    # Display game summary even if game ended without explicit winner
+    winner = game.get_winner()
+    if winner is None:
+        from eucher.game_stats import display_game_summary
+        final_scores = game.get_scores()
+        display_game_summary(game.stats, game.players, final_scores, winner)
 
     # Save game if save_dir is provided
     if save_dir is not None and hasattr(game, 'game_uuid'):

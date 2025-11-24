@@ -16,6 +16,7 @@ from eucher.players.computer.ml.player import MLPlayer
 from eucher.players.computer import AIPlayer, HeuristicPlayer, RandomPlayer
 from eucher.players.profiles import HumanProfile, MLBasedProfile, PlayerProfile
 from eucher.rules import RulesEngine
+from eucher.game_stats import GameStatistics
 from eucher.training.profiling import timed_operation
 from eucher.trade_in import TradeInHandler
 from eucher.trump import TrumpSelector
@@ -88,6 +89,9 @@ class Game:
         self.trump_selector: Optional[TrumpSelector] = None
         self.ai_decision_maker = AIDecisionMaker()
         self.tui = None
+        
+        # Game statistics tracking
+        self.stats = GameStatistics()
 
         # ML model setup (lazy initialization)
         self._ml_model: Optional[EuchreMLModel] = None
@@ -337,6 +341,15 @@ class Game:
         # Select trump
         self.trump_selector = TrumpSelector(self.players, self.tui)
         self.trump_suit = self.trump_selector.select_trump(self.turned_card, self.dealer_id)
+        
+        # Record trump selection statistics
+        trump_maker_id = None
+        if self.trump_selector.trump_maker_name:
+            for player in self.players:
+                if player.name == self.trump_selector.trump_maker_name:
+                    trump_maker_id = player.player_id
+                    break
+        self.stats.record_trump_selection(self.trump_suit, trump_maker_id)
 
         # Log full trump-decision history into TUI for easier post-hand inspection
         if self.tui is not None and hasattr(self.tui, "log_trump_decision_history"):
@@ -392,6 +405,9 @@ class Game:
             winner = self.players[winner_id]
             tricks_won[winner.team] += 1
             self._current_tricks_won = tricks_won.copy()
+            
+            # Record statistics
+            self.stats.record_trick_winner(winner_id, winner.team)
 
             # Display trick winner and wait for spacebar
             if self.tui is not None and hasattr(self.tui, "display_trick_winner"):
@@ -407,8 +423,26 @@ class Game:
                         winner_id,
                     )
 
-        # Score the hand
+        # Score the hand (get scores before to calculate points awarded)
+        scores_before = self.get_scores()
         self._score_hand(tricks_won)
+        scores_after = self.get_scores()
+        points_awarded = [scores_after[0] - scores_before[0], scores_after[1] - scores_before[1]]
+        
+        # Record hand completion statistics
+        making_team = None
+        if self.trump_selector and self.trump_selector.trump_maker_name:
+            for player in self.players:
+                if player.name == self.trump_selector.trump_maker_name:
+                    making_team = player.team
+                    break
+        self.stats.record_hand_complete(tricks_won, points_awarded, self.players, making_team)
+        
+        # Record going alone statistics
+        if self.going_alone and self.going_alone_player_id is not None:
+            # Successful if making team won 5 tricks
+            successful = tricks_won[making_team] == 5 if making_team is not None else False
+            self.stats.record_going_alone(self.going_alone_player_id, successful)
 
         # Log hand score
         if self.tui is not None and hasattr(self.tui, "log_hand_score"):
