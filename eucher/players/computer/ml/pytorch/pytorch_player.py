@@ -337,16 +337,7 @@ class PyTorchStrategicPlayer(PlayerProfile):
             )
 
             if should_draw and draw_card and draw_card in player.hand:
-                # Validate it's a legal play
-                valid_plays = self.rules.get_valid_plays(player.hand, None, trump_suit)
-                if draw_card in valid_plays:
-                    return draw_card
-
-        # Get valid plays
-        valid_plays = self.rules.get_valid_plays(player.hand, led_suit, trump_suit)
-        if not valid_plays:
-            # Fallback - should not happen
-            return player.hand[0]
+                return draw_card
 
         # Encode game state
         features = self.feature_encoder.encode_full_state(
@@ -376,16 +367,16 @@ class PyTorchStrategicPlayer(PlayerProfile):
 
             card_play_logits = outputs["card_play"][0]
 
-            # Filter to valid plays only
-            valid_indices = [i for i, card in enumerate(player.hand) if card in valid_plays]
-            if not valid_indices:
-                return valid_plays[0]
+            # Select from all cards in hand (let model learn through penalties)
+            all_indices = list(range(len(player.hand)))
+            if not all_indices:
+                return player.hand[0]
 
-            # Get scores for valid cards
-            valid_scores = [card_play_logits[i].item() for i in valid_indices]
-            best_valid_idx = valid_indices[torch.argmax(torch.tensor(valid_scores)).item()]
+            # Get scores for all cards
+            all_scores = [card_play_logits[i].item() for i in all_indices]
+            best_idx = all_indices[torch.argmax(torch.tensor(all_scores)).item()]
 
-            return player.hand[best_valid_idx]
+            return player.hand[best_idx]
 
     def record_trick_completion(
         self, played_cards: List[Card], player_ids: List[int], winner_team: int, winner_player_id: int
@@ -424,4 +415,65 @@ class PyTorchStrategicPlayer(PlayerProfile):
             Current team scores [team0, team1].
         """
         self.team_scores = team_scores.copy()
+
+    def decide_going_alone(self, player: "Player", trump_suit: Suit) -> bool:
+        """
+        Decide whether to go alone after making trump.
+
+        Parameters
+        ----------
+        player : Player
+            The player making the decision.
+        trump_suit : Suit
+            The trump suit that was selected.
+
+        Returns
+        -------
+        bool
+            True to go alone, False to play with partner.
+        """
+        # Simple heuristic: check for flush in trump or very strong hand
+        trump_count = 0
+        for card in player.hand:
+            # Right Bower
+            if card.rank.value == 11 and card.suit == trump_suit:
+                trump_count += 1
+            # Left Bower
+            elif card.rank.value == 11:
+                trump_card = Card(trump_suit, card.rank)
+                if card.is_same_color(trump_card):
+                    trump_count += 1
+            # Regular trump
+            elif card.suit == trump_suit:
+                trump_count += 1
+
+        # Go alone if flush in trump (all 5 cards are trump)
+        if trump_count >= 5:
+            return True
+
+        # Go alone if 4+ trump cards (very strong)
+        if trump_count >= 4:
+            return True
+
+        return False
+
+    def decide_trade_in(self, player: "Player", eligible_cards: List[Card]) -> bool:
+        """
+        Decide whether to trade-in eligible cards for kitty cards.
+
+        Parameters
+        ----------
+        player : Player
+            The player making the decision.
+        eligible_cards : List[Card]
+            The three cards that are eligible for trade-in (same suit, all 9s or 10s).
+
+        Returns
+        -------
+        bool
+            True to trade-in, False to pass.
+        """
+        # Simple heuristic: trade-in if eligible cards are low value (9s or 10s)
+        # and we might get better cards from the kitty
+        return False  # Conservative: don't trade-in by default
 

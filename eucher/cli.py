@@ -1,6 +1,7 @@
 """Command-line interface for Euchre game."""
 
 import json
+import os
 import random
 from datetime import datetime
 from pathlib import Path
@@ -60,7 +61,8 @@ def cli() -> None:
 @click.option("--name", default="You", help="Human player name")
 @click.option("--seed", type=str, default=None, help="Random seed for reproducible games (integer or UUID string)")
 @click.option("--save-dir", type=click.Path(file_okay=False, dir_okay=True), default=None, help="Directory to save game file")
-def play(opponent_type: Optional[str], name: str, seed: Optional[str], save_dir: Optional[str]) -> None:
+@click.option("--ai-summary", is_flag=True, default=False, help="Generate AI-powered verbal summaries after each hand (requires OPENAI_API_KEY)")
+def play(opponent_type: Optional[str], name: str, seed: Optional[str], save_dir: Optional[str], ai_summary: bool) -> None:
     """
     Play a game of Euchre with 1 human player and 3 computer opponents.
 
@@ -174,6 +176,24 @@ def play(opponent_type: Optional[str], name: str, seed: Optional[str], save_dir:
         # Display scores
         scores = game.get_scores()
         tui.display_scores(scores[0], scores[1])
+
+        # Generate AI summary if enabled
+        if ai_summary:
+            # Get the last hand log (stored before clearing in display_hand_log)
+            hand_log = getattr(tui, 'last_hand_log', [])
+            if hand_log:
+                from eucher.ai_summary import generate_hand_summary_safe, OPENAI_AVAILABLE
+                summary = generate_hand_summary_safe(hand_log)
+                if summary:
+                    click.echo("\n" + "=" * 50)
+                    click.echo("AI Hand Summary")
+                    click.echo("=" * 50)
+                    click.echo(summary)
+                    click.echo("=" * 50)
+                elif not OPENAI_AVAILABLE:
+                    click.echo("\nNote: AI summaries require 'openai' package. Install with: pip install openai", err=True)
+                elif not os.getenv("OPENAI_API_KEY"):
+                    click.echo("\nNote: AI summaries require OPENAI_API_KEY environment variable.", err=True)
 
         # Check for game over
         winner = game.get_winner()

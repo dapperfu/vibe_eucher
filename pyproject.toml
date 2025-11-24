@@ -17,6 +17,7 @@ dependencies = [
     "faker>=18.0.0",
     "pony>=0.7.0",
     "rich>=13.0.0",
+    "perceiver-pytorch>=0.1.0",
 ]
 
 [project.optional-dependencies]
@@ -25,6 +26,9 @@ dev = [
     "mypy>=1.0.0",
     "ruff>=0.1.0",
     "pydocstyle>=6.0.0",
+]
+ai = [
+    "openai>=1.0.0",
 ]
 
 [project.scripts]

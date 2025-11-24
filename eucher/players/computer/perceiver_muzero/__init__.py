@@ -1,0 +1,2 @@
+"""EuchrePerceiverMuZero player implementation."""
+

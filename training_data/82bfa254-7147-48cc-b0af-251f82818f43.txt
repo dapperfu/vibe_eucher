@@ -1,0 +1,10 @@
+Timestamp: 
+Hostname: unknown
+Dataset: call_trump
+UUID: 82bfa254-7147-48cc-b0af-251f82818f43
+File: 82bfa254-7147-48cc-b0af-251f82818f43.npz
+Records: 2
+Features shape: (2, 260)
+Decisions shape: (2,)
+Game IDs: 2
+Game ID List: 37938d2d-93c4-401a-9e2d-1fbe6f4aec5d,93b92ace-eb20-46e8-b531-bc4dac873f08

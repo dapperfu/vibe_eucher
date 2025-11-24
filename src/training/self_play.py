@@ -163,6 +163,18 @@ class SelfPlayTrainer:
         self.data_collector.record_game_outcome(
             game_id, game.get_scores(), tricks_won_history, winner
         )
+        
+        # Save full game replay
+        try:
+            # Set game UUID so it can be saved
+            game.game_uuid = game_id
+            from eucher.game_file import save_game
+            game_replay_file = save_game(game, self.data_collector.output_dir)
+            self.data_collector.saved_game_replays.append(game_id)
+        except Exception as e:
+            # Don't fail if game replay save fails
+            import sys
+            print(f"Warning: Failed to save game replay for {game_id}: {e}", file=sys.stderr)
 
     @timed_operation("SelfPlayTrainer.run_training_round")
     def run_training_round(
@@ -210,17 +222,17 @@ class SelfPlayTrainer:
         """
         return [
             # All ML players
-            [("ML1", "ml"), ("ML2", "ml"), ("ML3", "ml"), ("ML4", "ml")],
+            [("ML1", "ml_sklearn"), ("ML2", "ml_sklearn"), ("ML3", "ml_sklearn"), ("ML4", "ml_sklearn")],
             # ML vs Random
-            [("ML1", "ml"), ("Random1", "random"), ("ML2", "ml"), ("Random2", "random")],
+            [("ML1", "ml_sklearn"), ("Random1", "random"), ("ML2", "ml_sklearn"), ("Random2", "random")],
             # ML with AI partner vs Random opponents
-            [("ML1", "ml"), ("AI1", "ai"), ("Random1", "random"), ("Random2", "random")],
+            [("ML1", "ml_sklearn"), ("AI1", "ai"), ("Random1", "random"), ("Random2", "random")],
             # ML with Random partner vs AI and Random opponents
-            [("ML1", "ml"), ("Random1", "random"), ("AI1", "ai"), ("Random2", "random")],
+            [("ML1", "ml_sklearn"), ("Random1", "random"), ("AI1", "ai"), ("Random2", "random")],
             # ML vs Heuristic
-            [("ML1", "ml"), ("Heuristic1", "heuristic"), ("ML2", "ml"), ("Heuristic2", "heuristic")],
+            [("ML1", "ml_sklearn"), ("Heuristic1", "heuristic"), ("ML2", "ml_sklearn"), ("Heuristic2", "heuristic")],
             # Mixed: ML, AI, Random, Heuristic
-            [("ML1", "ml"), ("AI1", "ai"), ("Random1", "random"), ("Heuristic1", "heuristic")],
+            [("ML1", "ml_sklearn"), ("AI1", "ai"), ("Random1", "random"), ("Heuristic1", "heuristic")],
         ]
 
 

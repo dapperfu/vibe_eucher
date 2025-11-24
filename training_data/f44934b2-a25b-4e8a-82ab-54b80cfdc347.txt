@@ -1,0 +1,9 @@
+Timestamp: 
+Hostname: unknown
+Dataset: order_up
+UUID: f44934b2-a25b-4e8a-82ab-54b80cfdc347
+File: f44934b2-a25b-4e8a-82ab-54b80cfdc347.ngz
+Records: 14554
+Features shape: (14554, 260)
+Decisions shape: (14554,)
+Game IDs: 1000

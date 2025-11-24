@@ -1,0 +1,27 @@
+================================================================================
+Screw the Dealer Statistical Analysis Report
+================================================================================
+
+
+================================================================================
+Screw the Dealer Analysis:
+--------------------------------------------------------------------------------
+Total Occurrences: 10
+Dealer's Team Wins: 5
+Dealer's Team Losses: 5
+Dealer's Team Win Rate: 50.00%
+
+Breakdown by Dealer Team:
+  Team 0 as Dealer:
+    Occurrences: 5
+    Wins: 3
+    Losses: 2
+    Win Rate: 60.00%
+  Team 1 as Dealer:
+    Occurrences: 5
+    Wins: 2
+    Losses: 3
+    Win Rate: 40.00%
+
+CONCLUSION: Screw the dealer appears neutral.
+The dealer's team wins 50.00% of hands when forced to make trump.

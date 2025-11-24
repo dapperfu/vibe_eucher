@@ -1,0 +1,10 @@
+Timestamp: 
+Hostname: unknown
+Dataset: play_card
+UUID: 7888b0e6-f736-420d-990b-8dbd499d9052
+File: 7888b0e6-f736-420d-990b-8dbd499d9052.npz
+Records: 2215
+Features shape: (2215, 260)
+Decisions shape: (2215,)
+Game IDs: 12
+Game ID List: 0d936f0f-3b47-4f89-895c-a92376205189,2f3c2bfe-8c85-44ac-a271-c26077fc9367,37938d2d-93c4-401a-9e2d-1fbe6f4aec5d,3f297989-d577-4037-a6d3-2a6b00aef907,43de64fe-f708-4c70-844c-3397cab137b1,685ccfce-c17b-420b-ba7a-7302f6ebed87,7f5b4911-bfaa-451a-b3fb-c4e7c1150593,93b92ace-eb20-46e8-b531-bc4dac873f08,bcd39563-59ca-4c1e-881a-ffbac1910d04,e7ab399c-c41e-46a2-9691-8e49149ffbef,e932062c-9adc-40d4-8984-ed24dd38b200,f13cb853-c4e5-4f82-8466-be2a43bb9d5f

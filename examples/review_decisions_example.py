@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
-from eucher.players.computer.ml.ml_config import MLConfig
-from eucher.training.decision_reviewer import DecisionReviewer
+from src.ml_config import MLConfig
+from src.training.decision_reviewer import DecisionReviewer
 
 
 def main() -> None:

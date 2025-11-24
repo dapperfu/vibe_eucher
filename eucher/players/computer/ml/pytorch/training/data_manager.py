@@ -53,13 +53,27 @@ class TrainingDataManager:
             file_path = self.data_dir / f"training_{dataset_name}.{fmt}"
             if file_path.exists():
                 try:
-                    return self._load_file(file_path, fmt)
+                    df = self._load_file(file_path, fmt)
+                    # Validate that loaded DataFrame is not empty
+                    if df.empty:
+                        print(f"Warning: Loaded dataset '{dataset_name}' from {file_path} is empty")
+                    return df
                 except ImportError:
                     # If parquet fails due to missing pyarrow, try CSV
                     if fmt == "parquet":
                         csv_path = file_path.with_suffix(".csv")
                         if csv_path.exists():
-                            return self._load_file(csv_path, "csv")
+                            try:
+                                df = self._load_file(csv_path, "csv")
+                                if df.empty:
+                                    print(f"Warning: Loaded dataset '{dataset_name}' from {csv_path} is empty")
+                                return df
+                            except Exception as e:
+                                print(f"Error loading CSV fallback for {file_path}: {e}")
+                    continue
+                except Exception as e:
+                    # Log error but continue trying other formats
+                    print(f"Error loading {file_path} ({fmt} format): {e}")
                     continue
 
         # Return empty DataFrame if not found
@@ -79,12 +93,39 @@ class TrainingDataManager:
         -------
         pd.DataFrame
             Loaded data.
+
+        Raises
+        ------
+        KeyError
+            If required keys are missing in npz file.
+        ValueError
+            If arrays are empty or have mismatched lengths.
         """
         if format == "npz":
             # Load .npz file with X (features) and y (decisions) arrays
             data = np.load(file_path)
+            
+            # Validate that required keys exist
+            if "X" not in data:
+                raise KeyError(f"Missing 'X' key in npz file: {file_path}")
+            if "y" not in data:
+                raise KeyError(f"Missing 'y' key in npz file: {file_path}")
+            
             X = data["X"]
             y = data["y"]
+            
+            # Validate arrays have non-zero length
+            if len(X) == 0:
+                raise ValueError(f"Array 'X' in npz file is empty: {file_path}")
+            if len(y) == 0:
+                raise ValueError(f"Array 'y' in npz file is empty: {file_path}")
+            
+            # Validate arrays have matching lengths
+            if len(X) != len(y):
+                raise ValueError(
+                    f"Array length mismatch in npz file {file_path}: "
+                    f"X has {len(X)} samples, y has {len(y)} samples"
+                )
             
             # Convert to DataFrame format expected by EuchreDataset
             # Each row should have "features" (as list) and "decision" fields

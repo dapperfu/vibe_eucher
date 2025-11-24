@@ -176,6 +176,11 @@ def train_rl_through_self_play(
 
     device = config.device
     print(f"Training RL agent on device: {device}")
+    print("\nWARNING: RL training has architectural limitations:")
+    print("  - MLPlayer with RL backend currently uses heuristic fallback for decisions")
+    print("  - Experience collection is simplified (no per-decision state-action-reward tuples)")
+    print("  - The trained agent may not converge well due to these limitations")
+    print("  - Consider using Transformer RL or EuchreZero for better RL training\n")
 
     # Create agent
     agent = RLAgent(config)
@@ -232,41 +237,73 @@ def train_rl_through_self_play(
                 if game_num >= num_games:
                     break
 
-            # Create game with RL agent
+            # Create game with RL agents
+            # Note: Currently MLPlayer with RL backend uses heuristic fallback for decisions
+            # This is a limitation - proper RL training would require integrating the RL agent
+            # directly into the decision-making loop to collect state-action-reward tuples
             player_config = [
-                ("RL1", "ml"),
-                ("RL2", "ml"),
-                ("RL3", "ml"),
-                ("RL4", "ml"),
+                ("RL1", "ml_rl"),
+                ("RL2", "ml_rl"),
+                ("RL3", "ml_rl"),
+                ("RL4", "ml_rl"),
             ]
 
-            # For now, use a simple approach: play games and collect experiences
-            # In a full implementation, we'd integrate RL agent into game loop
-            game = Game(player_config)
+            # Create game with RL players
+            game = Game(
+                player_config,
+                trump_selection_risk=config.trump_selection_risk,
+                gameplay_risk=config.gameplay_risk,
+            )
 
+            # Play game and collect experiences
+            # Note: Current implementation is simplified - proper RL would collect
+            # state-action-reward-next_state tuples during each decision point
             game_reward = 0.0
             episode_states = []
             episode_actions = []
             episode_rewards = []
 
-            # Play game and collect experiences
-            # This is a simplified version - full implementation would
-            # integrate with game loop to collect state-action-reward tuples
+            # Track initial scores for reward calculation
+            initial_scores = game.get_scores()
+            
+            # Play game to completion
             while True:
                 continue_game = game.play_hand()
-                # Calculate reward based on game outcome
-                tricks_won = getattr(game, "_current_tricks_won", [0, 0])
-                scores = game.get_scores()
-                winner = game.get_winner()
-
-                # Simplified: collect reward at end of hand
-                if not continue_game or winner is not None:
+                if not continue_game:
                     break
+                
+                # Calculate intermediate rewards based on hand outcomes
+                current_scores = game.get_scores()
+                score_delta = [
+                    current_scores[i] - initial_scores[i] 
+                    for i in range(2)
+                ]
+                
+                # Reward for team 0 (players 0 and 2)
+                # Positive reward for scoring, negative for opponent scoring
+                hand_reward = score_delta[0] - score_delta[1]
+                game_reward += hand_reward
+                
+                # Update initial scores for next hand
+                initial_scores = current_scores
 
-            # Record game result
-            won = winner is not None and winner == 0  # Simplified - would need actual team tracking
+            # Determine winner and record game result
+            winner = game.get_winner()
+            if winner is not None:
+                # Team 0 is players 0 and 2, Team 1 is players 1 and 3
+                # Record win for team 0 (the RL agents we're training)
+                won = winner == 0
+            else:
+                # Game didn't complete properly, treat as loss
+                won = False
+                game_reward -= 10.0  # Penalty for incomplete game
+            
+            # Record game result for convergence tracking
             if use_orchestrator:
                 orchestrator.record_game_result(won)
+            
+            # Store reward for statistics
+            total_rewards.append(game_reward)
 
             # Decay epsilon
             agent.update_epsilon()

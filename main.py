@@ -13,14 +13,14 @@ def main() -> None:
     player_config = []
     print("\nConfigure players:")
     print(
-        "Profile types: 'human', 'simple'/'heuristic' (rule-based), 'ai', 'random', 'ml'/'ml_sklearn' (sklearn ML), 'ml_pytorch' (PyTorch ML)"
+        "Profile types: 'human', 'heuristic' (rule-based), 'ai', 'random', 'ml_sklearn' (sklearn ML), 'ml_pytorch' (PyTorch ML)"
     )
     for i in range(4):
         name = input(f"Player {i + 1} name: ").strip() or f"Player {i + 1}"
         profile_input = (
-            input(f"{name} profile type (human/simple/ai/random/ml) [ai]: ").strip().lower() or "ai"
+            input(f"{name} profile type (human/heuristic/ai/random/ml_sklearn) [ai]: ").strip().lower() or "ai"
         )
-        valid_types = ["human", "simple", "heuristic", "ai", "random", "ml", "ml_sklearn", "ml_pytorch"]
+        valid_types = ["human", "heuristic", "ai", "random", "ml_sklearn", "ml_pytorch"]
         if profile_input not in valid_types:
             print(f"Invalid profile type, defaulting to 'ai'")
             profile_input = "ai"

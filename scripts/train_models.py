@@ -6,7 +6,6 @@ from pathlib import Path
 
 from eucher.players.computer.ml.ml_config import MLConfig
 from eucher.training.convergence_tracker import ConvergenceTracker
-from eucher.training.profiling import Profiler, get_timing_stats
 from eucher.training.self_play import SelfPlayTrainer
 from eucher.training.train_gan import train_gan_for_decision_type
 from eucher.training.train_rl import train_rl_through_self_play
@@ -97,39 +96,6 @@ def main() -> None:
         default=100,
         help="Save checkpoint every N games (default: 100)",
     )
-    parser.add_argument(
-        "--profile",
-        action="store_true",
-        help="Enable profiling (cProfile). Auto-enabled for self_play mode with duration.",
-    )
-    parser.add_argument(
-        "--profile-output",
-        type=str,
-        default=None,
-        help="Output file for profile results (default: profiles/train_profile.txt)",
-    )
-    parser.add_argument(
-        "--timing",
-        action="store_true",
-        help="Enable timing statistics collection",
-    )
-    parser.add_argument(
-        "--timing-output",
-        type=str,
-        default=None,
-        help="Output file for timing statistics (default: profiles/timing_stats.txt)",
-    )
-    parser.add_argument(
-        "--disable-live-display",
-        action="store_true",
-        help="Disable Rich live display to reduce overhead (useful for profiling)",
-    )
-    parser.add_argument(
-        "--display-refresh-rate",
-        type=float,
-        default=None,
-        help="Refresh rate for live display in updates per second (default: 2.0, lower for profiling)",
-    )
 
     args = parser.parse_args()
 
@@ -186,132 +152,65 @@ def main() -> None:
         checkpoint_dir=model_dir / "checkpoints",
     )
 
-    # Setup profiling
-    # Auto-enable profiling for self_play mode with duration (for performance analysis)
-    enable_profiling = args.profile
-    if args.mode == "self_play" and args.duration and not args.profile:
-        enable_profiling = True
-        print("Note: Profiling auto-enabled for self_play mode with duration. Use --profile to control explicitly.")
+    if args.mode in ["self_play", "both"]:
+        print("=" * 60)
+        print("Self-Play Training")
+        print("=" * 60)
 
-    profile_output = None
-    if enable_profiling:
-        if args.profile_output:
-            profile_output = Path(args.profile_output)
-        else:
-            profile_output = Path("profiles") / "train_profile.txt"
+        # Setup progress display if using orchestrator
+        from eucher.training.training_progress import TrainingProgressDisplay
 
-    # Auto-enable timing for self_play mode with duration
-    enable_timing = args.timing
-    if args.mode == "self_play" and args.duration and not args.timing:
-        enable_timing = True
-        print("Note: Timing statistics auto-enabled for self_play mode with duration. Use --timing to control explicitly.")
+        progress_display = None
+        live_display = None
 
-    timing_output = None
-    if enable_timing:
-        if args.timing_output:
-            timing_output = Path(args.timing_output)
-        else:
-            timing_output = Path("profiles") / "timing_stats.txt"
+        if args.until_converged or args.duration:
+            orchestrator.start_training()
+            progress_display = TrainingProgressDisplay(
+                orchestrator,
+                trump_selection_risk=config.trump_selection_risk,
+                gameplay_risk=config.gameplay_risk,
+            )
+            live_display = progress_display.start_live_display()
+            live_display.__enter__()
 
-    # Context manager for when profiling is disabled
-    class nullcontext:
-        """Null context manager for when profiling is disabled."""
-        def __enter__(self):
-            return self
-        def __exit__(self, *args):
-            pass
+        trainer = SelfPlayTrainer(output_dir=data_dir)
 
-    # Main training with profiling
-    profiler_context = Profiler(output_file=profile_output) if enable_profiling else nullcontext()
-    with profiler_context:
-        if args.mode in ["self_play", "both"]:
-            print("=" * 60)
-            print("Self-Play Training")
-            print("=" * 60)
-
-            # Setup progress display if using orchestrator
-            from eucher.training.training_progress import TrainingProgressDisplay
-
-            progress_display = None
-            live_display = None
-
-            if args.until_converged or args.duration:
-                orchestrator.start_training()
-                # Disable live display if requested or when profiling (to reduce overhead)
-                use_live_display = not args.disable_live_display and not enable_profiling
-                refresh_rate = args.display_refresh_rate if args.display_refresh_rate else (0.5 if enable_profiling else 2.0)
-                
-                progress_display = TrainingProgressDisplay(
-                    orchestrator,
-                    trump_selection_risk=config.trump_selection_risk,
-                    gameplay_risk=config.gameplay_risk,
-                )
-                if use_live_display:
-                    live_display = progress_display.start_live_display(refresh_rate=refresh_rate)
-                    live_display.__enter__()
+        game_count = 0
+        try:
+            while True:
+                # Check if should continue
+                if args.until_converged or args.duration:
+                    if not orchestrator.should_continue():
+                        break
                 else:
-                    live_display = None
-                    if enable_profiling:
-                        print("Note: Live display disabled during profiling to reduce overhead.")
+                    if game_count >= args.num_games:
+                        break
 
-            trainer = SelfPlayTrainer(output_dir=data_dir)
+                # Run training round
+                trainer.run_training_round(num_games=1)
+                game_count += 1
 
-            game_count = 0
-            # Batch save interval - save less frequently to reduce I/O overhead
-            save_interval = 100 if enable_profiling else 50
-            try:
-                while True:
-                    # Check if should continue
-                    if args.until_converged or args.duration:
-                        if not orchestrator.should_continue():
-                            break
-                    else:
-                        if game_count >= args.num_games:
-                            break
+                # Record game result (simplified - would get actual result from game)
+                if args.until_converged or args.duration:
+                    orchestrator.record_game_result(won=(game_count % 2 == 0))
 
-                    # Determine if we should save data
-                    is_final = (
-                        (args.until_converged or args.duration) and not orchestrator.should_continue()
-                    ) or (not args.until_converged and not args.duration and game_count >= args.num_games - 1)
-                    
-                    should_save = is_final or (game_count % save_interval == 0)
-                    
-                    # Run training round (disable auto-save, we'll batch it)
-                    trainer.run_training_round(
-                        num_games=1,
-                        save_data=should_save,
-                    )
-                    
-                    game_count += 1
-
-                    # Record game result (simplified - would get actual result from game)
-                    if args.until_converged or args.duration:
-                        orchestrator.record_game_result(won=(game_count % 2 == 0))
-
-                        # Update progress display (less frequently when profiling)
-                        if progress_display:
-                            progress_display.update()
-                            # Update live display less frequently to reduce overhead
-                            update_interval = 50 if enable_profiling else 10
-                            if live_display and game_count % update_interval == 0:
-                                progress_display.update_live_display(live_display)
-
-                        if orchestrator.should_checkpoint():
-                            if progress_display:
-                                progress_display.console.print(f"[yellow]Checkpoint saved at game {game_count}[/yellow]")
-
-            finally:
-                # Final save of all collected data
-                print("\nSaving final collected data...")
-                saved_files = trainer.data_collector.save_data(use_uuid_naming=True)
-                print(f"Saved {len(saved_files)} files with UUID-based naming")
-                
-                if live_display:
-                    live_display.__exit__(None, None, None)
+                    # Update progress display
                     if progress_display:
-                        progress_display.print_summary()
+                        progress_display.update()
+                        if game_count % 10 == 0:
+                            progress_display.update_live_display(live_display)
 
-            print("\nSelf-play data collection complete!")
+                    if orchestrator.should_checkpoint():
+                        if progress_display:
+                            progress_display.console.print(f"[yellow]Checkpoint saved at game {game_count}[/yellow]")
+
+        finally:
+            if live_display:
+                live_display.__exit__(None, None, None)
+                if progress_display:
+                    progress_display.print_summary()
+
+        print("\nSelf-play data collection complete!")
 
     if args.mode in ["train", "both"]:
         print("\n" + "=" * 60)
@@ -356,13 +255,6 @@ def main() -> None:
             orchestrator=orchestrator if (args.until_converged or args.duration) else None,
         )
         print("\nRL agent training complete!")
-
-    # Print timing statistics if enabled
-    if enable_timing:
-        timing_stats = get_timing_stats()
-        timing_stats.print_summary()
-        if timing_output:
-            timing_stats.save_summary(timing_output)
 
 
 if __name__ == "__main__":

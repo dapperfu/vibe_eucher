@@ -523,10 +523,10 @@ def play_pytorch_ai_game(
 
         # Create game with placeholder config, then replace profiles
         player_config = [
-            ("PyTorch AI 1", "simple"),
-            ("PyTorch AI 2", "simple"),
-            ("PyTorch AI 3", "simple"),
-            ("PyTorch AI 4", "simple"),
+            ("PyTorch AI 1", "heuristic"),
+            ("PyTorch AI 2", "heuristic"),
+            ("PyTorch AI 3", "heuristic"),
+            ("PyTorch AI 4", "heuristic"),
         ]
         game = Game(player_config)
 

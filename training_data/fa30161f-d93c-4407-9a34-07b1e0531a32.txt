@@ -1,0 +1,9 @@
+Timestamp: 
+Hostname: unknown
+Dataset: play_card
+UUID: fa30161f-d93c-4407-9a34-07b1e0531a32
+File: fa30161f-d93c-4407-9a34-07b1e0531a32.ngz
+Records: 180960
+Features shape: (180960, 260)
+Decisions shape: (180960,)
+Game IDs: 1000

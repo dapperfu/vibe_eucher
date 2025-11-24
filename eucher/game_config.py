@@ -33,9 +33,9 @@ def create_ai_vs_ai_game(player_names: List[str] = None) -> Game:
     return Game(player_config)
 
 
-def create_simple_vs_simple_game(player_names: List[str] = None) -> Game:
+def create_heuristic_vs_heuristic_game(player_names: List[str] = None) -> Game:
     """
-    Create a game with all simple rule-based players.
+    Create a game with all heuristic rule-based players.
 
     Parameters
     ----------
@@ -45,7 +45,7 @@ def create_simple_vs_simple_game(player_names: List[str] = None) -> Game:
     Returns
     -------
     Game
-        A game configured with all simple rule-based players.
+        A game configured with all heuristic rule-based players.
 
     Raises
     ------
@@ -53,11 +53,11 @@ def create_simple_vs_simple_game(player_names: List[str] = None) -> Game:
         If player_names is provided and doesn't have exactly 4 names.
     """
     if player_names is None:
-        player_names = ["Simple Player 1", "Simple Player 2", "Simple Player 3", "Simple Player 4"]
+        player_names = ["Heuristic Player 1", "Heuristic Player 2", "Heuristic Player 3", "Heuristic Player 4"]
     elif len(player_names) != 4:
         raise ValueError("Must provide exactly 4 player names")
 
-    player_config = [(name, "simple") for name in player_names]
+    player_config = [(name, "heuristic") for name in player_names]
     return Game(player_config)
 
 
@@ -68,7 +68,7 @@ def create_mixed_game(profile_types: List[str], player_names: List[str] = None) 
     Parameters
     ----------
     profile_types : List[str]
-        List of 4 profile types: "human", "simple", "ai", or "random".
+        List of 4 profile types: "human", "heuristic", "ai", or "random".
     player_names : List[str], optional
         List of 4 player names. If None, uses default names based on profile type.
 
@@ -85,7 +85,7 @@ def create_mixed_game(profile_types: List[str], player_names: List[str] = None) 
     if len(profile_types) != 4:
         raise ValueError("Must provide exactly 4 profile types")
 
-    valid_types = {"human", "simple", "ai", "random"}
+    valid_types = {"human", "heuristic", "ai", "random"}
     for profile_type in profile_types:
         if profile_type not in valid_types:
             raise ValueError(f"Invalid profile type: {profile_type}. Must be one of {valid_types}")
@@ -95,8 +95,8 @@ def create_mixed_game(profile_types: List[str], player_names: List[str] = None) 
         for i, profile_type in enumerate(profile_types):
             if profile_type == "human":
                 player_names.append(f"Human Player {i + 1}")
-            elif profile_type == "simple":
-                player_names.append(f"Simple Player {i + 1}")
+            elif profile_type == "heuristic":
+                player_names.append(f"Heuristic Player {i + 1}")
             elif profile_type == "ai":
                 player_names.append(f"AI Player {i + 1}")
             else:  # random
@@ -116,7 +116,7 @@ def create_custom_game(player_config: List[Tuple[str, str]]) -> Game:
     ----------
     player_config : List[Tuple[str, str]]
         List of (name, profile_type) tuples for each player.
-        profile_type can be: "human", "simple", "ai", "random"
+        profile_type can be: "human", "heuristic", "ai", "random"
 
     Returns
     -------
@@ -131,7 +131,7 @@ def create_custom_game(player_config: List[Tuple[str, str]]) -> Game:
     if len(player_config) != 4:
         raise ValueError("Must provide exactly 4 player configurations")
 
-    valid_types = {"human", "simple", "ai", "random"}
+    valid_types = {"human", "heuristic", "ai", "random"}
     for name, profile_type in player_config:
         if profile_type not in valid_types:
             raise ValueError(f"Invalid profile type: {profile_type}. Must be one of {valid_types}")

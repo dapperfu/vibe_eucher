@@ -53,8 +53,8 @@ class SelfPlayTrainer:
         game_id = str(uuid.uuid4())
         self.data_collector.start_game(game_id)
 
-        # Create game
-        game = Game(player_config)
+        # Create game with the same UUID as game_id for consistency
+        game = Game(player_config, seed=game_id)
 
         # Determine which players to collect from
         if collect_from_players is None:
@@ -113,10 +113,17 @@ class SelfPlayTrainer:
 
                 def wrapper(p, ls, ts, tc, tpi):
                     decision = original(p, ls, ts, tc, tpi)
+                    
+                    # Check if this play is a renege
+                    from eucher.rules import RulesEngine
+                    rules = RulesEngine()
+                    is_renege = not rules.can_play_card(decision, p.hand, ls, ts)
+                    
                     game_state = {
                         "trick_number": getattr(game, "_current_trick_number", 0),
                         "tricks_won_team0": getattr(game, "_current_tricks_won", [0, 0])[0],
                         "tricks_won_team1": getattr(game, "_current_tricks_won", [0, 0])[1],
+                        "is_renege": is_renege,  # Include renege flag for training
                     }
                     self.data_collector.record_play_card_decision(
                         pid, p.hand, ls, ts, tc, decision, game_state
@@ -159,10 +166,23 @@ class SelfPlayTrainer:
             if winner is not None or not continue_game:
                 break
 
-        # Record game outcome
+        # Record game outcome (including renege information)
+        renege_occurred = getattr(game, "_renege_occurred", False)
+        renege_player_id = getattr(game, "_renege_player_id", None)
         self.data_collector.record_game_outcome(
-            game_id, game.get_scores(), tricks_won_history, winner
+            game_id, game.get_scores(), tricks_won_history, winner, renege_occurred, renege_player_id
         )
+        
+        # Save full game replay
+        try:
+            # Game already has game_uuid set from seed=game_id above
+            from eucher.game_file import save_game
+            game_replay_file = save_game(game, self.data_collector.output_dir)
+            self.data_collector.saved_game_replays.append(game_id)
+        except Exception as e:
+            # Don't fail if game replay save fails, but log it
+            import sys
+            print(f"Warning: Failed to save game replay for {game_id}: {e}", file=sys.stderr)
 
     @timed_operation("SelfPlayTrainer.run_training_round")
     def run_training_round(
@@ -209,17 +229,17 @@ class SelfPlayTrainer:
         """
         return [
             # All ML players
-            [("ML1", "ml"), ("ML2", "ml"), ("ML3", "ml"), ("ML4", "ml")],
+            [("ML1", "ml_sklearn"), ("ML2", "ml_sklearn"), ("ML3", "ml_sklearn"), ("ML4", "ml_sklearn")],
             # ML vs Random
-            [("ML1", "ml"), ("Random1", "random"), ("ML2", "ml"), ("Random2", "random")],
+            [("ML1", "ml_sklearn"), ("Random1", "random"), ("ML2", "ml_sklearn"), ("Random2", "random")],
             # ML with AI partner vs Random opponents
-            [("ML1", "ml"), ("AI1", "ai"), ("Random1", "random"), ("Random2", "random")],
+            [("ML1", "ml_sklearn"), ("AI1", "ai"), ("Random1", "random"), ("Random2", "random")],
             # ML with Random partner vs AI and Random opponents
-            [("ML1", "ml"), ("Random1", "random"), ("AI1", "ai"), ("Random2", "random")],
+            [("ML1", "ml_sklearn"), ("Random1", "random"), ("AI1", "ai"), ("Random2", "random")],
             # ML vs Heuristic
-            [("ML1", "ml"), ("Heuristic1", "heuristic"), ("ML2", "ml"), ("Heuristic2", "heuristic")],
+            [("ML1", "ml_sklearn"), ("Heuristic1", "heuristic"), ("ML2", "ml_sklearn"), ("Heuristic2", "heuristic")],
             # Mixed: ML, AI, Random, Heuristic
-            [("ML1", "ml"), ("AI1", "ai"), ("Random1", "random"), ("Heuristic1", "heuristic")],
+            [("ML1", "ml_sklearn"), ("AI1", "ai"), ("Random1", "random"), ("Heuristic1", "heuristic")],
         ]
 
 

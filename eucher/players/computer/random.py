@@ -139,3 +139,39 @@ class RandomPlayer(ComputerPlayer):
             return player.hand[0]
 
         return random.choice(valid_cards)
+
+    def decide_trade_in(self, player: "Player", eligible_cards: List[Card]) -> bool:
+        """
+        Randomly decide whether to trade-in.
+
+        Parameters
+        ----------
+        player : Player
+            The player making the decision.
+        eligible_cards : List[Card]
+            The three cards eligible for trade-in.
+
+        Returns
+        -------
+        bool
+            Randomly True to trade-in, False to pass.
+        """
+        return random.choice([True, False])
+
+    def decide_going_alone(self, player: "Player", trump_suit: Suit) -> bool:
+        """
+        Randomly decide whether to go alone.
+
+        Parameters
+        ----------
+        player : Player
+            The player making the decision.
+        trump_suit : Suit
+            The trump suit that was selected.
+
+        Returns
+        -------
+        bool
+            Randomly True to go alone, False to play with partner.
+        """
+        return random.choice([True, False])

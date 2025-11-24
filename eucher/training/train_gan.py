@@ -45,8 +45,17 @@ def load_training_data_for_gan(
     if not data:
         raise ValueError(f"No data found in {data_file}")
 
-    features = np.array([item["features"] for item in data])
-    decisions = np.array([item["decision"] for item in data])
+    # Filter out renege examples (they should not be learned from)
+    valid_data = [item for item in data if not item.get("is_renege", False)]
+    if not valid_data:
+        raise ValueError(f"No valid (non-renege) data found in {data_file}")
+    
+    features = np.array([item["features"] for item in valid_data])
+    decisions = np.array([item["decision"] for item in valid_data])
+    
+    renege_count = len(data) - len(valid_data)
+    if renege_count > 0:
+        print(f"  Filtered out {renege_count} renege examples from {decision_type} data")
 
     return features, decisions
 
@@ -235,8 +244,33 @@ def train_gan_for_decision_type(
     if output_dir is None:
         output_dir = config.models_dir
 
+    # Check if training data exists before attempting to load
+    data_file = data_dir / f"{prefix}_{decision_type}.json"
+    if not data_file.exists():
+        error_msg = (
+            f"Training data file not found: {data_file}\n"
+            f"\n"
+            f"To collect training data, run:\n"
+            f"  python scripts/collect_training_data.py --num_games 100\n"
+            f"\n"
+            f"Or use self-play training:\n"
+            f"  python scripts/train_models.py --mode self_play --num_games 100\n"
+            f"\n"
+            f"The training data should be saved to: {data_dir}\n"
+            f"Expected filename: {prefix}_{decision_type}.json"
+        )
+        raise FileNotFoundError(error_msg)
+
     print(f"Loading training data for {decision_type}...")
-    features, decisions = load_training_data_for_gan(data_dir, prefix, decision_type)
+    try:
+        features, decisions = load_training_data_for_gan(data_dir, prefix, decision_type)
+    except FileNotFoundError as e:
+        # Re-raise with more context if load fails
+        raise FileNotFoundError(
+            f"Failed to load training data for {decision_type}.\n"
+            f"Original error: {e}\n"
+            f"Expected file: {data_file}"
+        ) from e
 
     print(f"Training GAN for {decision_type}...")
     model = train_gan_model(

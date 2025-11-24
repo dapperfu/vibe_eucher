@@ -1,0 +1,2 @@
+"""Reward system for EuchrePerceiverMuZero."""
+

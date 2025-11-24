@@ -615,7 +615,7 @@ def filter_games_by_profile_type(profile_type: str) -> List[Game]:
     Parameters
     ----------
     profile_type : str
-        Profile type to filter by (e.g., "ai", "human", "ml").
+        Profile type to filter by (e.g., "ai", "human", "ml_sklearn").
 
     Returns
     -------

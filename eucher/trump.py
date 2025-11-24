@@ -29,6 +29,11 @@ class TrumpSelector:
         # Decision history for post-hand inspection / logging
         self.order_up_decisions: List[tuple[str, bool]] = []
         self.call_trump_decisions: List[tuple[str, Optional[Suit]]] = []
+        # Track "screw the dealer" rule
+        self.screw_the_dealer_occurred: bool = False
+        # Track "going alone" decision
+        self.going_alone: bool = False
+        self.going_alone_player_id: Optional[int] = None
 
     def select_trump(self, turned_card: Card, dealer_id: int) -> Optional[Suit]:
         """
@@ -62,6 +67,8 @@ class TrumpSelector:
             if self.tui is not None and hasattr(self.tui, "log_trump_selected"):
                 if self.trump_maker_name:
                     self.tui.log_trump_selected(trump_suit, self.trump_maker_name)
+            # Ask trump maker if they want to go alone
+            self._ask_going_alone()
             return trump_suit
 
         # Log round 2 start
@@ -77,6 +84,8 @@ class TrumpSelector:
             if self.tui is not None and hasattr(self.tui, "log_trump_selected"):
                 if self.trump_maker_name:
                     self.tui.log_trump_selected(trump_suit, self.trump_maker_name)
+            # Ask trump maker if they want to go alone
+            self._ask_going_alone()
             return trump_suit
 
         # All passed - redeal
@@ -157,6 +166,7 @@ class TrumpSelector:
 
         # All passed before dealer - "screw the dealer" rule
         dealer = self.players[self.dealer_id]
+        self.screw_the_dealer_occurred = True  # Track that screw the dealer occurred
         decision = dealer.decide_call_trump(self.turned_card, None, must_choose=True)
         
         # Log dealer's decision
@@ -188,6 +198,38 @@ class TrumpSelector:
             Keys: `order_up` -> List[tuple[player_name, bool]], `call_trump` -> List[tuple[player_name, Optional[Suit]]]
         """
         return {"order_up": self.order_up_decisions.copy(), "call_trump": self.call_trump_decisions.copy()}
+
+    def _ask_going_alone(self) -> None:
+        """
+        Ask the trump maker if they want to go alone.
+
+        This is called after trump is selected, before the first card is led.
+        """
+        if self.trump_suit is None or self.trump_maker_name is None:
+            return
+
+        # Find the trump maker player
+        trump_maker = None
+        for player in self.players:
+            if player.name == self.trump_maker_name:
+                trump_maker = player
+                break
+
+        if trump_maker is None:
+            return
+
+        # Ask the player if they want to go alone
+        decision = trump_maker.decide_going_alone(self.trump_suit)
+
+        if decision:
+            self.going_alone = True
+            self.going_alone_player_id = trump_maker.player_id
+
+            # Log going alone decision
+            if self.tui is not None and hasattr(self.tui, "log_message"):
+                self.tui.log_message(f"{trump_maker.name} is going alone!")
+            if self.tui is not None and hasattr(self.tui, "current_hand_log"):
+                self.tui.current_hand_log.append(f"{trump_maker.name} is going alone!")
 
     def get_trump_suit(self) -> Optional[Suit]:
         """

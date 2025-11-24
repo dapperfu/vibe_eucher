@@ -65,9 +65,16 @@ def load_training_data(data_dir: Path, prefix: str = "training") -> Dict[str, np
         with open(play_card_file, "r") as f:
             play_card_data = json.load(f)
         if play_card_data:
-            X = np.array([item["features"] for item in play_card_data])
-            y = np.array([item["decision"] for item in play_card_data])
-            data["play_card"] = {"X": X, "y": y}
+            # Filter out renege examples (they should not be learned from)
+            # Renege examples are marked with is_renege=True
+            valid_data = [item for item in play_card_data if not item.get("is_renege", False)]
+            if valid_data:
+                X = np.array([item["features"] for item in valid_data])
+                y = np.array([item["decision"] for item in valid_data])
+                data["play_card"] = {"X": X, "y": y}
+                renege_count = len(play_card_data) - len(valid_data)
+                if renege_count > 0:
+                    print(f"  Filtered out {renege_count} renege examples from play_card data")
 
     # Load discard data
     if discard_file.exists():

@@ -808,6 +808,174 @@ class AIDecisionMaker:
 
         return total_power
 
+    def decide_going_alone(self, player: "Player", trump_suit: Suit) -> bool:
+        """
+        Decide whether to go alone using AI decision making.
+
+        Parameters
+        ----------
+        player : Player
+            The player making the decision.
+        trump_suit : Suit
+            The trump suit that was selected.
+
+        Returns
+        -------
+        bool
+            True to go alone, False to play with partner.
+        """
+        # Check for flush in trump (all 5 cards same suit as trump)
+        if self._has_flush_in_trump(player.hand, trump_suit):
+            return True
+
+        # Evaluate hand strength
+        hand_strength = self._evaluate_hand_strength(player.hand, trump_suit)
+        trump_count = self._count_trump_cards(player.hand, trump_suit)
+
+        # High threshold for going alone - need very strong hand
+        # Typically need top 3 trump cards (Right Bower, Left Bower, Ace) + off-suit Ace
+        alone_threshold = 250.0
+
+        # Check for top 3 trump cards
+        has_top_trump = self._has_top_trump_cards(player.hand, trump_suit)
+
+        # Check for off-suit Aces
+        off_suit_aces = self._count_off_suit_aces(player.hand, trump_suit)
+
+        # Go alone if:
+        # 1. Flush in trump (already checked above)
+        # 2. Very high hand strength AND has top trump cards AND off-suit Aces
+        if hand_strength >= alone_threshold and has_top_trump and off_suit_aces >= 1:
+            return True
+
+        # Go alone if we have 4+ trump cards (very strong)
+        if trump_count >= 4:
+            return True
+
+        return False
+
+    def _has_flush_in_trump(self, hand: List[Card], trump_suit: Suit) -> bool:
+        """
+        Check if hand has a flush in trump (all 5 cards are trump).
+
+        Parameters
+        ----------
+        hand : List[Card]
+            The hand to check.
+        trump_suit : Suit
+            The trump suit.
+
+        Returns
+        -------
+        bool
+            True if all cards are trump, False otherwise.
+        """
+        for card in hand:
+            if not self._is_trump_card(card, trump_suit):
+                return False
+        return True
+
+    def _has_top_trump_cards(self, hand: List[Card], trump_suit: Suit) -> bool:
+        """
+        Check if hand has top 3 trump cards (Right Bower, Left Bower, Ace).
+
+        Parameters
+        ----------
+        hand : List[Card]
+            The hand to check.
+        trump_suit : Suit
+            The trump suit.
+
+        Returns
+        -------
+        bool
+            True if has top 3 trump cards, False otherwise.
+        """
+        has_right_bower = False
+        has_left_bower = False
+        has_trump_ace = False
+
+        for card in hand:
+            if self._is_trump_card(card, trump_suit):
+                # Right Bower
+                if card.rank == Rank.JACK and card.suit == trump_suit:
+                    has_right_bower = True
+                # Left Bower
+                elif card.rank == Rank.JACK:
+                    trump_card = Card(trump_suit, Rank.ACE)
+                    if card.is_same_color(trump_card):
+                        has_left_bower = True
+                # Trump Ace
+                elif card.suit == trump_suit and card.rank == Rank.ACE:
+                    has_trump_ace = True
+
+        return has_right_bower and has_left_bower and has_trump_ace
+
+    def _count_off_suit_aces(self, hand: List[Card], trump_suit: Suit) -> int:
+        """
+        Count off-suit Aces (Aces that are not trump).
+
+        Parameters
+        ----------
+        hand : List[Card]
+            The hand to check.
+        trump_suit : Suit
+            The trump suit.
+
+        Returns
+        -------
+        int
+            Number of off-suit Aces.
+        """
+        count = 0
+        for card in hand:
+            # Skip trump cards
+            if self._is_trump_card(card, trump_suit):
+                continue
+            # Count Aces
+            if card.rank == Rank.ACE:
+                count += 1
+        return count
+
+    def decide_trade_in(self, player: "Player", eligible_cards: List[Card]) -> bool:
+        """
+        Decide whether to trade-in using AI heuristics.
+
+        Uses similar logic to heuristic player - trade-in if hand is weak.
+
+        Parameters
+        ----------
+        player : Player
+            The player making the decision.
+        eligible_cards : List[Card]
+            The three cards eligible for trade-in.
+
+        Returns
+        -------
+        bool
+            True to trade-in, False to pass.
+        """
+        # Calculate current hand strength
+        current_hand_strength = sum(card.rank.value for card in player.hand)
+
+        # Count high cards (Ace, King, Queen) in current hand
+        high_card_count = sum(
+            1 for card in player.hand if card.rank in (Rank.ACE, Rank.KING, Rank.QUEEN)
+        )
+
+        # Count Jacks (potential bowers)
+        jack_count = sum(1 for card in player.hand if card.rank == Rank.JACK)
+
+        # Trade-in if hand is weak
+        if high_card_count <= 2 and jack_count == 0:
+            return True
+
+        # Trade-in if hand strength is very low
+        if current_hand_strength <= 50:
+            return True
+
+        return False
+
 
 
 from typing import TYPE_CHECKING, Optional
@@ -864,3 +1032,11 @@ class AIPlayer(ComputerPlayer):
     ) -> Card:
         """Use AI to choose a card to play."""
         return self.ai.play_card(player, led_suit, trump_suit, trick_cards, trick_player_ids)
+
+    def decide_trade_in(self, player: "Player", eligible_cards: List[Card]) -> bool:
+        """Use AI to decide whether to trade-in."""
+        return self.ai.decide_trade_in(player, eligible_cards)
+
+    def decide_going_alone(self, player: "Player", trump_suit: Suit) -> bool:
+        """Use AI to decide whether to go alone."""
+        return self.ai.decide_going_alone(player, trump_suit)

@@ -456,10 +456,6 @@ class MLPlayer(ComputerPlayer):
         Card
             The card to play.
         """
-        valid_cards = self.rules.get_valid_plays(player.hand, led_suit, trump_suit)
-        if not valid_cards:
-            return player.hand[0]
-
         trick_num, tricks_won_team0, tricks_won_team1 = self._get_game_state()
 
         # Encode game state
@@ -477,8 +473,8 @@ class MLPlayer(ComputerPlayer):
             tricks_won_team1=tricks_won_team1,
         )
 
-        # Get valid card indices
-        valid_indices = self.encoder.get_valid_card_indices(valid_cards)
+        # Get all card indices (not just valid ones - let model learn through penalties)
+        all_indices = list(range(len(player.hand)))
 
         # Use appropriate backend
         if self.backend == "supervised":
@@ -491,35 +487,96 @@ class MLPlayer(ComputerPlayer):
                 weights = get_decision_weights_from_probs(probs)
 
                 # Apply temperature threshold for gameplay decisions
-                predicted_idx, _ = select_action_from_weights(weights, valid_indices, self.gameplay_risk)
+                predicted_idx, _ = select_action_from_weights(weights, all_indices, self.gameplay_risk)
 
-                # Find card in valid cards
+                # Return card from hand
                 predicted_card = self.encoder.decode_card_index(predicted_idx)
-                if predicted_card is not None and predicted_card in valid_cards:
+                if predicted_card is not None and predicted_card in player.hand:
                     return predicted_card
-            # Model not fitted or prediction failed, use heuristic fallback
-            return valid_cards[0]
+            # Model not fitted or prediction failed, use fallback
+            return player.hand[0]
         elif self.backend == "gan":
             features_np = features.numpy()
-            predicted_idx = self.gan_model.predict(features_np, valid_indices)
-            # Find card in valid cards
+            predicted_idx = self.gan_model.predict(features_np, all_indices)
+            # Return card from hand
             predicted_card = self.encoder.decode_card_index(predicted_idx)
-            if predicted_card is not None and predicted_card in valid_cards:
+            if predicted_card is not None and predicted_card in player.hand:
                 return predicted_card
-            return valid_cards[0]
+            return player.hand[0]
         elif self.backend == "rl":
             features_np = features.numpy()
             # RL agent needs to be updated to support temperature thresholds
             # For now, use existing method but could be enhanced
             predicted_idx = self.rl_agent.select_action(
-                features_np, valid_indices, training=self.training_mode, temperature=self.gameplay_risk
+                features_np, all_indices, training=self.training_mode, temperature=self.gameplay_risk
             )
-            # Find card in valid cards
+            # Return card from hand
             predicted_card = self.encoder.decode_card_index(predicted_idx)
-            if predicted_card is not None and predicted_card in valid_cards:
+            if predicted_card is not None and predicted_card in player.hand:
                 return predicted_card
-            return valid_cards[0]
+            return player.hand[0]
         else:
             # Fallback
-            return valid_cards[0]
+            return player.hand[0]
+
+    def decide_going_alone(self, player: "Player", trump_suit: Suit) -> bool:
+        """
+        Decide whether to go alone after making trump.
+
+        Parameters
+        ----------
+        player : Player
+            The player making the decision.
+        trump_suit : Suit
+            The trump suit that was selected.
+
+        Returns
+        -------
+        bool
+            True to go alone, False to play with partner.
+        """
+        # Simple heuristic: check for flush in trump or very strong hand
+        trump_count = 0
+        for card in player.hand:
+            # Right Bower
+            if card.rank.value == 11 and card.suit == trump_suit:
+                trump_count += 1
+            # Left Bower
+            elif card.rank.value == 11:
+                trump_card = Card(trump_suit, card.rank)
+                if card.is_same_color(trump_card):
+                    trump_count += 1
+            # Regular trump
+            elif card.suit == trump_suit:
+                trump_count += 1
+
+        # Go alone if flush in trump (all 5 cards are trump)
+        if trump_count >= 5:
+            return True
+
+        # Go alone if 4+ trump cards (very strong)
+        if trump_count >= 4:
+            return True
+
+        return False
+
+    def decide_trade_in(self, player: "Player", eligible_cards: List[Card]) -> bool:
+        """
+        Decide whether to trade-in eligible cards for kitty cards.
+
+        Parameters
+        ----------
+        player : Player
+            The player making the decision.
+        eligible_cards : List[Card]
+            The three cards that are eligible for trade-in (same suit, all 9s or 10s).
+
+        Returns
+        -------
+        bool
+            True to trade-in, False to pass.
+        """
+        # Simple heuristic: trade-in if eligible cards are low value (9s or 10s)
+        # and we might get better cards from the kitty
+        return False  # Conservative: don't trade-in by default
 

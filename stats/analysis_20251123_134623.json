@@ -1,0 +1,22 @@
+{
+  "timestamp": "2025-11-23T13:46:23.072179",
+  "summary": {},
+  "screw_dealer_analysis": {
+    "total_occurrences": 10000,
+    "dealer_team_wins": 6828,
+    "dealer_team_losses": 3172,
+    "dealer_team_win_rate": 0.6828,
+    "team0_dealer": {
+      "occurrences": 5000,
+      "wins": 3422,
+      "losses": 1578,
+      "win_rate": 0.6844
+    },
+    "team1_dealer": {
+      "occurrences": 5000,
+      "wins": 3406,
+      "losses": 1594,
+      "win_rate": 0.6812
+    }
+  }
+}

@@ -127,6 +127,44 @@ class PlayerProfile(ABC):
         """
         pass
 
+    @abstractmethod
+    def decide_going_alone(self, player: "Player", trump_suit: Suit) -> bool:
+        """
+        Decide whether to go alone after making trump.
+
+        Parameters
+        ----------
+        player : Player
+            The player making the decision (must be the trump maker).
+        trump_suit : Suit
+            The trump suit that was selected.
+
+        Returns
+        -------
+        bool
+            True to go alone, False to play with partner.
+        """
+        pass
+
+    @abstractmethod
+    def decide_trade_in(self, player: "Player", eligible_cards: List[Card]) -> bool:
+        """
+        Decide whether to trade-in eligible cards for kitty cards.
+
+        Parameters
+        ----------
+        player : Player
+            The player making the decision.
+        eligible_cards : List[Card]
+            The three cards that are eligible for trade-in (same suit, all 9s or 10s).
+
+        Returns
+        -------
+        bool
+            True to trade-in, False to pass.
+        """
+        pass
+
 
 class Player:
     """Unified player class that uses a PlayerProfile for decision-making."""
@@ -297,6 +335,38 @@ class Player:
             The card to play.
         """
         return self.profile.play_card(self, led_suit, trump_suit, trick_cards, trick_player_ids)
+
+    def decide_going_alone(self, trump_suit: Suit) -> bool:
+        """
+        Decide whether to go alone after making trump.
+
+        Parameters
+        ----------
+        trump_suit : Suit
+            The trump suit that was selected.
+
+        Returns
+        -------
+        bool
+            True to go alone, False to play with partner.
+        """
+        return self.profile.decide_going_alone(self, trump_suit)
+
+    def decide_trade_in(self, eligible_cards: List[Card]) -> bool:
+        """
+        Decide whether to trade-in eligible cards for kitty cards.
+
+        Parameters
+        ----------
+        eligible_cards : List[Card]
+            The three cards that are eligible for trade-in (same suit, all 9s or 10s).
+
+        Returns
+        -------
+        bool
+            True to trade-in, False to pass.
+        """
+        return self.profile.decide_trade_in(self, eligible_cards)
 
     def __repr__(self) -> str:
         """

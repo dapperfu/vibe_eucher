@@ -20,11 +20,16 @@ from tqdm import tqdm
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from eucher.ai_players.pytorch_player import PyTorchStrategicPlayer
-from eucher.cards import Card, Rank, Suit
+from eucher.cards import Card, Deck, Rank, Suit
 from eucher.game import Game
 from eucher.players import Player
-from eucher.players.profiles import PlayerProfile
+from eucher.players.profiles import PlayerProfile, HeuristicPlayer
+
+# Conditional import for PyTorch player (only needed for full game simulations)
+try:
+    from eucher.players.computer.ml.pytorch.pytorch_player import PyTorchStrategicPlayer
+except ImportError:
+    PyTorchStrategicPlayer = None  # type: ignore
 
 try:
     import torch
@@ -32,6 +37,57 @@ try:
     GPU_AVAILABLE = torch.cuda.is_available()
 except ImportError:
     GPU_AVAILABLE = False
+
+
+class AlwaysPassProfile(PlayerProfile):
+    """Profile that always passes in trump selection (except when forced)."""
+
+    def __init__(self, base_profile: PlayerProfile) -> None:
+        """
+        Initialize the always-pass profile.
+
+        Parameters
+        ----------
+        base_profile : PlayerProfile
+            Base profile to use for gameplay decisions.
+        """
+        self.base_profile = base_profile
+
+    def decide_order_up(
+        self, player: Player, turned_card: Card, dealer_id: int, trump_suit: Optional[Suit]
+    ) -> bool:
+        """Always pass in order up."""
+        return False
+
+    def decide_call_trump(
+        self,
+        player: Player,
+        turned_card: Card,
+        trump_suit: Optional[Suit],
+        must_choose: bool = False,
+    ) -> Optional[Suit]:
+        """Pass unless forced to choose."""
+        if must_choose:
+            # When forced, use base profile to choose
+            return self.base_profile.decide_call_trump(player, turned_card, trump_suit, must_choose)
+        return None
+
+    def choose_card_to_discard(
+        self, player: Player, turned_card: Optional[Card] = None, ordered_up_by: Optional[str] = None
+    ) -> Card:
+        """Use base profile for discard."""
+        return self.base_profile.choose_card_to_discard(player, turned_card, ordered_up_by)
+
+    def play_card(
+        self,
+        player: Player,
+        led_suit: Optional[Suit],
+        trump_suit: Optional[Suit],
+        trick_cards: List[Card],
+        trick_player_ids: List[int],
+    ) -> Card:
+        """Use base profile for gameplay."""
+        return self.base_profile.play_card(player, led_suit, trump_suit, trick_cards, trick_player_ids)
 
 
 class PyTorchPlayerProfile(PlayerProfile):
@@ -46,13 +102,14 @@ class PyTorchPlayerProfile(PlayerProfile):
         player_name: str = "PyTorch AI",
     ) -> None:
         """Initialize PyTorch player profile."""
+        if PyTorchStrategicPlayer is None:
+            raise ImportError("PyTorchStrategicPlayer not available. Install PyTorch dependencies.")
         super().__init__()
         self.player_name = player_name
+        # Note: PyTorchStrategicPlayer doesn't support risk factors in current implementation
         self.pytorch_player = PyTorchStrategicPlayer(
             model_path=model_path,
             device=device,
-            trump_selection_risk=trump_selection_risk,
-            gameplay_risk=gameplay_risk,
         )
 
     def decide_order_up(
@@ -99,6 +156,8 @@ class GameStatistics:
         self.games: List[Dict] = []
         self.turned_cards: List[Card] = []
         self.risk_combinations: Dict[Tuple, List[Dict]] = defaultdict(list)
+        # Track "screw the dealer" statistics
+        self.screw_dealer_hands: List[Dict] = []  # List of hands where screw the dealer occurred
 
     def record_game(
         self,
@@ -107,6 +166,7 @@ class GameStatistics:
         hands_played: int,
         risk_factors: List[Tuple[float, float]],
         turned_card: Optional[Card] = None,
+        screw_dealer_hands: Optional[List[Dict]] = None,
     ) -> None:
         """Record a completed game.
 
@@ -122,6 +182,10 @@ class GameStatistics:
             Risk factors for each player (trump, gameplay).
         turned_card : Optional[Card]
             First turned card of the game.
+        screw_dealer_hands : Optional[List[Dict]]
+            List of hands where screw the dealer occurred, each with:
+            - dealer_team: int (team of the dealer)
+            - dealer_team_won_hand: bool (whether dealer's team won the hand)
         """
         game_data = {
             "winner": winner,
@@ -139,6 +203,10 @@ class GameStatistics:
 
         if turned_card:
             self.turned_cards.append(turned_card)
+
+        # Track screw the dealer hands
+        if screw_dealer_hands:
+            self.screw_dealer_hands.extend(screw_dealer_hands)
 
     def get_win_rates(self) -> Dict[Tuple, Dict[str, float]]:
         """Get win rates by risk combination.
@@ -174,6 +242,53 @@ class GameStatistics:
             Count of each card turned up.
         """
         return Counter(str(card) for card in self.turned_cards)
+
+    def get_screw_dealer_statistics(self) -> Dict:
+        """Get statistics about "screw the dealer" rule.
+
+        Returns
+        -------
+        Dict
+            Statistics about screw the dealer occurrences and outcomes.
+        """
+        if not self.screw_dealer_hands:
+            return {
+                "total_occurrences": 0,
+                "dealer_team_wins": 0,
+                "dealer_team_losses": 0,
+                "dealer_team_win_rate": 0.0,
+            }
+
+        total = len(self.screw_dealer_hands)
+        dealer_team_wins = sum(1 for h in self.screw_dealer_hands if h.get("dealer_team_won_hand", False))
+        dealer_team_losses = total - dealer_team_wins
+        win_rate = dealer_team_wins / total if total > 0 else 0.0
+
+        # Break down by dealer team
+        team0_dealer = [h for h in self.screw_dealer_hands if h.get("dealer_team", -1) == 0]
+        team1_dealer = [h for h in self.screw_dealer_hands if h.get("dealer_team", -1) == 1]
+
+        team0_wins = sum(1 for h in team0_dealer if h.get("dealer_team_won_hand", False))
+        team1_wins = sum(1 for h in team1_dealer if h.get("dealer_team_won_hand", False))
+
+        return {
+            "total_occurrences": total,
+            "dealer_team_wins": dealer_team_wins,
+            "dealer_team_losses": dealer_team_losses,
+            "dealer_team_win_rate": win_rate,
+            "team0_dealer": {
+                "occurrences": len(team0_dealer),
+                "wins": team0_wins,
+                "losses": len(team0_dealer) - team0_wins,
+                "win_rate": team0_wins / len(team0_dealer) if team0_dealer else 0.0,
+            },
+            "team1_dealer": {
+                "occurrences": len(team1_dealer),
+                "wins": team1_wins,
+                "losses": len(team1_dealer) - team1_wins,
+                "win_rate": team1_wins / len(team1_dealer) if team1_dealer else 0.0,
+            },
+        }
 
     def get_statistics_summary(self) -> Dict:
         """Get comprehensive statistics summary.
@@ -216,6 +331,7 @@ class GameStatistics:
             },
             "turned_card_distribution": self.get_turned_card_distribution(),
             "win_rates_by_combination": self.get_win_rates(),
+            "screw_dealer_statistics": self.get_screw_dealer_statistics(),
         }
 
 
@@ -263,10 +379,10 @@ def play_single_game(
 
     # Create game
     player_config = [
-        ("PyTorch AI 1", "simple"),
-        ("PyTorch AI 2", "simple"),
-        ("PyTorch AI 3", "simple"),
-        ("PyTorch AI 4", "simple"),
+        ("PyTorch AI 1", "heuristic"),
+        ("PyTorch AI 2", "heuristic"),
+        ("PyTorch AI 3", "heuristic"),
+        ("PyTorch AI 4", "heuristic"),
     ]
     game = Game(player_config)
 
@@ -277,6 +393,7 @@ def play_single_game(
     # Play game
     hands_played = 0
     first_turned_card = None
+    screw_dealer_hands: List[Dict] = []
 
     while True:
         hands_played += 1
@@ -285,7 +402,33 @@ def play_single_game(
         if hands_played == 1 and hasattr(game, "turned_card"):
             first_turned_card = game.turned_card
 
+        # Store dealer info before playing hand
+        dealer_id_before = game.dealer_id
+        dealer_team = dealer_id_before % 2  # Teams: 0,2 -> team 0; 1,3 -> team 1
+        scores_before = game.get_scores()
+
         continue_game = game.play_hand()
+
+        # Check if screw the dealer occurred
+        if game.trump_selector is not None and hasattr(game.trump_selector, "screw_the_dealer_occurred"):
+            if game.trump_selector.screw_the_dealer_occurred:
+                # When screw the dealer occurs, the dealer is forced to make trump
+                # So the dealer's team is the "making" team
+                # We need to check if they won 3+ tricks
+                
+                # Get tricks won from the hand (stored in _current_tricks_won)
+                tricks_won = getattr(game, "_current_tricks_won", [0, 0])
+                making_team_tricks = tricks_won[dealer_team]
+                
+                # In Euchre, the making team needs 3+ tricks to win the hand
+                dealer_team_won_hand = making_team_tricks >= 3
+
+                screw_dealer_hands.append({
+                    "dealer_team": dealer_team,
+                    "dealer_team_won_hand": dealer_team_won_hand,
+                    "dealer_team_tricks": making_team_tricks,
+                    "hand_number": hands_played,
+                })
 
         winner = game.get_winner()
         if winner is not None:
@@ -300,6 +443,179 @@ def play_single_game(
         "hands_played": hands_played,
         "risk_factors": risk_factors,
         "turned_card": first_turned_card,
+        "screw_dealer_hands": screw_dealer_hands,
+    }
+
+
+def simulate_screw_dealer_hand(
+    seed: Optional[int] = None,
+    dealer_id: int = 0,
+    profile_type: str = "heuristic",
+    max_attempts: int = 1000,
+) -> Dict:
+    """
+    Simulate a single hand where "screw the dealer" occurs naturally.
+
+    This function deals cards and checks if all non-dealer players naturally
+    pass (because their hands are bad), then forces the dealer to pick trump.
+    Only proceeds if all players naturally turn down selection.
+
+    Parameters
+    ----------
+    seed : Optional[int]
+        Random seed for reproducibility. If None, uses random seed.
+    dealer_id : int
+        ID of the dealer (0-3).
+    profile_type : str
+        Profile type for all players (default: "heuristic").
+        Options: "heuristic", "ai", "random", "euchre_zero", etc.
+        All players use the same type for consistency.
+    max_attempts : int
+        Maximum number of attempts to find a natural screw the dealer scenario.
+
+    Returns
+    -------
+    Dict
+        Result containing dealer_team, dealer_team_won_hand, and tricks_won.
+        If "error" key is present, indicates the scenario didn't occur naturally.
+    """
+    import random
+    from eucher.trump import TrumpSelector
+
+    # Set seed if provided
+    if seed is not None:
+        np.random.seed(seed)
+        random.seed(seed)
+    else:
+        # Use random seed for this attempt
+        seed = random.randint(0, 2**31 - 1)
+        np.random.seed(seed)
+        random.seed(seed)
+
+    # Try to find a natural screw the dealer scenario
+    for attempt in range(max_attempts):
+        # Create game with same profile type for all players
+        player_config = [
+            ("Player 0", profile_type),
+            ("Player 1", profile_type),
+            ("Player 2", profile_type),
+            ("Player 3", profile_type),
+        ]
+        
+        try:
+            game = Game(player_config, seed=seed + attempt)
+        except Exception as e:
+            # If profile type not supported, return error
+            return {
+                "dealer_team": dealer_id % 2,
+                "dealer_team_won_hand": False,
+                "dealer_team_tricks": 0,
+                "error": f"Profile type '{profile_type}' not supported: {e}",
+            }
+
+        game.dealer_id = dealer_id
+
+        # Deal cards
+        deck = Deck()
+        deck.shuffle()
+        for player in game.players:
+            cards = deck.deal(5)
+            player.receive_hand(cards)
+
+        # Turn up one card
+        turned_card = deck.draw_one()
+        game.turned_card = turned_card
+
+        # Check Round 1: Order Up
+        # Start with player left of dealer
+        start_idx = (dealer_id + 1) % 4
+        all_passed_round1 = True
+        
+        for i in range(3):  # 3 non-dealer players
+            player_idx = (start_idx + i) % 4
+            player = game.players[player_idx]
+            
+            # Let player naturally decide
+            decision = player.decide_order_up(turned_card, dealer_id, None)
+            if decision:
+                # Someone ordered up - not a screw the dealer scenario
+                all_passed_round1 = False
+                break
+
+        # If someone ordered up, try again
+        if not all_passed_round1:
+            continue
+
+        # Round 2: Call Trump
+        # All passed in round 1, now check round 2
+        forbidden_suit = turned_card.suit
+        all_passed_round2 = True
+        
+        for i in range(3):  # 3 non-dealer players
+            player_idx = (start_idx + i) % 4
+            player = game.players[player_idx]
+            
+            # Let player naturally decide
+            decision = player.decide_call_trump(turned_card, None, must_choose=False)
+            if decision is not None and decision != forbidden_suit:
+                # Someone called trump - not a screw the dealer scenario
+                all_passed_round2 = False
+                break
+
+        # If someone called trump, try again
+        if not all_passed_round2:
+            continue
+
+        # All players naturally passed! Now dealer must pick (screw the dealer)
+        dealer = game.players[dealer_id]
+        dealer_decision = dealer.decide_call_trump(turned_card, None, must_choose=True)
+        
+        if dealer_decision is None or dealer_decision == forbidden_suit:
+            # Dealer couldn't choose (shouldn't happen), pick a valid suit
+            suits = [Suit.HEARTS, Suit.DIAMONDS, Suit.CLUBS, Suit.SPADES]
+            for suit in suits:
+                if suit != forbidden_suit:
+                    dealer_decision = suit
+                    break
+
+        game.trump_suit = dealer_decision
+
+        # Play 5 tricks
+        tricks_won = [0, 0]  # Team 0 and Team 1
+        game._current_trick_number = 0
+
+        # Reset trick winner for new hand
+        if hasattr(game, "_last_trick_winner"):
+            delattr(game, "_last_trick_winner")
+
+        for trick_num in range(5):
+            game._current_trick_number = trick_num
+            winner_id = game._play_trick()
+            winner = game.players[winner_id]
+            tricks_won[winner.team] += 1
+            game._current_tricks_won = tricks_won.copy()
+
+        # Determine if dealer's team won
+        dealer_team = dealer_id % 2
+        dealer_team_tricks = tricks_won[dealer_team]
+        dealer_team_won_hand = dealer_team_tricks >= 3
+
+        return {
+            "dealer_team": dealer_team,
+            "dealer_team_won_hand": dealer_team_won_hand,
+            "dealer_team_tricks": dealer_team_tricks,
+            "tricks_won": tricks_won,
+            "attempts": attempt + 1,
+            "profile_type": profile_type,
+        }
+
+    # Couldn't find a natural screw the dealer scenario
+    return {
+        "dealer_team": dealer_id % 2,
+        "dealer_team_won_hand": False,
+        "dealer_team_tricks": 0,
+        "error": f"Could not find natural screw the dealer scenario after {max_attempts} attempts",
+        "profile_type": profile_type,
     }
 
 
@@ -363,6 +679,106 @@ def generate_doe_combinations() -> List[List[Tuple[float, float]]]:
     return combinations
 
 
+def run_screw_dealer_simulation(
+    num_hands: int,
+    profile_type: str = "heuristic",
+    parallel: bool = True,
+    max_attempts_per_hand: int = 1000,
+) -> GameStatistics:
+    """
+    Run Monte Carlo simulation specifically for "screw the dealer" scenarios.
+
+    Simulates hands where all players naturally pass (because their hands are bad),
+    then the dealer is forced to pick trump. Only includes scenarios that occur
+    naturally through player decision-making.
+
+    Parameters
+    ----------
+    num_hands : int
+        Number of hands to simulate (will attempt until this many natural scenarios found).
+    profile_type : str
+        Profile type for all players (default: "heuristic").
+        Options: "heuristic", "ai", "random", "euchre_zero", etc.
+        All players use the same type for consistency.
+    parallel : bool
+        Whether to use parallel processing.
+    max_attempts_per_hand : int
+        Maximum attempts per hand to find a natural screw the dealer scenario.
+
+    Returns
+    -------
+    GameStatistics
+        Collected statistics.
+    """
+    stats = GameStatistics()
+
+    # Distribute hands across dealer positions
+    hands_per_dealer = max(1, num_hands // 4)
+    remaining_hands = num_hands % 4
+
+    hand_tasks = []
+    for dealer_id in range(4):
+        num_hands_this_dealer = hands_per_dealer
+        if dealer_id < remaining_hands:
+            num_hands_this_dealer += 1
+
+        for hand_num in range(num_hands_this_dealer):
+            seed = dealer_id * 1000000 + hand_num * 1000  # Deterministic seeds with space for attempts
+            hand_tasks.append((dealer_id, seed, profile_type, max_attempts_per_hand))
+
+    # Shuffle for better distribution
+    np.random.shuffle(hand_tasks)
+
+    # Helper function for parallel processing
+    def _simulate_wrapper(args: Tuple[int, int, str, int]) -> Dict:
+        """Wrapper for parallel processing."""
+        dealer_id, seed, prof_type, max_attempts = args
+        return simulate_screw_dealer_hand(seed, dealer_id, prof_type, max_attempts)
+
+    # Run simulations
+    if parallel:
+        try:
+            from multiprocessing import Pool
+            import multiprocessing as mp
+
+            num_workers = max(1, mp.cpu_count() - 1)
+            with Pool(processes=num_workers) as pool:
+                results = list(
+                    tqdm(
+                        pool.imap(_simulate_wrapper, hand_tasks),
+                        total=len(hand_tasks),
+                        desc=f"Simulating screw the dealer ({profile_type})",
+                    )
+                )
+        except Exception:
+            # Fall back to sequential if parallel fails
+            results = [
+                simulate_screw_dealer_hand(seed, dealer_id, profile_type, max_attempts_per_hand)
+                for dealer_id, seed, _, _ in tqdm(hand_tasks, desc=f"Simulating screw the dealer ({profile_type})")
+            ]
+    else:
+        results = [
+            simulate_screw_dealer_hand(seed, dealer_id, profile_type, max_attempts_per_hand)
+            for dealer_id, seed, _, _ in tqdm(hand_tasks, desc=f"Simulating screw the dealer ({profile_type})")
+        ]
+
+    # Collect results
+    successful = 0
+    failed = 0
+    for result in results:
+        if "error" not in result:
+            stats.screw_dealer_hands.append(result)
+            successful += 1
+        else:
+            failed += 1
+
+    if failed > 0:
+        print(f"\nWarning: {failed} hands failed to find natural screw the dealer scenario")
+        print(f"Successfully simulated: {successful} hands")
+
+    return stats
+
+
 def run_monte_carlo_simulation(
     num_games: int,
     risk_combinations: List[List[Tuple[float, float]]],
@@ -421,6 +837,7 @@ def run_monte_carlo_simulation(
                 result["hands_played"],
                 result["risk_factors"],
                 result["turned_card"],
+                result.get("screw_dealer_hands", []),
             )
     else:
         # Sequential processing
@@ -432,6 +849,7 @@ def run_monte_carlo_simulation(
                 result["hands_played"],
                 result["risk_factors"],
                 result["turned_card"],
+                result.get("screw_dealer_hands", []),
             )
 
     return stats
@@ -552,31 +970,38 @@ def generate_report(stats: GameStatistics, output_file: Path) -> None:
         Path to output file.
     """
     summary = stats.get_statistics_summary()
+    screw_dealer_stats = stats.get_screw_dealer_statistics()
 
-    # Analyze bell curves
-    hands_played = [g["hands_played"] for g in stats.games]
-    scores_team0 = [g["scores"][0] for g in stats.games]
-    scores_team1 = [g["scores"][1] for g in stats.games]
-
-    bell_curve_hands = analyze_bell_curve(hands_played, "Hands Played")
-    bell_curve_scores0 = analyze_bell_curve(scores_team0, "Team 0 Scores")
-    bell_curve_scores1 = analyze_bell_curve(scores_team1, "Team 1 Scores")
-
-    # Analyze card distribution
-    card_dist = analyze_card_distribution(stats.turned_cards)
-
-    # Generate report
+    # Generate report - handle case where we only have screw the dealer data
     report = {
         "timestamp": datetime.now().isoformat(),
         "summary": summary,
-        "bell_curve_analysis": {
-            "hands_played": bell_curve_hands,
-            "team0_scores": bell_curve_scores0,
-            "team1_scores": bell_curve_scores1,
-        },
-        "card_distribution_analysis": card_dist,
-        "win_rates_by_combination": stats.get_win_rates(),
+        "screw_dealer_analysis": screw_dealer_stats,
     }
+
+    # Only add game statistics if we have games
+    if stats.games:
+        # Analyze bell curves
+        hands_played = [g["hands_played"] for g in stats.games]
+        scores_team0 = [g["scores"][0] for g in stats.games]
+        scores_team1 = [g["scores"][1] for g in stats.games]
+
+        bell_curve_hands = analyze_bell_curve(hands_played, "Hands Played")
+        bell_curve_scores0 = analyze_bell_curve(scores_team0, "Team 0 Scores")
+        bell_curve_scores1 = analyze_bell_curve(scores_team1, "Team 1 Scores")
+
+        # Analyze card distribution
+        card_dist = analyze_card_distribution(stats.turned_cards)
+
+        report.update({
+            "bell_curve_analysis": {
+                "hands_played": bell_curve_hands,
+                "team0_scores": bell_curve_scores0,
+                "team1_scores": bell_curve_scores1,
+            },
+            "card_distribution_analysis": card_dist,
+            "win_rates_by_combination": stats.get_win_rates(),
+        })
 
     # Save JSON report
     output_file.parent.mkdir(parents=True, exist_ok=True)
@@ -587,55 +1012,102 @@ def generate_report(stats: GameStatistics, output_file: Path) -> None:
     txt_file = output_file.with_suffix(".txt")
     with open(txt_file, "w") as f:
         f.write("=" * 80 + "\n")
-        f.write("PyTorch AI Statistical Analysis Report\n")
+        if stats.games:
+            f.write("PyTorch AI Statistical Analysis Report\n")
+        else:
+            f.write("Screw the Dealer Statistical Analysis Report\n")
         f.write("=" * 80 + "\n\n")
 
-        f.write(f"Total Games: {summary['total_games']}\n")
-        f.write(f"Team 0 Wins: {summary['team0_wins']}\n")
-        f.write(f"Team 1 Wins: {summary['team1_wins']}\n\n")
+        if stats.games:
+            f.write(f"Total Games: {summary['total_games']}\n")
+            f.write(f"Team 0 Wins: {summary['team0_wins']}\n")
+            f.write(f"Team 1 Wins: {summary['team1_wins']}\n\n")
 
-        f.write("Bell Curve Analysis:\n")
-        f.write("-" * 80 + "\n")
-        for name, analysis in [
-            ("Hands Played", bell_curve_hands),
-            ("Team 0 Scores", bell_curve_scores0),
-            ("Team 1 Scores", bell_curve_scores1),
-        ]:
-            if "error" not in analysis:
-                f.write(f"\n{name}:\n")
-                f.write(f"  Mean: {analysis['mean']:.2f}\n")
-                f.write(f"  Std: {analysis['std']:.2f}\n")
-                f.write(f"  Normal Distribution: {analysis['is_normal']}\n")
-                f.write(f"  Outliers (3σ): {analysis['outliers_3sigma']} ({analysis['outlier_percentage']:.2f}%)\n")
+        if stats.games:
+            bell_curve_hands = report.get("bell_curve_analysis", {}).get("hands_played", {})
+            bell_curve_scores0 = report.get("bell_curve_analysis", {}).get("team0_scores", {})
+            bell_curve_scores1 = report.get("bell_curve_analysis", {}).get("team1_scores", {})
+            card_dist = report.get("card_distribution_analysis", {})
+
+            f.write("Bell Curve Analysis:\n")
+            f.write("-" * 80 + "\n")
+            for name, analysis in [
+                ("Hands Played", bell_curve_hands),
+                ("Team 0 Scores", bell_curve_scores0),
+                ("Team 1 Scores", bell_curve_scores1),
+            ]:
+                if analysis and "error" not in analysis:
+                    f.write(f"\n{name}:\n")
+                    f.write(f"  Mean: {analysis['mean']:.2f}\n")
+                    f.write(f"  Std: {analysis['std']:.2f}\n")
+                    f.write(f"  Normal Distribution: {analysis['is_normal']}\n")
+                    f.write(f"  Outliers (3σ): {analysis['outliers_3sigma']} ({analysis['outlier_percentage']:.2f}%)\n")
+
+            f.write("\n" + "=" * 80 + "\n")
+            f.write("Card Distribution Analysis:\n")
+            f.write("-" * 80 + "\n")
+            if card_dist and "error" not in card_dist:
+                f.write(f"Total Cards Turned: {card_dist['total_turned']}\n")
+                f.write(f"Expected per card: {card_dist['expected_per_card']:.2f}\n")
+                f.write(f"Uniform Distribution: {card_dist['is_uniform']}\n")
+                f.write(f"Chi-square p-value: {card_dist['chi_square_p_value']:.4f}\n\n")
+
+                f.write("Most Common Cards:\n")
+                for card, count in card_dist.get("most_common", []):
+                    f.write(f"  {card}: {count} times\n")
+
+                f.write("\nNever Appeared:\n")
+                if card_dist.get("never_appeared"):
+                    for card in card_dist["never_appeared"]:
+                        f.write(f"  {card}\n")
+                else:
+                    f.write("  (All cards appeared at least once)\n")
 
         f.write("\n" + "=" * 80 + "\n")
-        f.write("Card Distribution Analysis:\n")
+        f.write("Screw the Dealer Analysis:\n")
         f.write("-" * 80 + "\n")
-        if "error" not in card_dist:
-            f.write(f"Total Cards Turned: {card_dist['total_turned']}\n")
-            f.write(f"Expected per card: {card_dist['expected_per_card']:.2f}\n")
-            f.write(f"Uniform Distribution: {card_dist['is_uniform']}\n")
-            f.write(f"Chi-square p-value: {card_dist['chi_square_p_value']:.4f}\n\n")
-
-            f.write("Most Common Cards:\n")
-            for card, count in card_dist["most_common"]:
-                f.write(f"  {card}: {count} times\n")
-
-            f.write("\nNever Appeared:\n")
-            if card_dist["never_appeared"]:
-                for card in card_dist["never_appeared"]:
-                    f.write(f"  {card}\n")
+        screw_dealer_stats = stats.get_screw_dealer_statistics()
+        f.write(f"Total Occurrences: {screw_dealer_stats['total_occurrences']}\n")
+        if screw_dealer_stats['total_occurrences'] > 0:
+            f.write(f"Dealer's Team Wins: {screw_dealer_stats['dealer_team_wins']}\n")
+            f.write(f"Dealer's Team Losses: {screw_dealer_stats['dealer_team_losses']}\n")
+            f.write(f"Dealer's Team Win Rate: {screw_dealer_stats['dealer_team_win_rate']:.2%}\n\n")
+            
+            f.write("Breakdown by Dealer Team:\n")
+            f.write(f"  Team 0 as Dealer:\n")
+            f.write(f"    Occurrences: {screw_dealer_stats['team0_dealer']['occurrences']}\n")
+            f.write(f"    Wins: {screw_dealer_stats['team0_dealer']['wins']}\n")
+            f.write(f"    Losses: {screw_dealer_stats['team0_dealer']['losses']}\n")
+            f.write(f"    Win Rate: {screw_dealer_stats['team0_dealer']['win_rate']:.2%}\n")
+            f.write(f"  Team 1 as Dealer:\n")
+            f.write(f"    Occurrences: {screw_dealer_stats['team1_dealer']['occurrences']}\n")
+            f.write(f"    Wins: {screw_dealer_stats['team1_dealer']['wins']}\n")
+            f.write(f"    Losses: {screw_dealer_stats['team1_dealer']['losses']}\n")
+            f.write(f"    Win Rate: {screw_dealer_stats['team1_dealer']['win_rate']:.2%}\n")
+            
+            # Statistical conclusion
+            win_rate = screw_dealer_stats['dealer_team_win_rate']
+            if win_rate < 0.5:
+                f.write(f"\nCONCLUSION: Screw the dealer statistically disadvantages the dealer's team.\n")
+                f.write(f"The dealer's team wins only {win_rate:.2%} of hands when forced to make trump.\n")
+            elif win_rate > 0.5:
+                f.write(f"\nCONCLUSION: Screw the dealer does NOT disadvantage the dealer's team.\n")
+                f.write(f"The dealer's team wins {win_rate:.2%} of hands when forced to make trump.\n")
             else:
-                f.write("  (All cards appeared at least once)\n")
+                f.write(f"\nCONCLUSION: Screw the dealer appears neutral.\n")
+                f.write(f"The dealer's team wins {win_rate:.2%} of hands when forced to make trump.\n")
+        else:
+            f.write("No 'screw the dealer' occurrences recorded in this simulation.\n")
 
-        f.write("\n" + "=" * 80 + "\n")
-        f.write("Win Rates by Risk Combination:\n")
-        f.write("-" * 80 + "\n")
-        for risk_key, rates in sorted(stats.get_win_rates().items()):
-            f.write(f"\nRisk Factors: {risk_key}\n")
-            f.write(f"  Team 0 Win Rate: {rates['team0_rate']:.2%}\n")
-            f.write(f"  Team 1 Win Rate: {rates['team1_rate']:.2%}\n")
-            f.write(f"  Total Games: {rates['total_games']}\n")
+        if stats.games:
+            f.write("\n" + "=" * 80 + "\n")
+            f.write("Win Rates by Risk Combination:\n")
+            f.write("-" * 80 + "\n")
+            for risk_key, rates in sorted(stats.get_win_rates().items()):
+                f.write(f"\nRisk Factors: {risk_key}\n")
+                f.write(f"  Team 0 Win Rate: {rates['team0_rate']:.2%}\n")
+                f.write(f"  Team 1 Win Rate: {rates['team1_rate']:.2%}\n")
+                f.write(f"  Total Games: {rates['total_games']}\n")
 
     print(f"\nReport saved to: {output_file}")
     print(f"Human-readable report: {txt_file}")
@@ -675,6 +1147,28 @@ def main() -> None:
         action="store_true",
         help="Only run Design of Experiments combinations",
     )
+    parser.add_argument(
+        "--screw-dealer-only",
+        action="store_true",
+        help="Run fast simulation only for 'screw the dealer' scenarios",
+    )
+    parser.add_argument(
+        "--num-hands",
+        type=int,
+        default=10000,
+        help="Number of hands to simulate (for --screw-dealer-only, default: 10000)",
+    )
+    parser.add_argument(
+        "--profile-type",
+        type=str,
+        default="heuristic",
+        help="Player profile type for gameplay (default: 'heuristic'). Options: heuristic, ai, random, euchre_zero, etc.",
+    )
+    parser.add_argument(
+        "--all-profile-types",
+        action="store_true",
+        help="Run simulation for all profile types (heuristic, ai, random, euchre_zero)",
+    )
 
     args = parser.parse_args()
 
@@ -711,15 +1205,52 @@ def main() -> None:
             key_combos.extend(doe_combos[10::sample_rate])
         risk_combinations.extend(key_combos)
 
-    print(f"Total risk combinations: {len(risk_combinations)}")
-
     # Run simulation
-    stats = run_monte_carlo_simulation(
-        args.num_games,
-        risk_combinations,
-        args.model_path,
-        device,
-    )
+    if args.screw_dealer_only:
+        if args.all_profile_types:
+            # Run for all profile types
+            profile_types = ["heuristic", "ai", "random", "euchre_zero"]
+            all_stats = GameStatistics()
+            
+            for prof_type in profile_types:
+                print(f"\n{'='*80}")
+                print(f"Running 'screw the dealer' simulation for {prof_type} players")
+                print(f"{'='*80}")
+                print(f"Number of hands: {args.num_hands}")
+                
+                stats = run_screw_dealer_simulation(
+                    args.num_hands,
+                    prof_type,
+                    parallel=True,
+                )
+                
+                # Merge stats
+                all_stats.screw_dealer_hands.extend(stats.screw_dealer_hands)
+                
+                # Print summary for this profile type
+                prof_stats = stats.get_screw_dealer_statistics()
+                if prof_stats['total_occurrences'] > 0:
+                    print(f"\n{prof_type} Results:")
+                    print(f"  Total occurrences: {prof_stats['total_occurrences']}")
+                    print(f"  Dealer's team win rate: {prof_stats['dealer_team_win_rate']:.2%}")
+            
+            stats = all_stats
+        else:
+            print(f"Running fast 'screw the dealer' simulation with {args.num_hands} hands...")
+            print(f"Profile type: {args.profile_type}")
+            stats = run_screw_dealer_simulation(
+                args.num_hands,
+                args.profile_type,
+                parallel=True,
+            )
+    else:
+        print(f"Total risk combinations: {len(risk_combinations)}")
+        stats = run_monte_carlo_simulation(
+            args.num_games,
+            risk_combinations,
+            args.model_path,
+            device,
+        )
 
     # Generate report
     if args.output:

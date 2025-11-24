@@ -17,6 +17,7 @@ class TextTUI:
         # Game log storage
         self.game_log: List[str] = []
         self.current_hand_log: List[str] = []
+        self.last_hand_log: List[str] = []  # Store last hand log for AI summaries
         self.initial_hands: Dict[int, List[Card]] = {}
         # Game state
         self.team_scores: Tuple[int, int] = (0, 0)
@@ -105,6 +106,42 @@ class TextTUI:
         """
         self.trump_suit = trump_suit
         self.current_hand_log.append(f"\nTrump: {trump_suit.value} (made by {maker_name})")
+
+    def log_trade_in_decision(self, player_name: str, decision: bool, eligible_cards: List[Card]) -> None:
+        """
+        Log a trade-in decision.
+
+        Parameters
+        ----------
+        player_name : str
+            Name of the player making the decision.
+        decision : bool
+            True if trading in, False if passing.
+        eligible_cards : List[Card]
+            The three cards eligible for trade-in.
+        """
+        cards_str = ", ".join(repr(card) for card in eligible_cards)
+        action = "Trading in" if decision else "Passing on trade-in"
+        self.current_hand_log.append(f"{player_name}: {action} ({cards_str})")
+
+    def log_trade_in(self, player_name: str, trash_cards: List[Card], kitty_cards: List[Card]) -> None:
+        """
+        Log that a trade-in occurred.
+
+        Parameters
+        ----------
+        player_name : str
+            Name of the player who traded in.
+        trash_cards : List[Card]
+            The three cards that were discarded.
+        kitty_cards : List[Card]
+            The three cards received from the kitty.
+        """
+        trash_str = ", ".join(repr(card) for card in trash_cards)
+        kitty_str = ", ".join(repr(card) for card in kitty_cards)
+        self.current_hand_log.append(
+            f"\n{player_name} traded in: {trash_str} -> received: {kitty_str}"
+        )
 
     def log_trump_decision_history(self, order_up: list, call_trump: list) -> None:
         """
@@ -241,13 +278,35 @@ class TextTUI:
             print(line)
         print("=" * 70)
 
-    def display_hand_log(self) -> None:
-        """Display the current hand log and add it to game log."""
+    def get_hand_log(self) -> List[str]:
+        """
+        Get a copy of the current hand log without clearing it.
+
+        Returns
+        -------
+        List[str]
+            Copy of the current hand log.
+        """
+        return self.current_hand_log.copy()
+
+    def display_hand_log(self) -> List[str]:
+        """
+        Display the current hand log and add it to game log.
+
+        Returns
+        -------
+        List[str]
+            Copy of the hand log before it was cleared.
+        """
+        hand_log_copy = self.current_hand_log.copy()
         if self.current_hand_log:
             for line in self.current_hand_log:
                 print(line)
                 self.game_log.append(line)
+            # Store last hand log before clearing
+            self.last_hand_log = hand_log_copy.copy()
             self.current_hand_log = []
+        return hand_log_copy
 
     def set_players(self, players: List[Player], dealer_id: Optional[int] = None) -> None:
         """
@@ -598,6 +657,47 @@ class TextTUI:
         # Get decision
         while True:
             print("\nOrder up this card? (y/n): ", end="")
+            response = input().strip().lower()
+            if response in ("y", "yes"):
+                return True
+            elif response in ("n", "no"):
+                return False
+            else:
+                print("Invalid input. Please enter 'y' for yes or 'n' for no.")
+
+    def get_trade_in_decision(self, player: Player, eligible_cards: List[Card]) -> bool:
+        """
+        Get user input for trade-in decision.
+
+        Parameters
+        ----------
+        player : Player
+            The human player making the decision.
+        eligible_cards : List[Card]
+            The three cards eligible for trade-in.
+
+        Returns
+        -------
+        bool
+            True to trade-in, False to pass.
+        """
+        # Clear screen and show gameboard
+        self._clear_screen()
+        self._display_gameboard_header(player)
+        
+        # Show context
+        print("Trade-in opportunity!")
+        print("You have three cards of the same suit (all 9s or 10s):")
+        for card in eligible_cards:
+            print(f"  {card}")
+        print("\nYou can trade these three cards for the three kitty cards.\n")
+        
+        # Display hand
+        self.display_hand(player)
+        
+        # Get decision
+        while True:
+            print("\nTrade in these cards? (y/n): ", end="")
             response = input().strip().lower()
             if response in ("y", "yes"):
                 return True

@@ -222,6 +222,9 @@ class GameDataCollector:
         # Encode decision as card index
         decision_idx = self.encoder.card_to_index.get(decision, -1)
 
+        # Check if this decision resulted in a renege
+        is_renege = game_state.get("is_renege", False)
+        
         self.play_card_data.append({
             "game_id": self.current_game_id,
             "player_id": player_id,
@@ -229,6 +232,7 @@ class GameDataCollector:
             "decision": decision_idx,
             "led_suit": led_suit.value if led_suit else None,
             "trump_suit": trump_suit.value if trump_suit else None,
+            "is_renege": is_renege,  # Mark renege for training
         })
 
     def record_discard_decision(
@@ -282,6 +286,8 @@ class GameDataCollector:
         scores: tuple[int, int],
         tricks_won: List[List[int]],
         winner: Optional[int],
+        renege_occurred: bool = False,
+        renege_player_id: Optional[int] = None,
     ) -> None:
         """
         Record the outcome of a game.
@@ -296,12 +302,18 @@ class GameDataCollector:
             Tricks won per hand for each team.
         winner : Optional[int]
             Winning team ID (0 or 1), or None if game not finished.
+        renege_occurred : bool
+            Whether a renege occurred in this game.
+        renege_player_id : Optional[int]
+            Player ID who reneged, if any.
         """
         self.game_outcomes.append({
             "game_id": game_id,
             "scores": scores,
             "tricks_won": tricks_won,
             "winner": winner,
+            "renege_occurred": renege_occurred,
+            "renege_player_id": renege_player_id,
         })
 
     def save_data(

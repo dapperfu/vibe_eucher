@@ -2,9 +2,8 @@
 
 from typing import TYPE_CHECKING, List, Optional
 
-import torch
-
-from eucher.cards import Card, Suit
+# torch is imported lazily only when needed for ML profiles
+from eucher.cards import Card, Rank, Suit
 from eucher.players.base import PlayerProfile
 from eucher.players.computer import AIPlayer, HeuristicPlayer, RandomPlayer
 from eucher.rules import RulesEngine
@@ -89,6 +88,24 @@ class HumanProfile(PlayerProfile):
             raise RuntimeError("TUI not set for human profile")
         return self.tui.get_play_card_decision(player, led_suit, trump_suit, trick_cards)
 
+    def decide_going_alone(self, player: "Player", trump_suit: Suit) -> bool:
+        """Get user input for going alone."""
+        if self.tui is None:
+            raise RuntimeError("TUI not set for human profile")
+        # Default to False if TUI doesn't support going alone yet
+        if hasattr(self.tui, "get_going_alone_decision"):
+            return self.tui.get_going_alone_decision(player, trump_suit)
+        return False
+
+    def decide_trade_in(self, player: "Player", eligible_cards: List[Card]) -> bool:
+        """Get user input for trade-in decision."""
+        if self.tui is None:
+            raise RuntimeError("TUI not set for human profile")
+        # Default to False if TUI doesn't support trade-in yet
+        if hasattr(self.tui, "get_trade_in_decision"):
+            return self.tui.get_trade_in_decision(player, eligible_cards)
+        return False
+
 
 class MLBasedProfile(PlayerProfile):
     """Profile that uses PyTorch ML models for decision-making."""
@@ -161,6 +178,7 @@ class MLBasedProfile(PlayerProfile):
             tricks_won_team1=tricks_won_team1,
         )
 
+        import torch  # Lazy import
         with torch.no_grad():
             features = features.unsqueeze(0).to(self.ml_model.device)
             order_up_logits, _ = self.ml_model.trump_net(features)
@@ -197,6 +215,7 @@ class MLBasedProfile(PlayerProfile):
             tricks_won_team1=tricks_won_team1,
         )
 
+        import torch  # Lazy import
         with torch.no_grad():
             features = features.unsqueeze(0).to(self.ml_model.device)
             _, call_trump_logits = self.ml_model.trump_net(features)
@@ -257,6 +276,7 @@ class MLBasedProfile(PlayerProfile):
             tricks_won_team1=tricks_won_team1,
         )
 
+        import torch  # Lazy import
         with torch.no_grad():
             features = features.unsqueeze(0).to(self.ml_model.device)
             discard_logits = self.ml_model.discard_net(features)
@@ -302,6 +322,7 @@ class MLBasedProfile(PlayerProfile):
             tricks_won_team1=tricks_won_team1,
         )
 
+        import torch  # Lazy import
         with torch.no_grad():
             features = features.unsqueeze(0).to(self.ml_model.device)
             card_logits = self.ml_model.card_play_net(features)
@@ -319,3 +340,78 @@ class MLBasedProfile(PlayerProfile):
             return selected_card
 
         return valid_cards[0]
+
+    def decide_going_alone(self, player: "Player", trump_suit: Suit) -> bool:
+        """Use ML model to decide whether to go alone."""
+        # For now, use a simple heuristic: go alone if hand strength is very high
+        # This can be improved with ML model prediction later
+        trick_num, tricks_won_team0, tricks_won_team1 = self._get_game_state()
+
+        # Simple heuristic: count trump cards and high cards
+        trump_count = 0
+        high_trump_count = 0
+        for card in player.hand:
+            # Check if trump
+            if card.rank == Rank.JACK and card.suit == trump_suit:
+                trump_count += 1
+                high_trump_count += 1
+            elif card.rank == Rank.JACK:
+                trump_card = Card(trump_suit, Rank.ACE)
+                if card.is_same_color(trump_card):
+                    trump_count += 1
+                    high_trump_count += 1
+            elif card.suit == trump_suit:
+                trump_count += 1
+                if card.rank == Rank.ACE:
+                    high_trump_count += 1
+
+        # Go alone if we have 4+ trump cards or flush in trump
+        if trump_count >= 4:
+            return True
+
+        # Check for flush (all 5 cards are trump)
+        if trump_count == 5:
+            return True
+
+        return False
+
+    def decide_trade_in(self, player: "Player", eligible_cards: List[Card]) -> bool:
+        """
+        Decide whether to trade-in using ML heuristics.
+
+        Uses simple heuristic evaluation since ML model doesn't have
+        trade-in training data yet.
+
+        Parameters
+        ----------
+        player : Player
+            The player making the decision.
+        eligible_cards : List[Card]
+            The three cards eligible for trade-in.
+
+        Returns
+        -------
+        bool
+            True to trade-in, False to pass.
+        """
+        # Use heuristic evaluation (similar to HeuristicPlayer)
+        # Calculate current hand strength
+        current_hand_strength = sum(card.rank.value for card in player.hand)
+
+        # Count high cards (Ace, King, Queen) in current hand
+        high_card_count = sum(
+            1 for card in player.hand if card.rank in (Rank.ACE, Rank.KING, Rank.QUEEN)
+        )
+
+        # Count Jacks (potential bowers)
+        jack_count = sum(1 for card in player.hand if card.rank == Rank.JACK)
+
+        # Trade-in if hand is weak
+        if high_card_count <= 2 and jack_count == 0:
+            return True
+
+        # Trade-in if hand strength is very low
+        if current_hand_strength <= 50:
+            return True
+
+        return False

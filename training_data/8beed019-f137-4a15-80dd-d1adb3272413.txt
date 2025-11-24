@@ -1,0 +1,9 @@
+Timestamp: 
+Hostname: unknown
+Dataset: discard
+UUID: 8beed019-f137-4a15-80dd-d1adb3272413
+File: 8beed019-f137-4a15-80dd-d1adb3272413.ngz
+Records: 8551
+Features shape: (8551, 260)
+Decisions shape: (8551,)
+Game IDs: 1000
