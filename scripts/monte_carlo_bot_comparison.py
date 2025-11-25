@@ -171,6 +171,60 @@ class BotComparison:
             "matchups": dict(self.matchups),
         }
 
+    def to_dict(self) -> Dict[str, any]:
+        """
+        Convert comparison to dictionary for serialization.
+
+        Returns
+        -------
+        Dict[str, any]
+            Dictionary representation of comparison.
+        """
+        return {
+            "matchups": dict(self.matchups),
+            "bot_stats": dict(self.bot_stats),
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, any]) -> "BotComparison":
+        """
+        Create comparison from dictionary.
+
+        Parameters
+        ----------
+        data : Dict[str, any]
+            Dictionary representation of comparison.
+
+        Returns
+        -------
+        BotComparison
+            Reconstructed comparison object.
+        """
+        comparison = cls()
+        comparison.matchups = defaultdict(
+            lambda: {
+                "games_played": 0,
+                "team0_wins": 0,
+                "team1_wins": 0,
+                "team0_total_score": 0,
+                "team1_total_score": 0,
+                "hands_played": [],
+            },
+            data.get("matchups", {}),
+        )
+        comparison.bot_stats = defaultdict(
+            lambda: {
+                "total_games": 0,
+                "wins": 0,
+                "losses": 0,
+                "total_score": 0,
+                "games_as_team0": 0,
+                "games_as_team1": 0,
+            },
+            data.get("bot_stats", {}),
+        )
+        return comparison
+
 
 def run_matchup(
     team0_bots: Tuple[str, str],
@@ -295,6 +349,8 @@ def run_monte_carlo_comparison(
     bot_types: List[str],
     num_games_per_matchup: int = 100,
     seed: Optional[int] = None,
+    checkpoint_file: Optional[Path] = None,
+    checkpoint_interval: int = 1000,
 ) -> BotComparison:
     """
     Run Monte Carlo comparison of all bot types.
@@ -307,6 +363,10 @@ def run_monte_carlo_comparison(
         Number of games to run per matchup.
     seed : Optional[int]
         Random seed for reproducibility.
+    checkpoint_file : Optional[Path]
+        Path to checkpoint file for saving/loading progress.
+    checkpoint_interval : int
+        Number of games between checkpoint saves.
 
     Returns
     -------
@@ -319,6 +379,17 @@ def run_monte_carlo_comparison(
 
     comparison = BotComparison()
 
+    # Try to load checkpoint if it exists
+    if checkpoint_file and checkpoint_file.exists():
+        try:
+            checkpoint_data = json.loads(checkpoint_file.read_text())
+            comparison = BotComparison.from_dict(checkpoint_data.get("comparison", {}))
+            print(f"Loaded checkpoint from {checkpoint_file}")
+            print(f"  Resuming with {comparison.get_summary()['total_games']} games already completed")
+        except Exception as e:
+            print(f"Warning: Failed to load checkpoint: {e}")
+            print("  Starting fresh")
+
     # Generate all matchups
     matchups = generate_matchups(bot_types)
     total_games = len(matchups) * num_games_per_matchup
@@ -326,16 +397,35 @@ def run_monte_carlo_comparison(
     print(f"Testing {len(bot_types)} bot types: {', '.join(bot_types)}")
     print(f"Generated {len(matchups)} unique matchups")
     print(f"Running {num_games_per_matchup} games per matchup ({total_games} total games)")
+    if checkpoint_file:
+        print(f"Checkpoint file: {checkpoint_file} (saving every {checkpoint_interval} games)")
     print()
 
+    # Track games played for checkpointing
+    games_played_since_checkpoint = 0
+
     # Run all matchups
-    with tqdm(total=total_games, desc="Running games") as pbar:
-        for team0_bots, team1_bots in matchups:
+    with tqdm(total=total_games, desc="Running games", initial=comparison.get_summary()["total_games"]) as pbar:
+        for matchup_idx, (team0_bots, team1_bots) in enumerate(matchups):
             matchup_str = f"{team0_bots[0]}+{team0_bots[1]} vs {team1_bots[0]}+{team1_bots[1]}"
             pbar.set_description(f"Matchup: {matchup_str}")
 
+            # Check if this matchup is already complete
+            matchup_key = f"{team0_bots[0]}+{team0_bots[1]}_vs_{team1_bots[0]}+{team1_bots[1]}"
+            matchup_stats = comparison.matchups.get(matchup_key, {})
+            games_completed = matchup_stats.get("games_played", 0)
+            
+            if games_completed >= num_games_per_matchup:
+                # Skip already completed matchups
+                pbar.update(num_games_per_matchup)
+                continue
+
+            # Run remaining games for this matchup
+            remaining_games = num_games_per_matchup - games_completed
             results = run_matchup(
-                team0_bots, team1_bots, num_games_per_matchup, seed_base=seed or 0, progress_bar=pbar
+                team0_bots, team1_bots, remaining_games, 
+                seed_base=(seed or 0) + games_completed, 
+                progress_bar=pbar
             )
 
             # Record results
@@ -347,6 +437,37 @@ def run_monte_carlo_comparison(
                     result["scores"],
                     result["hands_played"],
                 )
+                games_played_since_checkpoint += 1
+
+                # Save checkpoint periodically
+                if checkpoint_file and games_played_since_checkpoint >= checkpoint_interval:
+                    try:
+                        checkpoint_data = {
+                            "timestamp": datetime.now().isoformat(),
+                            "bot_types": bot_types,
+                            "num_games_per_matchup": num_games_per_matchup,
+                            "seed": seed,
+                            "comparison": comparison.to_dict(),
+                        }
+                        checkpoint_file.write_text(json.dumps(checkpoint_data, indent=2))
+                        games_played_since_checkpoint = 0
+                    except Exception as e:
+                        print(f"\nWarning: Failed to save checkpoint: {e}")
+
+    # Final checkpoint save
+    if checkpoint_file:
+        try:
+            checkpoint_data = {
+                "timestamp": datetime.now().isoformat(),
+                "bot_types": bot_types,
+                "num_games_per_matchup": num_games_per_matchup,
+                "seed": seed,
+                "comparison": comparison.to_dict(),
+            }
+            checkpoint_file.write_text(json.dumps(checkpoint_data, indent=2))
+            print(f"\nFinal checkpoint saved to {checkpoint_file}")
+        except Exception as e:
+            print(f"\nWarning: Failed to save final checkpoint: {e}")
 
     return comparison
 
@@ -361,7 +482,9 @@ def print_results(comparison: BotComparison) -> None:
     print()
 
     rankings = summary["bot_rankings"]
-    for rank, (bot_type, stats) in enumerate(rankings, 1):
+    for rank, bot_data in enumerate(rankings, 1):
+        bot_type = bot_data["bot_type"]
+        stats = {k: v for k, v in bot_data.items() if k != "bot_type"}
         print(f"{rank}. {bot_type.upper()}")
         print(f"   Win Rate: {stats['win_rate']:.1%} ({stats['wins']}/{stats['total_games']})")
         print(f"   Avg Score: {stats['avg_score']:.2f}")
@@ -437,6 +560,18 @@ Examples:
         default=None,
         help="Output file for results (JSON format)",
     )
+    parser.add_argument(
+        "--checkpoint",
+        type=str,
+        default=None,
+        help="Checkpoint file for saving/loading progress (JSON format)",
+    )
+    parser.add_argument(
+        "--checkpoint-interval",
+        type=int,
+        default=1000,
+        help="Number of games between checkpoint saves (default: 1000)",
+    )
 
     args = parser.parse_args()
 
@@ -456,9 +591,21 @@ Examples:
     print(f"Timestamp: {datetime.now().isoformat()}")
     print()
 
+    # Determine checkpoint file
+    checkpoint_file = None
+    if args.checkpoint:
+        checkpoint_file = Path(args.checkpoint)
+    elif args.output:
+        # Auto-generate checkpoint file name from output file
+        checkpoint_file = Path(args.output).with_suffix(".checkpoint.json")
+
     # Run comparison
     comparison = run_monte_carlo_comparison(
-        bot_types=bots_to_test, num_games_per_matchup=args.num_games, seed=args.seed
+        bot_types=bots_to_test,
+        num_games_per_matchup=args.num_games,
+        seed=args.seed,
+        checkpoint_file=checkpoint_file,
+        checkpoint_interval=args.checkpoint_interval,
     )
 
     # Print results

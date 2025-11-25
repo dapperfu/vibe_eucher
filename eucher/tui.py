@@ -1,16 +1,26 @@
 """Text-based user interface for Euchre game."""
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
 
 from eucher.cards import Card, Suit
 from eucher.players import Player
+
+if TYPE_CHECKING:
+    from eucher.assistant import AssistantHelper
 
 
 class TextTUI:
     """Text-based Terminal User Interface for the game."""
 
-    def __init__(self) -> None:
-        """Initialize the text UI."""
+    def __init__(self, assistant_helper: Optional["AssistantHelper"] = None) -> None:
+        """
+        Initialize the text UI.
+
+        Parameters
+        ----------
+        assistant_helper : Optional[AssistantHelper]
+            Optional assistant helper for displaying bot recommendations.
+        """
         self.players: Optional[List[Player]] = None
         self.current_trick_cards: List[Card] = []
         self.current_trick_player_ids: List[int] = []
@@ -25,6 +35,8 @@ class TextTUI:
         self.current_hand_number: int = 0
         self.dealer_id: Optional[int] = None
         self.trump_suit: Optional[Suit] = None
+        # Assistant helper
+        self.assistant_helper = assistant_helper
 
     def start_new_hand(self) -> None:
         """Start logging a new hand."""
@@ -654,9 +666,29 @@ class TextTUI:
         # Display hand
         self.display_hand(player)
         
+        # Get assistant recommendations if available
+        yes_prob = None
+        no_prob = None
+        if self.assistant_helper is not None:
+            try:
+                recommendations = self.assistant_helper.get_order_up_recommendation(
+                    player.hand, turned_card, dealer_id
+                )
+                yes_prob = recommendations.get(True, 0.0) * 100
+                no_prob = recommendations.get(False, 0.0) * 100
+            except Exception:
+                pass  # Silently fail if assistant fails
+        
         # Get decision
         while True:
-            print("\nOrder up this card? (y/n): ", end="")
+            print("\nOrder up this card?")
+            if yes_prob is not None and no_prob is not None:
+                print(f"  y) Yes ({yes_prob:.0f}%)")
+                print(f"  n) No ({no_prob:.0f}%)")
+            else:
+                print("  y) Yes")
+                print("  n) No")
+            print("Choice (y/n): ", end="")
             response = input().strip().lower()
             if response in ("y", "yes"):
                 return True
@@ -739,25 +771,46 @@ class TextTUI:
         # Display hand
         self.display_hand(player)
         
+        # Get assistant recommendations if available
+        suit_probs: Dict[Suit, float] = {}
+        pass_prob: Optional[float] = None
+        if self.assistant_helper is not None:
+            try:
+                recommendations = self.assistant_helper.get_call_trump_recommendation(
+                    player.hand, turned_card, must_choose
+                )
+                for suit, prob in recommendations.items():
+                    if suit is None:
+                        pass_prob = prob * 100
+                    else:
+                        suit_probs[suit] = prob * 100
+            except Exception:
+                pass  # Silently fail if assistant fails
+        
         # Get decision
         while True:
             print("\nCall trump:")
-            print("  1. Hearts ♥")
-            print("  2. Diamonds ♦")
-            print("  3. Clubs ♣")
-            print("  4. Spades ♠")
-            if not must_choose:
-                print("  5. Pass")
-            print(f"\nChoice (1-{'4' if must_choose else '5'}): ", end="")
-
-            choice = input().strip()
             suit_map = {
                 "1": Suit.HEARTS,
                 "2": Suit.DIAMONDS,
                 "3": Suit.CLUBS,
                 "4": Suit.SPADES,
             }
+            
+            for choice, suit in suit_map.items():
+                prob_str = ""
+                if suit in suit_probs:
+                    prob_str = f" ({suit_probs[suit]:.0f}%)"
+                print(f"  {choice}. {suit.value} {suit.unicode_symbol()}{prob_str}")
+            
+            if not must_choose:
+                pass_str = ""
+                if pass_prob is not None:
+                    pass_str = f" ({pass_prob:.0f}%)"
+                print(f"  5. Pass{pass_str}")
+            print(f"\nChoice (1-{'4' if must_choose else '5'}): ", end="")
 
+            choice = input().strip()
             if not must_choose and choice == "5":
                 return None
             if choice in suit_map:
@@ -812,9 +865,25 @@ class TextTUI:
         
         # Display hand (sorted for human-style viewing)
         sorted_hand = self._sort_hand_human_style(player.hand)
+        
+        # Get assistant recommendations if available
+        card_probs: Dict[Card, float] = {}
+        if self.assistant_helper is not None:
+            try:
+                recommendations = self.assistant_helper.get_discard_recommendation(
+                    player.hand, turned_card, ordered_up_by
+                )
+                for card, prob in recommendations.items():
+                    card_probs[card] = prob * 100
+            except Exception:
+                pass  # Silently fail if assistant fails
+        
         print(f"\n{player.name}'s hand ({len(player.hand)} cards):")
         for i, card in enumerate(sorted_hand):
-            print(f"  {i + 1}. {card}")
+            prob_str = ""
+            if card in card_probs:
+                prob_str = f" ({card_probs[card]:.0f}%)"
+            print(f"  {i + 1}. {card}{prob_str}")
         
         # Get decision
         while True:
@@ -956,9 +1025,26 @@ class TextTUI:
                 key=lambda x: self._get_card_sort_key(x[1])
             )
             
+            # Get assistant recommendations if available
+            card_probs: Dict[Card, float] = {}
+            if self.assistant_helper is not None:
+                try:
+                    # Use stored trick player IDs if available, otherwise construct placeholder
+                    trick_ids = self.current_trick_player_ids if len(self.current_trick_player_ids) == len(trick_cards) else list(range(len(trick_cards)))
+                    recommendations = self.assistant_helper.get_play_card_recommendation(
+                        player.hand, valid_cards, led_suit, trump_suit, trick_cards, trick_ids
+                    )
+                    for card, prob in recommendations.items():
+                        card_probs[card] = prob * 100
+                except Exception:
+                    pass  # Silently fail if assistant fails
+            
             # Display only playable cards (sorted)
             for display_idx, (actual_idx, card) in enumerate(sorted_mapping, start=1):
-                print(f"  {display_idx}. {card}")
+                prob_str = ""
+                if card in card_probs:
+                    prob_str = f" ({card_probs[card]:.0f}%)"
+                print(f"  {display_idx}. {card}{prob_str}")
             
             # Get decision
             while True:
@@ -977,9 +1063,27 @@ class TextTUI:
         else:
             # No restrictions - show all cards (sorted)
             sorted_hand = self._sort_hand_human_style(player.hand)
+            
+            # Get assistant recommendations if available
+            card_probs: Dict[Card, float] = {}
+            if self.assistant_helper is not None:
+                try:
+                    # Use stored trick player IDs if available, otherwise construct placeholder
+                    trick_ids = self.current_trick_player_ids if len(self.current_trick_player_ids) == len(trick_cards) else list(range(len(trick_cards)))
+                    recommendations = self.assistant_helper.get_play_card_recommendation(
+                        player.hand, valid_cards, led_suit, trump_suit, trick_cards, trick_ids
+                    )
+                    for card, prob in recommendations.items():
+                        card_probs[card] = prob * 100
+                except Exception:
+                    pass  # Silently fail if assistant fails
+            
             print(f"\n{player.name}'s hand ({len(player.hand)} cards):")
             for i, card in enumerate(sorted_hand):
-                print(f"  {i + 1}. {card}")
+                prob_str = ""
+                if card in card_probs:
+                    prob_str = f" ({card_probs[card]:.0f}%)"
+                print(f"  {i + 1}. {card}{prob_str}")
             
             # Get decision
             while True:

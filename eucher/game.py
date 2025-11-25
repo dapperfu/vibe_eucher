@@ -13,8 +13,9 @@ from eucher.players.computer.ml.ml_config import MLConfig
 from eucher.players.computer.ml.ml_features import GameStateEncoder
 from eucher.players.computer.ml.ml_model import EuchreMLModel
 from eucher.players.computer.ml.player import MLPlayer
-from eucher.players.computer import AIPlayer, HeuristicPlayer, RandomPlayer
+from eucher.players.computer import AIPlayer, HeuristicPlayer, HeuristicPlayer2, RandomPlayer
 from eucher.players.profiles import HumanProfile, MLBasedProfile, PlayerProfile
+from eucher.plugins import get_registry
 from eucher.rules import RulesEngine
 from eucher.game_stats import GameStatistics
 from eucher.training.profiling import timed_operation
@@ -121,10 +122,14 @@ class Game:
         """
         Create a player profile based on type.
 
+        Uses the plugin registry to find and instantiate player plugins.
+        Falls back to built-in players for backward compatibility.
+
         Parameters
         ----------
         profile_type : str
-            Type of profile: "human", "heuristic", "ai", "random", "ml_sklearn"
+            Type of profile: "human", "heuristic", "ai", "random", "ml_sklearn", etc.
+            Can also include plugin-specific parameters (e.g., "perceiver_muzero_16").
         player_id : int
             ID of the player (for ML profile game state access).
 
@@ -132,11 +137,46 @@ class Game:
         -------
         PlayerProfile
             The created profile.
+
+        Raises
+        ------
+        ValueError
+            If the profile type is unknown and not found in the plugin registry.
         """
+        # Special case: human profile (not a plugin)
         if profile_type == "human":
             return HumanProfile()
-        elif profile_type == "heuristic":
+
+        # Try to find plugin in registry
+        registry = get_registry()
+        plugin_metadata = registry.get(profile_type)
+
+        if plugin_metadata is not None:
+            # Found plugin - use it
+            kwargs: dict = {}
+            
+            # Add player_id for ML players that need it
+            if plugin_metadata.requires_game or "ml" in profile_type.lower():
+                kwargs["player_id"] = player_id
+            
+            # Add risk factors if available
+            if self.trump_selection_risk is not None:
+                kwargs["trump_selection_risk"] = self.trump_selection_risk
+            if self.gameplay_risk is not None:
+                kwargs["gameplay_risk"] = self.gameplay_risk
+
+            # Call factory with game instance if required
+            if plugin_metadata.requires_game:
+                return plugin_metadata.factory(game=self, **kwargs)
+            else:
+                return plugin_metadata.factory(game=None, **kwargs)
+
+        # Fallback to legacy hardcoded players for backward compatibility
+        # This ensures existing code continues to work
+        if profile_type == "heuristic":
             return HeuristicPlayer()
+        elif profile_type == "heuristic2":
+            return HeuristicPlayer2()
         elif profile_type == "ai":
             return AIPlayer(self.ai_decision_maker)
         elif profile_type == "random":
@@ -190,7 +230,11 @@ class Game:
                 )
             return player
         else:
-            raise ValueError(f"Unknown profile type: {profile_type}")
+            # Unknown profile type - check if it's a plugin we haven't loaded yet
+            raise ValueError(
+                f"Unknown profile type: {profile_type}. "
+                f"Available plugins: {', '.join(registry.list_plugins())}"
+            )
 
     def _create_ml_profile(self, player_id: int) -> MLBasedProfile:
         """

@@ -37,11 +37,31 @@ from eucher.db_serializers import (
     trick_to_dict,
 )
 from eucher.game import Game
+from eucher.plugins import get_registry
 from eucher.tui import TextTUI
 
 
-# Available computer player types
-COMPUTER_TYPES = ["heuristic", "ai", "random", "ml_sklearn", "ml_pytorch", "perceiver_muzero", "euchre_zero"]
+def get_computer_types() -> list[str]:
+    """
+    Get list of available computer player types from plugin registry.
+
+    Returns
+    -------
+    list[str]
+        List of available computer player type names.
+    """
+    registry = get_registry()
+    plugin_names = registry.list_plugins()
+    
+    # Filter out "human" if it somehow got registered
+    plugin_names = [name for name in plugin_names if name != "human"]
+    
+    # Sort for consistent ordering
+    return sorted(plugin_names)
+
+
+# Available computer player types (dynamically generated from plugins)
+COMPUTER_TYPES = get_computer_types()
 
 
 @click.group()
@@ -62,7 +82,8 @@ def cli() -> None:
 @click.option("--seed", type=str, default=None, help="Random seed for reproducible games (integer or UUID string)")
 @click.option("--save-dir", type=click.Path(file_okay=False, dir_okay=True), default=None, help="Directory to save game file")
 @click.option("--ai-summary", is_flag=True, default=False, help="Generate AI-powered verbal summaries after each hand (requires OPENAI_API_KEY)")
-def play(opponent_type: Optional[str], name: str, seed: Optional[str], save_dir: Optional[str], ai_summary: bool) -> None:
+@click.option("--assistant", type=str, default=None, help="Assistant bot type to show decision recommendations (use 'list' to see available types)")
+def play(opponent_type: Optional[str], name: str, seed: Optional[str], save_dir: Optional[str], ai_summary: bool, assistant: Optional[str]) -> None:
     """
     Play a game of Euchre with 1 human player and 3 computer opponents.
 
@@ -73,7 +94,17 @@ def play(opponent_type: Optional[str], name: str, seed: Optional[str], save_dir:
     The seed can be an integer or a UUID string. If a UUID is provided, it will
     be used to seed the random number generator and the game will be saved as
     <uuid>.gz if --save-dir is provided.
+
+    Use --assistant=<bot_type> to display decision recommendations from a bot.
+    Use --assistant=list to see available assistant bot types.
     """
+    # Handle assistant list request
+    if assistant == "list":
+        click.echo("Available assistant bot types:")
+        for bot_type in COMPUTER_TYPES:
+            click.echo(f"  - {bot_type}")
+        return
+    
     # Parse seed - can be integer or UUID string
     parsed_seed: Optional[Union[int, str]] = None
     if seed is not None:
@@ -161,8 +192,25 @@ def play(opponent_type: Optional[str], name: str, seed: Optional[str], save_dir:
         click.echo(f"To replay this game, use: --seed {game.game_uuid}")
         click.echo()
 
+    # Create assistant helper if specified
+    assistant_helper = None
+    if assistant is not None:
+        try:
+            from eucher.assistant import AssistantHelper
+            assistant_helper = AssistantHelper(assistant, game=game)
+            click.echo(f"Assistant mode enabled: {assistant}")
+            click.echo()
+        except ValueError as e:
+            click.echo(f"Warning: Invalid assistant type '{assistant}': {e}", err=True)
+            click.echo("Continuing without assistant...")
+            click.echo()
+        except Exception as e:
+            click.echo(f"Warning: Failed to initialize assistant: {e}", err=True)
+            click.echo("Continuing without assistant...")
+            click.echo()
+
     # Create and set TUI
-    tui = TextTUI()
+    tui = TextTUI(assistant_helper=assistant_helper)
     game.set_tui(tui)
 
     # Play game
