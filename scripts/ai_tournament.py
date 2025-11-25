@@ -414,11 +414,17 @@ def run_single_game_with_timeout(
 
     if thread.is_alive():
         # Thread is still running - timed out
-        print(f"\nGame timed out after {timeout_seconds} seconds (seed: {seed})")
+        # Note: Daemon threads can't be forcefully killed, but they'll be cleaned up when main thread exits
+        print(f"\n⚠️  Game timed out after {timeout_seconds} seconds (seed: {seed})")
+        print(f"   Player config: {[p[1] for p in player_config]}")
+        # Force garbage collection to help clean up
+        import gc
+        gc.collect()
         return None
 
     if result_container["exception"]:
-        print(f"\nError in game (seed: {seed}): {result_container['exception']}")
+        print(f"\n❌ Error in game (seed: {seed}): {result_container['exception']}")
+        print(f"   Player config: {[p[1] for p in player_config]}")
         import traceback
         traceback.print_exc()
         return None
@@ -461,8 +467,28 @@ def run_matchup(
         List of game results.
     """
     results = []
+    timeout_count = 0
+    consecutive_timeouts = 0
+    max_consecutive_timeouts = 5  # Skip matchup if too many consecutive timeouts
+    last_progress_time = None
+    stall_timeout = 600  # 10 minutes without progress = stall
 
     for game_num in range(start_game, num_games):
+        import time
+        current_time = time.time()
+        
+        # Check for stall (no progress for too long)
+        if last_progress_time is not None:
+            time_since_progress = current_time - last_progress_time
+            if time_since_progress > stall_timeout:
+                print(f"\n⚠️  STALL DETECTED: No progress for {time_since_progress:.0f} seconds")
+                print(f"   Last completed game: {game_num - 1}")
+                print(f"   Current game: {game_num}")
+                print(f"   Matchup: {player_type_0} vs {player_type_1}")
+                print(f"   Skipping remaining games in this matchup")
+                break
+        
+        last_progress_time = current_time
         try:
             # Create player configuration
             # Team 0: players 0 and 2 are player_type_0
@@ -474,10 +500,25 @@ def run_matchup(
                 (f"{player_type_1}_3", player_type_1),
             ]
 
+            # Log progress every 50 games
+            if game_num > 0 and game_num % 50 == 0:
+                print(f"\n  Progress: {game_num}/{num_games} games completed for {player_type_0} vs {player_type_1}")
+
             # Run game with timeout
+            game_start_time = time.time()
             game_result = run_single_game_with_timeout(
                 player_config, seed_base + game_num, timeout_per_game
             )
+            game_duration = time.time() - game_start_time
+            
+            # Warn if games are taking too long (even if not timing out)
+            if game_duration > timeout_per_game * 0.8:  # 80% of timeout
+                print(f"\n⚠️  Slow game: {game_duration:.1f}s (game {game_num}, seed {seed_base + game_num})")
+            
+            # Force garbage collection periodically to prevent memory buildup
+            if game_num > 0 and game_num % 25 == 0:
+                import gc
+                gc.collect()
 
             if game_result is not None:
                 results.append(
@@ -489,17 +530,34 @@ def run_matchup(
                         "hands_played": game_result["hands_played"],
                     }
                 )
+                consecutive_timeouts = 0  # Reset counter on success
+                last_progress_time = time.time()  # Update progress time
+            else:
+                timeout_count += 1
+                consecutive_timeouts += 1
+                # If too many consecutive timeouts, skip this matchup
+                if consecutive_timeouts >= max_consecutive_timeouts:
+                    print(f"\n⚠️  Skipping matchup {player_type_0} vs {player_type_1} after {consecutive_timeouts} consecutive timeouts")
+                    print(f"   Completed {len(results)}/{num_games} games before skipping")
+                    break
 
             if progress_bar:
                 progress_bar.update(1)
 
+        except KeyboardInterrupt:
+            print(f"\n\n⚠️  Interrupted at game {game_num}/{num_games} for {player_type_0} vs {player_type_1}")
+            raise
         except Exception as e:
-            print(f"\nError running game {game_num} for matchup {player_type_0} vs {player_type_1}: {e}")
+            print(f"\n❌ Error running game {game_num} for matchup {player_type_0} vs {player_type_1}: {e}")
             import traceback
             traceback.print_exc()
+            consecutive_timeouts = 0  # Reset on exception (different from timeout)
             if progress_bar:
                 progress_bar.update(1)
             continue
+
+    if timeout_count > 0:
+        print(f"\n⚠️  Matchup {player_type_0} vs {player_type_1}: {timeout_count} games timed out out of {num_games}")
 
     return results
 
@@ -646,6 +704,7 @@ def run_tournament(
             pbar.set_description(f"Matchup: {matchup_str}")
 
             # Run games for this matchup
+            print(f"\n▶️  Starting matchup {idx + 1}/{len(matchups)}: {matchup_str}")
             results = run_matchup(
                 player_type_0, 
                 player_type_1, 
@@ -655,6 +714,7 @@ def run_tournament(
                 timeout_per_game=timeout_per_game,
                 start_game=start_game if idx == current_matchup_idx else 0,
             )
+            print(f"✅ Completed matchup {idx + 1}/{len(matchups)}: {matchup_str} ({len(results)} games)")
 
             # Record results
             for game_idx, result in enumerate(results):
@@ -787,8 +847,8 @@ Examples:
     parser.add_argument(
         "--timeout",
         type=int,
-        default=300,
-        help="Timeout per game in seconds (default: 300 = 5 minutes)",
+        default=120,
+        help="Timeout per game in seconds (default: 120 = 2 minutes). Reduce if games hang frequently.",
     )
     parser.add_argument(
         "--skip-slow",
