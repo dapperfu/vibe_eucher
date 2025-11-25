@@ -10,6 +10,7 @@ import argparse
 import json
 import random
 import sys
+import threading
 from collections import defaultdict
 from datetime import datetime
 from itertools import combinations
@@ -272,12 +273,91 @@ class TournamentSimulator:
         }
 
 
+class TimeoutError(Exception):
+    """Timeout exception for game execution."""
+    pass
+
+
+def run_single_game_with_timeout(
+    player_config: List[Tuple[str, str]],
+    seed: int,
+    timeout_seconds: int = 300,  # 5 minutes per game
+) -> Optional[Dict[str, any]]:
+    """
+    Run a single game with timeout protection using threading.
+
+    Parameters
+    ----------
+    player_config : List[Tuple[str, str]]
+        Player configuration.
+    seed : int
+        Random seed.
+    timeout_seconds : int
+        Maximum time per game in seconds.
+
+    Returns
+    -------
+    Optional[Dict[str, any]]
+        Game result or None if timeout/error.
+    """
+    result_container = {"result": None, "exception": None}
+
+    def run_game():
+        """Run the game in a separate thread."""
+        try:
+            # Create game with seed
+            game = Game(player_config, seed=seed)
+
+            # Play game
+            hands_played = 0
+            max_hands = 50  # Safety limit to prevent infinite loops
+            while hands_played < max_hands:
+                continue_game = game.play_hand()
+                hands_played += 1
+                if not continue_game:
+                    break
+
+                winner = game.get_winner()
+                if winner is not None:
+                    break
+
+            scores = game.get_scores()
+            winner = game.get_winner()
+
+            result_container["result"] = {
+                "winner": winner,
+                "scores": scores,
+                "hands_played": hands_played,
+            }
+        except Exception as e:
+            result_container["exception"] = e
+
+    # Run game in thread with timeout
+    thread = threading.Thread(target=run_game, daemon=True)
+    thread.start()
+    thread.join(timeout=timeout_seconds)
+
+    if thread.is_alive():
+        # Thread is still running - timed out
+        print(f"\nGame timed out after {timeout_seconds} seconds (seed: {seed})")
+        return None
+
+    if result_container["exception"]:
+        print(f"\nError in game (seed: {seed}): {result_container['exception']}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+    return result_container["result"]
+
+
 def run_matchup(
     player_type_0: str,
     player_type_1: str,
     num_games: int,
     seed_base: int = 0,
     progress_bar: Optional[tqdm] = None,
+    timeout_per_game: int = 300,
 ) -> List[Dict[str, any]]:
     """
     Run games for a specific matchup.
@@ -294,6 +374,8 @@ def run_matchup(
         Base seed for random number generation.
     progress_bar : Optional[tqdm]
         Optional progress bar to update.
+    timeout_per_game : int
+        Maximum seconds per game before timeout.
 
     Returns
     -------
@@ -314,43 +396,31 @@ def run_matchup(
                 (f"{player_type_1}_3", player_type_1),
             ]
 
-            # Create game with seed
-            game = Game(player_config, seed=seed_base + game_num)
-
-            # Play game
-            hands_played = 0
-            while True:
-                try:
-                    continue_game = game.play_hand()
-                    hands_played += 1
-                    if not continue_game:
-                        break
-
-                    winner = game.get_winner()
-                    if winner is not None:
-                        break
-                except Exception as e:
-                    print(f"\nError in game {game_num}: {e}")
-                    break
-
-            scores = game.get_scores()
-            winner = game.get_winner()
-
-            results.append(
-                {
-                    "player_type_0": player_type_0,
-                    "player_type_1": player_type_1,
-                    "winner": winner,
-                    "scores": scores,
-                    "hands_played": hands_played,
-                }
+            # Run game with timeout
+            game_result = run_single_game_with_timeout(
+                player_config, seed_base + game_num, timeout_per_game
             )
+
+            if game_result is not None:
+                results.append(
+                    {
+                        "player_type_0": player_type_0,
+                        "player_type_1": player_type_1,
+                        "winner": game_result["winner"],
+                        "scores": game_result["scores"],
+                        "hands_played": game_result["hands_played"],
+                    }
+                )
 
             if progress_bar:
                 progress_bar.update(1)
 
         except Exception as e:
             print(f"\nError running game {game_num} for matchup {player_type_0} vs {player_type_1}: {e}")
+            import traceback
+            traceback.print_exc()
+            if progress_bar:
+                progress_bar.update(1)
             continue
 
     return results
@@ -379,6 +449,7 @@ def run_tournament(
     player_types: List[str],
     num_games_per_matchup: int = 200,
     seed: Optional[int] = None,
+    timeout_per_game: int = 300,
 ) -> TournamentSimulator:
     """
     Run round-robin tournament simulation.
@@ -419,7 +490,8 @@ def run_tournament(
             pbar.set_description(f"Matchup: {matchup_str}")
 
             results = run_matchup(
-                player_type_0, player_type_1, num_games_per_matchup, seed_base=seed or 0, progress_bar=pbar
+                player_type_0, player_type_1, num_games_per_matchup, 
+                seed_base=seed or 0, progress_bar=pbar, timeout_per_game=timeout_per_game
             )
 
             # Record results
@@ -524,11 +596,29 @@ Examples:
         default=None,
         help="Output file for results (JSON format). If not specified, uses tournament_results_<timestamp>.json",
     )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=300,
+        help="Timeout per game in seconds (default: 300 = 5 minutes)",
+    )
+    parser.add_argument(
+        "--skip-slow",
+        action="store_true",
+        help="Skip slow player types (perceiver_muzero, euchre_zero) that may hang",
+    )
 
     args = parser.parse_args()
 
     # Get available player types
     requested_types = args.types if args.types else DEFAULT_PLAYER_TYPES
+    
+    # Skip slow player types if requested
+    if args.skip_slow:
+        slow_types = {"perceiver_muzero", "euchre_zero"}
+        requested_types = [pt for pt in requested_types if pt not in slow_types]
+        print(f"Skipping slow player types: {', '.join(slow_types)}")
+    
     player_types = get_available_player_types(requested_types)
 
     if not player_types:
@@ -543,7 +633,10 @@ Examples:
 
     # Run tournament
     tournament = run_tournament(
-        player_types=player_types, num_games_per_matchup=args.num_games, seed=args.seed
+        player_types=player_types, 
+        num_games_per_matchup=args.num_games, 
+        seed=args.seed,
+        timeout_per_game=args.timeout,
     )
 
     # Print results
