@@ -1,0 +1,49 @@
+# Makefile Integration for ML Projects
+
+## Requirement
+
+Machine learning projects SHALL include Makefile targets for common workflows (train, evaluate, test, clean).
+
+Makefile targets SHALL use file-based dependencies (e.g., model checkpoints, data files).
+
+Training targets SHALL depend on data preparation targets.
+
+Evaluation targets SHALL depend on trained model checkpoints.
+
+## Required Makefile Targets
+
+ML projects SHALL include at minimum:
+- `train` - Train the model
+- `evaluate` - Evaluate trained model
+- `test` - Run tests
+- `clean` - Clean generated files (checkpoints, logs, etc.)
+
+## Target Dependencies
+
+Training targets SHALL depend on:
+- Data preparation outputs (preprocessed data files)
+- Model definition files
+- Configuration files
+
+Evaluation targets SHALL depend on:
+- Trained model checkpoints
+- Evaluation datasets
+
+## File-Based Dependencies
+
+Makefile targets SHALL use actual files or directories as dependencies, following `makefile/target-dependencies.mdc` rules.
+
+Example:
+```makefile
+checkpoints/model.pth: data/preprocessed/train.pt
+	$(PYTHON) train.py --data data/preprocessed --checkpoint-dir checkpoints
+```
+
+See `makefile/target-dependencies.mdc` for target dependency requirements.
+
+See `makefile/variable-escaping.mdc` for variable escaping requirements.
+
+---
+description: Makefile integration requirements for machine learning projects
+globs: ["Makefile", "makefile", "**/Makefile", "**/makefile"]
+alwaysApply: false

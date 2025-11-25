@@ -1,0 +1,60 @@
+# Experiment Tracking
+
+## Requirement
+
+All machine learning training runs SHALL log experiment metadata (hyperparameters, dataset info, git commit hash).
+
+Training scripts SHALL output structured logs (JSON or structured logging format).
+
+Experiment runs SHALL be uniquely identifiable (timestamp, run ID, or commit hash).
+
+Logs SHALL include training metrics, validation metrics, and system metrics (GPU/CPU usage).
+
+## Experiment Metadata
+
+Training runs SHALL log:
+- Hyperparameters (learning rate, batch size, architecture parameters, etc.)
+- Dataset information (path, version, size, splits)
+- Git commit hash (for code version tracking)
+- Environment information (Python version, framework versions)
+- System configuration (GPU model, CPU count, memory)
+
+## Structured Logging
+
+Training scripts SHALL output logs in structured format:
+- JSON format for machine-readable logs
+- Or structured logging format (e.g., Python logging with JSON formatter)
+- Logs SHALL be saved to files, not only printed to console
+
+## Run Identification
+
+Experiment runs SHALL be uniquely identifiable using:
+- Timestamp (ISO 8601 format)
+- Run ID (UUID or sequential ID)
+- Git commit hash
+- Or combination of the above
+
+## Metrics Logging
+
+Logs SHALL include:
+- Training metrics (loss, accuracy, etc.) per epoch/iteration
+- Validation metrics per epoch/iteration
+- System metrics (GPU utilization, CPU usage, memory usage)
+- Training time and throughput
+
+## Log Directory Structure
+
+Logs SHALL be organized:
+```
+logs/
+  {model_name}/
+    {run_id}/
+      metrics.json
+      config.json
+      system_metrics.json
+```
+
+---
+description: Experiment tracking and logging requirements for ML training
+globs: ["*.py", "**/*.py"]
+alwaysApply: false

@@ -1,0 +1,63 @@
+# Model Checkpoints and Resume
+
+## Requirement
+
+All machine learning training scripts SHALL implement regular checkpointing (default: every epoch or N iterations).
+
+Checkpoints SHALL include model state, optimizer state, and training metadata (epoch, loss, etc.).
+
+Training scripts SHALL support automatic resume from the latest checkpoint by default.
+
+Checkpoint paths SHALL be configurable via command-line arguments.
+
+Checkpoint directories SHALL follow a consistent structure (e.g., `checkpoints/{model_name}/`).
+
+## Checkpoint Contents
+
+Checkpoints SHALL include:
+- Model state (weights, parameters)
+- Optimizer state (for resume training)
+- Training metadata:
+  - Current epoch or iteration
+  - Best validation loss/metric
+  - Training history (losses, metrics)
+  - Random number generator state (for reproducibility)
+
+## Checkpoint Frequency
+
+Training scripts SHALL checkpoint:
+- At the end of each epoch (default)
+- Or at configurable intervals (e.g., every N iterations)
+- On best validation metric improvement
+- Before training termination (final checkpoint)
+
+## Automatic Resume
+
+Training scripts SHALL:
+- Automatically detect and resume from the latest checkpoint by default
+- Support `--resume` flag to explicitly specify checkpoint path
+- Support `--no-resume` flag to start training from scratch
+- Validate checkpoint compatibility before resuming
+
+## Checkpoint Directory Structure
+
+Checkpoint directories SHALL follow:
+```
+checkpoints/
+  {model_name}/
+    checkpoint_epoch_{N}.pth
+    checkpoint_best.pth
+    checkpoint_latest.pth
+```
+
+## Command-Line Arguments
+
+Training scripts SHALL accept:
+- `--checkpoint-dir` - Directory to save checkpoints
+- `--resume` - Path to checkpoint to resume from (optional)
+- `--checkpoint-interval` - Interval for checkpointing (epochs or iterations)
+
+---
+description: Model checkpointing and automatic resume requirements
+globs: ["*.py", "**/*.py"]
+alwaysApply: false

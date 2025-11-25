@@ -1,0 +1,67 @@
+# Model Evaluation
+
+## Requirement
+
+All machine learning models SHALL have evaluation scripts separate from training scripts.
+
+Evaluation scripts SHALL compute standard metrics for the task type.
+
+Evaluation results SHALL be saved in a structured format (JSON, CSV, or report).
+
+Evaluation SHALL support both validation and test sets.
+
+Evaluation scripts SHALL accept model checkpoint paths as arguments.
+
+## Separate Evaluation Scripts
+
+Evaluation SHALL be implemented in separate scripts from training:
+- Training scripts focus on training logic
+- Evaluation scripts focus on evaluation logic
+- Separation allows evaluation without retraining
+
+## Standard Metrics
+
+Evaluation scripts SHALL compute standard metrics for the task type:
+- Classification: accuracy, precision, recall, F1-score, confusion matrix
+- Regression: MAE, MSE, RMSE, R²
+- Ranking: NDCG, MAP, MRR
+- Other task-specific metrics as appropriate
+
+## Structured Output
+
+Evaluation results SHALL be saved in structured format:
+- JSON format for programmatic access
+- CSV format for tabular data
+- Text reports for human readability
+- Or combination of formats
+
+## Dataset Support
+
+Evaluation scripts SHALL support:
+- Validation set evaluation
+- Test set evaluation
+- Custom dataset evaluation
+- Batch evaluation of multiple checkpoints
+
+## Command-Line Interface
+
+Evaluation scripts SHALL accept:
+- `--checkpoint` - Path to model checkpoint
+- `--data-path` - Path to evaluation dataset
+- `--split` - Dataset split (validation, test, or custom)
+- `--output` - Path to save evaluation results
+
+## Example Usage
+
+```bash
+python evaluate.py \
+  --checkpoint checkpoints/model_name/checkpoint_best.pth \
+  --data-path data/test/ \
+  --split test \
+  --output results/evaluation_test.json
+```
+
+---
+description: Model evaluation script requirements
+globs: ["*.py", "**/*.py"]
+alwaysApply: false

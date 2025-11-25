@@ -1,0 +1,40 @@
+# Model Naming Conventions
+
+## Requirement
+
+All machine learning models SHALL be named using the pattern: `{ProjectName}{Architecture}{Variant}`.
+
+Model files and directories SHALL use consistent naming conventions.
+
+Model names SHALL be descriptive and indicate the architecture type.
+
+## Naming Pattern
+
+Model names SHALL follow: `{ProjectName}{Architecture}{Variant}`
+
+Examples:
+- `EucherAlphaGo` - Project: Eucher, Architecture: AlphaGo
+- `PokerMonteCarlo` - Project: Poker, Architecture: MonteCarlo
+- `ImageClassifierResNet50` - Project: ImageClassifier, Architecture: ResNet50
+- `TextClassifierBERT` - Project: TextClassifier, Architecture: BERT
+
+## File and Directory Naming
+
+Model-related files and directories SHALL use consistent naming:
+- Model checkpoints: `checkpoints/{model_name}/`
+- Model definitions: `models/{model_name}.py` or `models/{model_name}/`
+- Configuration files: `configs/{model_name}.yaml`
+- Logs: `logs/{model_name}/`
+
+## Naming Guidelines
+
+Model names SHALL:
+- Use PascalCase or CamelCase
+- Be descriptive enough to identify the architecture
+- Avoid abbreviations unless widely recognized
+- Include project context when multiple projects exist
+
+---
+description: Machine learning model naming conventions
+globs: ["*.py", "*.yaml", "*.yml", "*.json", "*.toml", "**/*.py", "**/*.yaml", "**/*.yml", "**/*.json", "**/*.toml"]
+alwaysApply: false

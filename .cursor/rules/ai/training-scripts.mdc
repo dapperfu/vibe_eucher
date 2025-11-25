@@ -1,0 +1,41 @@
+# Training Scripts
+
+## Requirement
+
+All machine learning models SHALL be accompanied by training scripts with appropriate help documentation.
+
+Training scripts SHALL accept command-line arguments for hyperparameters, data paths, and configuration.
+
+Each training script SHALL have a corresponding shell script wrapper with sane defaults.
+
+Shell wrapper scripts SHALL be executable and documented with usage examples.
+
+## Training Script Requirements
+
+Training scripts SHALL:
+- Provide `--help` or `-h` documentation explaining all arguments
+- Accept hyperparameters as command-line arguments
+- Accept data paths as command-line arguments
+- Accept configuration file paths as optional arguments
+- Use argparse, click, or similar argument parsing libraries with full help text
+
+## Shell Wrapper Requirements
+
+Shell wrapper scripts SHALL:
+- Be executable (have execute permissions)
+- Include usage examples in comments or help text
+- Provide sensible default values for common hyperparameters
+- Allow overriding defaults via command-line arguments
+- Document required environment variables (if any)
+
+## Example Structure
+
+```
+train_model.py          # Main training script with --help
+train_model.sh          # Shell wrapper with defaults
+```
+
+---
+description: Machine learning training scripts and shell wrappers requirement
+globs: ["*.py", "*.sh", "**/*.py", "**/*.sh"]
+alwaysApply: false

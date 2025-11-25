@@ -1,0 +1,72 @@
+# Configuration Management
+
+## Requirement
+
+Machine learning projects SHALL use configuration files (YAML, JSON, or TOML) for hyperparameters.
+
+Configuration files SHALL be version-controlled.
+
+Training scripts SHALL support both command-line arguments and config file overrides.
+
+Config files SHALL include sections for model, data, training, and evaluation parameters.
+
+## Configuration File Format
+
+Projects SHALL use one of:
+- YAML (`.yaml`, `.yml`) - Recommended for readability
+- JSON (`.json`) - For programmatic generation
+- TOML (`.toml`) - For Python projects
+
+## Configuration Structure
+
+Config files SHALL include sections:
+- `model` - Model architecture parameters
+- `data` - Dataset paths and preprocessing parameters
+- `training` - Training hyperparameters (learning rate, batch size, epochs, etc.)
+- `evaluation` - Evaluation parameters (metrics, thresholds, etc.)
+- `checkpoint` - Checkpoint settings (directory, frequency, etc.)
+- `logging` - Logging configuration
+
+## Version Control
+
+Configuration files SHALL be:
+- Stored in version control (git)
+- Named with model name: `configs/{model_name}.yaml`
+- Documented with comments explaining parameters
+- Tagged or versioned for experiment reproducibility
+
+## Command-Line Override
+
+Training scripts SHALL:
+- Load configuration from file by default
+- Allow command-line arguments to override config values
+- Prefer command-line arguments over config file values when both provided
+- Document config file format and location
+
+## Example Config Structure
+
+```yaml
+model:
+  architecture: ResNet50
+  num_classes: 10
+
+data:
+  train_path: data/train/
+  val_path: data/val/
+  batch_size: 32
+
+training:
+  learning_rate: 0.001
+  epochs: 100
+  optimizer: Adam
+
+evaluation:
+  metrics: [accuracy, f1_score]
+```
+
+See `ai/model-naming.mdc` for config file naming conventions.
+
+---
+description: Configuration file management requirements for ML projects
+globs: ["*.yaml", "*.yml", "*.json", "*.toml", "*.py", "**/*.yaml", "**/*.yml", "**/*.json", "**/*.toml", "**/*.py"]
+alwaysApply: false

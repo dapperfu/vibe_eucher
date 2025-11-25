@@ -1,0 +1,63 @@
+# Data Versioning
+
+## Requirement
+
+Machine learning projects SHALL track data versions and dataset provenance.
+
+Training scripts SHALL accept data version identifiers or paths.
+
+Data preprocessing SHALL be reproducible and versioned.
+
+Dataset checksums or version hashes SHALL be logged with experiments.
+
+## Data Version Tracking
+
+ML projects SHALL:
+- Assign version identifiers to datasets (e.g., `v1.0`, `v1.1`, `2024-01-15`)
+- Store version information with datasets
+- Document dataset changes between versions
+
+## Training Script Integration
+
+Training scripts SHALL:
+- Accept data version identifiers as command-line arguments
+- Accept data paths that include version information
+- Log the data version used in experiment metadata
+
+Example:
+```bash
+python train.py --data-version v1.0
+# or
+python train.py --data-path data/v1.0/
+```
+
+## Reproducible Preprocessing
+
+Data preprocessing SHALL be:
+- Versioned (preprocessing code version tracked)
+- Reproducible (same input produces same output)
+- Documented (preprocessing steps recorded)
+- Saved (preprocessed data stored with version info)
+
+## Dataset Checksums
+
+Projects SHALL:
+- Compute checksums or hashes for datasets
+- Store checksums with datasets
+- Log checksums in experiment metadata
+- Validate checksums before training
+
+## Data Provenance
+
+Projects SHALL track:
+- Source of raw data
+- Preprocessing steps applied
+- Data transformations and augmentations
+- Train/validation/test split methodology
+
+See `ai/experiment-tracking.mdc` for logging data version information with experiments.
+
+---
+description: Data versioning and reproducibility requirements for ML projects
+globs: ["*.py", "*.sh", "**/*.py", "**/*.sh"]
+alwaysApply: false
