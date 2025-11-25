@@ -160,7 +160,7 @@ class Game:
             config = EuchreZeroConfig()
             player = EuchreZeroPlayer(config=config, game=self)
             return player
-        elif profile_type == "perceiver_muzero":
+        elif profile_type.startswith("perceiver_muzero"):
             from eucher.players.computer.perceiver_muzero.player import (
                 EuchrePerceiverMuZeroPlayer,
             )
@@ -169,9 +169,25 @@ class Game:
             )
 
             config = PerceiverMuZeroConfig()
-            # Use fast mode for tournament: feed-forward only (no MCTS)
-            # This makes it much faster while still using the learned model
-            player = EuchrePerceiverMuZeroPlayer(config=config, game=self, fast_mode=True)
+            
+            # Parse simulation count from profile type (e.g., "perceiver_muzero_16" -> 16)
+            num_simulations = None
+            if "_" in profile_type:
+                parts = profile_type.split("_")
+                if len(parts) >= 3:
+                    try:
+                        num_simulations = int(parts[-1])
+                    except ValueError:
+                        pass
+            
+            # If no simulation count specified or 1, use fast mode (equivalent to 1 simulation)
+            if num_simulations is None or num_simulations == 1:
+                player = EuchrePerceiverMuZeroPlayer(config=config, game=self, fast_mode=True)
+            else:
+                # Use specified number of simulations (not fast mode)
+                player = EuchrePerceiverMuZeroPlayer(
+                    config=config, game=self, num_simulations=num_simulations, fast_mode=False
+                )
             return player
         else:
             raise ValueError(f"Unknown profile type: {profile_type}")
