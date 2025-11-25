@@ -41,3 +41,4 @@ python scripts/pytorch_ai/train_pytorch_ai.py \
     ${BATCH_SIZE} \
     "$@"
 
+
