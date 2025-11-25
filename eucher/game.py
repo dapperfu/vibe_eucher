@@ -169,7 +169,9 @@ class Game:
             )
 
             config = PerceiverMuZeroConfig()
-            player = EuchrePerceiverMuZeroPlayer(config=config, game=self)
+            # Use fast mode for tournament: feed-forward only (no MCTS)
+            # This makes it much faster while still using the learned model
+            player = EuchrePerceiverMuZeroPlayer(config=config, game=self, fast_mode=True)
             return player
         else:
             raise ValueError(f"Unknown profile type: {profile_type}")

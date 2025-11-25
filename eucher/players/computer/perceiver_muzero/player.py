@@ -30,6 +30,7 @@ class EuchrePerceiverMuZeroPlayer(PlayerProfile):
         num_simulations: Optional[int] = None,
         risk_factor: float = 0.0,
         game: Optional[object] = None,
+        fast_mode: bool = False,
     ) -> None:
         """
         Initialize EuchrePerceiverMuZero player.
@@ -48,6 +49,8 @@ class EuchrePerceiverMuZeroPlayer(PlayerProfile):
             Risk factor for decision making (0.0-1.0).
         game : Optional[object]
             Game instance (will be set by game integration).
+        fast_mode : bool
+            If True, use feed-forward only (no MCTS). Much faster for tournaments.
         """
         if config is None:
             config = PerceiverMuZeroConfig()
@@ -58,6 +61,7 @@ class EuchrePerceiverMuZeroPlayer(PlayerProfile):
         self.config = config
         self.risk_factor = risk_factor
         self.game = game
+        self.fast_mode = fast_mode
 
         # Initialize model
         if model is not None:
@@ -70,8 +74,9 @@ class EuchrePerceiverMuZeroPlayer(PlayerProfile):
 
         self.model.eval_mode()
 
-        # Initialize MCTS and state encoder
-        self.mcts = MCTSSearch(self.model, config)
+        # Initialize MCTS and state encoder (only if not in fast mode)
+        if not fast_mode:
+            self.mcts = MCTSSearch(self.model, config)
         self.state_encoder = StateEncoder(config)
 
     def set_game(self, game: object) -> None:
@@ -84,6 +89,33 @@ class EuchrePerceiverMuZeroPlayer(PlayerProfile):
             Game instance.
         """
         self.game = game
+
+    def _get_policy(self, input_tokens: torch.Tensor) -> np.ndarray:
+        """
+        Get policy distribution using either fast mode (feed-forward) or MCTS.
+
+        Parameters
+        ----------
+        input_tokens : torch.Tensor
+            Encoded game state tokens.
+
+        Returns
+        -------
+        np.ndarray
+            Policy distribution over actions [action_space_size].
+        """
+        if self.fast_mode:
+            # Fast mode: direct feed-forward without MCTS
+            input_tokens = input_tokens.to(self.model.device)
+            with torch.no_grad():
+                perceiver_output = self.model.perceiver_encoder(input_tokens)
+                latent = self.model.representation_net(perceiver_output)
+                policy_logits, _, _ = self.model.prediction_net(latent)
+                policy = torch.softmax(policy_logits, dim=-1).cpu().numpy()
+            return policy
+        else:
+            # Run MCTS
+            return self.mcts.search(input_tokens, self.risk_factor)
 
     def decide_order_up(
         self,
@@ -119,8 +151,8 @@ class EuchrePerceiverMuZeroPlayer(PlayerProfile):
             self._get_game(player), player.player_id
         )
 
-        # Run MCTS
-        policy = self.mcts.search(input_tokens, self.risk_factor)
+        # Get policy (fast mode or MCTS)
+        policy = self._get_policy(input_tokens)
 
         # Select action (ORDER_UP = 1)
         action_id = np.argmax(policy)
@@ -162,8 +194,8 @@ class EuchrePerceiverMuZeroPlayer(PlayerProfile):
             self._get_game(player), player.player_id
         )
 
-        # Run MCTS
-        policy = self.mcts.search(input_tokens, self.risk_factor)
+        # Get policy (fast mode or MCTS)
+        policy = self._get_policy(input_tokens)
 
         # Get call actions (CALL_HEARTS=2, CALL_DIAMONDS=3, CALL_CLUBS=4, CALL_SPADES=5)
         call_probs = policy[2:6]
@@ -212,8 +244,8 @@ class EuchrePerceiverMuZeroPlayer(PlayerProfile):
             self._get_game(player), player.player_id
         )
 
-        # Run MCTS
-        policy = self.mcts.search(input_tokens, self.risk_factor)
+        # Get policy (fast mode or MCTS)
+        policy = self._get_policy(input_tokens)
 
         # Get discard actions (DISCARD_0=9 to DISCARD_5=14)
         discard_probs = policy[9:15]
@@ -259,8 +291,8 @@ class EuchrePerceiverMuZeroPlayer(PlayerProfile):
             self._get_game(player), player.player_id
         )
 
-        # Run MCTS
-        policy = self.mcts.search(input_tokens, self.risk_factor)
+        # Get policy (fast mode or MCTS)
+        policy = self._get_policy(input_tokens)
 
         # Get play actions (PLAY_0=15 to PLAY_4=19)
         play_probs = policy[15:20]
@@ -296,8 +328,8 @@ class EuchrePerceiverMuZeroPlayer(PlayerProfile):
             self._get_game(player), player.player_id
         )
 
-        # Run MCTS
-        policy = self.mcts.search(input_tokens, self.risk_factor)
+        # Get policy (fast mode or MCTS)
+        policy = self._get_policy(input_tokens)
 
         # Check GO_ALONE action (action_id = 6)
         go_alone_prob = policy[6]
@@ -329,8 +361,8 @@ class EuchrePerceiverMuZeroPlayer(PlayerProfile):
             self._get_game(player), player.player_id
         )
 
-        # Run MCTS
-        policy = self.mcts.search(input_tokens, self.risk_factor)
+        # Get policy (fast mode or MCTS)
+        policy = self._get_policy(input_tokens)
 
         # Check TRADE_IN action (action_id = 7)
         trade_in_prob = policy[7]
