@@ -63,6 +63,7 @@ models/checkpoints/
 # Notebooks (can contain large outputs)
 *.ipynb
 !examples/*.ipynb
+!notebooks/*.ipynb
 
 # Profiles and logs
 profiles/
