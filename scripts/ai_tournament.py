@@ -129,6 +129,10 @@ class TournamentSimulator:
                 "total_score_against": 0,
             }
         )
+        # Checkpoint tracking
+        self.completed_matchups: set = set()  # Set of completed matchup keys
+        self.current_matchup: Optional[Tuple[str, str]] = None
+        self.current_matchup_games_completed: int = 0
 
     def record_game(
         self,
@@ -272,6 +276,77 @@ class TournamentSimulator:
             "matchups": matchups_dict,
         }
 
+    def save_checkpoint(self, checkpoint_path: Path, player_types: List[str], 
+                       matchups: List[Tuple[str, str]], num_games_per_matchup: int,
+                       seed: Optional[int], current_matchup_idx: int) -> None:
+        """
+        Save tournament state to checkpoint file.
+
+        Parameters
+        ----------
+        checkpoint_path : Path
+            Path to checkpoint file.
+        player_types : List[str]
+            List of player types being tested.
+        matchups : List[Tuple[str, str]]
+            List of all matchups.
+        num_games_per_matchup : int
+            Number of games per matchup.
+        seed : Optional[int]
+            Random seed used.
+        current_matchup_idx : int
+            Current matchup index being processed.
+        """
+        checkpoint_data = {
+            "timestamp": datetime.now().isoformat(),
+            "player_types": player_types,
+            "matchups": [list(m) for m in matchups],  # Convert tuples to lists for JSON
+            "num_games_per_matchup": num_games_per_matchup,
+            "seed": seed,
+            "current_matchup_idx": current_matchup_idx,
+            "completed_matchups": [list(m) for m in self.completed_matchups],
+            "current_matchup": list(self.current_matchup) if self.current_matchup else None,
+            "current_matchup_games_completed": self.current_matchup_games_completed,
+            "tournament_state": {
+                "matchups": {
+                    f"{k[0]}_vs_{k[1]}": dict(v) for k, v in self.matchups.items()
+                },
+                "player_type_stats": dict(self.player_type_stats),
+            },
+        }
+        checkpoint_path.write_text(json.dumps(checkpoint_data, indent=2))
+        print(f"\nCheckpoint saved to: {checkpoint_path}")
+
+    @staticmethod
+    def load_checkpoint(checkpoint_path: Path) -> Optional[Dict[str, any]]:
+        """
+        Load tournament state from checkpoint file.
+
+        Parameters
+        ----------
+        checkpoint_path : Path
+            Path to checkpoint file.
+
+        Returns
+        -------
+        Optional[Dict[str, any]]
+            Checkpoint data if file exists, None otherwise.
+        """
+        if not checkpoint_path.exists():
+            return None
+        
+        try:
+            checkpoint_data = json.loads(checkpoint_path.read_text())
+            # Convert matchup lists back to tuples
+            checkpoint_data["matchups"] = [tuple(m) for m in checkpoint_data["matchups"]]
+            checkpoint_data["completed_matchups"] = {tuple(m) for m in checkpoint_data.get("completed_matchups", [])}
+            if checkpoint_data.get("current_matchup"):
+                checkpoint_data["current_matchup"] = tuple(checkpoint_data["current_matchup"])
+            return checkpoint_data
+        except Exception as e:
+            print(f"Error loading checkpoint: {e}")
+            return None
+
 
 class TimeoutError(Exception):
     """Timeout exception for game execution."""
@@ -358,6 +433,7 @@ def run_matchup(
     seed_base: int = 0,
     progress_bar: Optional[tqdm] = None,
     timeout_per_game: int = 300,
+    start_game: int = 0,
 ) -> List[Dict[str, any]]:
     """
     Run games for a specific matchup.
@@ -376,6 +452,8 @@ def run_matchup(
         Optional progress bar to update.
     timeout_per_game : int
         Maximum seconds per game before timeout.
+    start_game : int
+        Game number to start from (for resuming).
 
     Returns
     -------
@@ -384,7 +462,7 @@ def run_matchup(
     """
     results = []
 
-    for game_num in range(num_games):
+    for game_num in range(start_game, num_games):
         try:
             # Create player configuration
             # Team 0: players 0 and 2 are player_type_0
@@ -450,9 +528,11 @@ def run_tournament(
     num_games_per_matchup: int = 200,
     seed: Optional[int] = None,
     timeout_per_game: int = 300,
+    checkpoint_path: Optional[Path] = None,
+    checkpoint_interval: int = 10,
 ) -> TournamentSimulator:
     """
-    Run round-robin tournament simulation.
+    Run round-robin tournament simulation with checkpoint support.
 
     Parameters
     ----------
@@ -462,6 +542,10 @@ def run_tournament(
         Number of games to run per matchup.
     seed : Optional[int]
         Random seed for reproducibility.
+    checkpoint_path : Optional[Path]
+        Path to checkpoint file. If provided, will save checkpoints and can resume.
+    checkpoint_interval : int
+        Save checkpoint every N games (default: 10).
 
     Returns
     -------
@@ -473,35 +557,136 @@ def run_tournament(
         np.random.seed(seed)
 
     tournament = TournamentSimulator()
-
-    # Generate all matchups
     matchups = generate_round_robin_matchups(player_types)
+    current_matchup_idx = 0
+    start_game = 0
+
+    # Try to load checkpoint if it exists
+    if checkpoint_path and checkpoint_path.exists():
+        checkpoint_data = TournamentSimulator.load_checkpoint(checkpoint_path)
+        if checkpoint_data:
+            print(f"Loading checkpoint from: {checkpoint_path}")
+            print(f"Checkpoint timestamp: {checkpoint_data.get('timestamp', 'Unknown')}")
+            
+            # Restore tournament state
+            tournament.completed_matchups = checkpoint_data["completed_matchups"]
+            tournament.current_matchup = checkpoint_data.get("current_matchup")
+            tournament.current_matchup_games_completed = checkpoint_data.get("current_matchup_games_completed", 0)
+            
+            # Restore statistics
+            if "tournament_state" in checkpoint_data:
+                state = checkpoint_data["tournament_state"]
+                # Restore matchups
+                for matchup_str, stats in state.get("matchups", {}).items():
+                    parts = matchup_str.split("_vs_")
+                    if len(parts) == 2:
+                        matchup_key = tuple(sorted([parts[0], parts[1]]))
+                        # Convert stats dict to proper format with lists
+                        matchup_stats = {
+                            "games_played": stats.get("games_played", 0),
+                            "team0_wins": stats.get("team0_wins", 0),
+                            "team1_wins": stats.get("team1_wins", 0),
+                            "team0_total_score": stats.get("team0_total_score", 0),
+                            "team1_total_score": stats.get("team1_total_score", 0),
+                            "hands_played": stats.get("hands_played", []),
+                            "scores_team0": stats.get("scores_team0", []),
+                            "scores_team1": stats.get("scores_team1", []),
+                        }
+                        tournament.matchups[matchup_key] = matchup_stats
+                # Restore player type stats
+                for pt, stats in state.get("player_type_stats", {}).items():
+                    tournament.player_type_stats[pt] = dict(stats)
+            
+            # Find where to resume
+            current_matchup_idx = checkpoint_data.get("current_matchup_idx", 0)
+            if tournament.current_matchup:
+                start_game = tournament.current_matchup_games_completed
+            
+            completed_count = len(tournament.completed_matchups)
+            print(f"Resuming: {completed_count}/{len(matchups)} matchups completed")
+            if tournament.current_matchup:
+                print(f"Resuming matchup: {tournament.current_matchup[0]} vs {tournament.current_matchup[1]}")
+                print(f"  Games completed: {start_game}/{num_games_per_matchup}")
+            print()
+
+    # Calculate total games (accounting for already completed)
     total_games = len(matchups) * num_games_per_matchup
+    completed_games = sum(
+        tournament.matchups[m].get("games_played", 0) 
+        for m in tournament.completed_matchups
+    )
+    if tournament.current_matchup:
+        completed_games += tournament.current_matchup_games_completed
+    
+    remaining_games = total_games - completed_games
 
-    print(f"Testing {len(player_types)} player types: {', '.join(player_types)}")
-    print(f"Generated {len(matchups)} unique matchups (round-robin)")
-    print(f"Running {num_games_per_matchup} games per matchup ({total_games} total games)")
-    print()
+    if current_matchup_idx == 0 and start_game == 0:
+        print(f"Testing {len(player_types)} player types: {', '.join(player_types)}")
+        print(f"Generated {len(matchups)} unique matchups (round-robin)")
+        print(f"Running {num_games_per_matchup} games per matchup ({total_games} total games)")
+        if checkpoint_path:
+            print(f"Checkpoints will be saved to: {checkpoint_path}")
+            print(f"Checkpoint interval: every {checkpoint_interval} games")
+        print()
+    else:
+        print(f"Remaining games: {remaining_games}")
 
-    # Run all matchups
-    with tqdm(total=total_games, desc="Running games") as pbar:
-        for player_type_0, player_type_1 in matchups:
+    # Run matchups
+    with tqdm(total=total_games, initial=completed_games, desc="Running games") as pbar:
+        for idx in range(current_matchup_idx, len(matchups)):
+            player_type_0, player_type_1 = matchups[idx]
+            matchup_key = tuple(sorted([player_type_0, player_type_1]))
             matchup_str = f"{player_type_0} vs {player_type_1}"
+            
+            # Skip if already completed
+            if matchup_key in tournament.completed_matchups:
+                continue
+            
+            tournament.current_matchup = matchup_key
             pbar.set_description(f"Matchup: {matchup_str}")
 
+            # Run games for this matchup
             results = run_matchup(
-                player_type_0, player_type_1, num_games_per_matchup, 
-                seed_base=seed or 0, progress_bar=pbar, timeout_per_game=timeout_per_game
+                player_type_0, 
+                player_type_1, 
+                num_games_per_matchup, 
+                seed_base=seed or 0, 
+                progress_bar=pbar,
+                timeout_per_game=timeout_per_game,
+                start_game=start_game if idx == current_matchup_idx else 0,
             )
 
             # Record results
-            for result in results:
+            for game_idx, result in enumerate(results):
                 tournament.record_game(
                     result["player_type_0"],
                     result["player_type_1"],
                     result["winner"],
                     result["scores"],
                     result["hands_played"],
+                )
+                
+                # Update checkpoint tracking
+                tournament.current_matchup_games_completed = start_game + game_idx + 1
+                
+                # Save checkpoint periodically during matchup
+                if checkpoint_path and (game_idx + 1) % checkpoint_interval == 0:
+                    tournament.save_checkpoint(
+                        checkpoint_path, player_types, matchups, 
+                        num_games_per_matchup, seed, idx
+                    )
+            
+            # Mark matchup as completed
+            tournament.completed_matchups.add(matchup_key)
+            tournament.current_matchup = None
+            tournament.current_matchup_games_completed = 0
+            start_game = 0  # Reset for next matchup
+
+            # Save checkpoint after each matchup completes
+            if checkpoint_path:
+                tournament.save_checkpoint(
+                    checkpoint_path, player_types, matchups, 
+                    num_games_per_matchup, seed, idx + 1
                 )
 
     return tournament
@@ -565,8 +750,11 @@ Examples:
   # Run tournament with all available player types, 200 games per matchup
   python scripts/ai_tournament.py
 
-  # Run tournament with specific player types
-  python scripts/ai_tournament.py --types heuristic ai random --num-games 200
+  # Run tournament with checkpoint support (can resume if interrupted)
+  python scripts/ai_tournament.py --checkpoint tournament_checkpoint.json
+
+  # Run tournament with specific player types and checkpoint
+  python scripts/ai_tournament.py --types heuristic ai random --num-games 200 --checkpoint checkpoint.json
 
   # Save results to file
   python scripts/ai_tournament.py --num-games 200 --output tournament_results.json
@@ -607,6 +795,18 @@ Examples:
         action="store_true",
         help="Skip slow player types (perceiver_muzero, euchre_zero) that may hang",
     )
+    parser.add_argument(
+        "--checkpoint",
+        type=str,
+        default=None,
+        help="Checkpoint file path. If specified, will save checkpoints and can resume from this file.",
+    )
+    parser.add_argument(
+        "--checkpoint-interval",
+        type=int,
+        default=10,
+        help="Save checkpoint every N games (default: 10). Only used if --checkpoint is specified.",
+    )
 
     args = parser.parse_args()
 
@@ -631,12 +831,25 @@ Examples:
     print(f"Timestamp: {datetime.now().isoformat()}")
     print()
 
+    # Set up checkpoint path
+    checkpoint_path = None
+    if args.checkpoint:
+        checkpoint_path = Path(args.checkpoint)
+        if checkpoint_path.exists():
+            print(f"Found existing checkpoint: {checkpoint_path}")
+            print("Tournament will resume from checkpoint.")
+        else:
+            print(f"Checkpoint file will be created: {checkpoint_path}")
+        print()
+
     # Run tournament
     tournament = run_tournament(
         player_types=player_types, 
         num_games_per_matchup=args.num_games, 
         seed=args.seed,
         timeout_per_game=args.timeout,
+        checkpoint_path=checkpoint_path,
+        checkpoint_interval=args.checkpoint_interval,
     )
 
     # Print results
