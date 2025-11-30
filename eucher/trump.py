@@ -107,10 +107,6 @@ class TrumpSelector:
             player_idx = (start_idx + i) % len(self.players)
             player = self.players[player_idx]
 
-            # Dealer cannot order up in round 1
-            if player_idx == self.dealer_id:
-                continue
-
             decision = player.decide_order_up(self.turned_card, self.dealer_id, None)
             
             # Log decision
@@ -125,7 +121,9 @@ class TrumpSelector:
                 dealer = self.players[self.dealer_id]
                 dealer.receive_card(self.turned_card)
                 # Pass who ordered up so the message can be correct
-                discard = dealer.choose_card_to_discard(self.turned_card, self.trump_maker_name)
+                # If dealer ordered up themselves, pass None for ordered_up_by
+                ordered_up_by = None if player_idx == self.dealer_id else self.trump_maker_name
+                discard = dealer.choose_card_to_discard(self.turned_card, ordered_up_by)
                 dealer.remove_card(discard)
                 return self.turned_card.suit
 
