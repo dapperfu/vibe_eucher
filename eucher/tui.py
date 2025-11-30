@@ -382,17 +382,19 @@ class TextTUI:
             # Format each player's card column
             for i in range(num_players):
                 card_str = trick_cards.get(i, "-")
-                # Format to column width first (using uncolored string)
-                formatted_card = f"{card_str:<{col_widths[i]}}"
-                # Then apply color if needed (this preserves the padding)
+                # Calculate padding needed
+                padding_needed = col_widths[i] - len(card_str)
+                # Apply color only to the text, then add padding
                 if i == winner_id:
-                    formatted_card = self._red_text(formatted_card)
+                    formatted_card = self._red_text(card_str) + " " * padding_needed
+                else:
+                    formatted_card = card_str + " " * padding_needed
                 row_parts.append(formatted_card)
             
             # Format winner column
             winner_name = self.players[winner_id].name if winner_id < len(self.players) else f"Player {winner_id}"
-            formatted_winner = f"{winner_name:<{winner_col_width}}"
-            formatted_winner = self._red_text(formatted_winner)
+            winner_padding = winner_col_width - len(winner_name)
+            formatted_winner = self._red_text(winner_name) + " " * winner_padding
             row_parts.append(formatted_winner)
             
             # Join with single space between columns
