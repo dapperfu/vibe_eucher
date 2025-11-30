@@ -67,11 +67,20 @@ Scripts that were moved need import path updates:
 - ✅ `scripts/train_models.py` - Updated
 - ⚠️ Other scripts may still need updates (check for `from src.` imports)
 
+## Additional Cleanup Completed
+
+### Directories Removed
+- ✅ `eucher/players/computer/euchre_zero/` - Typo directory (correct: `eucher_zero/`)
+- ✅ `ml_training/` - Legacy directory (use `eucher/ml_training/`)
+- ✅ `training/` - Legacy directory (use `eucher/training/`)
+- ✅ `plugins/` - Moved README to `docs/plugins.md`
+
 ## Next Steps
 
-1. Verify no scripts import from root-level files
-2. Remove duplicate root-level files
-3. Move documentation files to appropriate locations
-4. Update any remaining import references
+1. ✅ Verify no scripts import from root-level files
+2. ✅ Remove duplicate root-level directories
+3. ⚠️ Move documentation files to appropriate locations (some remain)
+4. ⚠️ Update any remaining import references (check `src/` directory usage)
+5. ⚠️ Consider consolidating `src/` directory content into `eucher/` structure
 
 

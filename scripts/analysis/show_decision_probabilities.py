@@ -14,21 +14,19 @@ import sys
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from src.ai import AIDecisionMaker
-from src.game import Game
-from src.ml_config import MLConfig
-from src.ml_features import GameStateEncoder
-from src.ml_model import EucherMLModel
-from src.ml_player import MLPlayer
-from src.player_profiles import AIPlayer, HeuristicPlayer, PlayerProfile, RandomPlayer
+from eucher.game import Game
+from eucher.players.computer.ai import AIDecisionMaker, AIPlayer
+from eucher.players.computer import HeuristicPlayer, RandomPlayer
+from eucher.players.base import PlayerProfile
+from eucher.players.computer.ml.ml_config import MLConfig
+from eucher.players.computer.ml.ml_features import GameStateEncoder
+from eucher.players.computer.ml.ml_model import EucherMLModel
+from eucher.players.computer.ml.player import MLPlayer
 from src.probability_wrapper import ProbabilityAwareProfile
 
 # Optional import for PyTorch players
 try:
-    from src.ai_players.pytorch_player import PyTorchStrategicPlayer
+    from eucher.ai_players.pytorch_player import PyTorchStrategicPlayer
 except ImportError:
     PyTorchStrategicPlayer = None  # type: ignore
 

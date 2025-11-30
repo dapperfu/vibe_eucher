@@ -332,17 +332,36 @@ class TextTUI:
         player_names = [p.name for p in self.players]
         num_players = len(player_names)
         
-        # Calculate column widths
-        col_widths = [max(len(name), 15) for name in player_names]
-        trick_col_width = 8
+        # Collect all card strings to calculate proper column widths
+        all_trick_cards: List[Dict[int, str]] = []
+        for trick_data in self.hand_tricks:
+            trick_cards: Dict[int, str] = {}
+            for card, pid in zip(trick_data["played_cards"], trick_data["player_ids"]):
+                trick_cards[pid] = str(card)
+            all_trick_cards.append(trick_cards)
         
-        # Print header
-        header = f"{'Trick':<{trick_col_width}}"
+        # Calculate column widths: max of player name length and longest card string for that column
+        col_widths = []
+        for i in range(num_players):
+            max_card_len = max(
+                (len(all_trick_cards[trick_idx].get(i, "-")) for trick_idx in range(len(all_trick_cards))),
+                default=0
+            )
+            col_widths.append(max(len(player_names[i]), max_card_len, 8))
+        
+        trick_col_width = 8
+        winner_col_width = max(len(name) for name in player_names) + 5  # Extra space for winner column
+        
+        # Print header with proper alignment (matching data row format)
+        header_parts = [f"{'Trick':<{trick_col_width}}"]
         for i, name in enumerate(player_names):
-            header += f" {name:<{col_widths[i]}}"
-        header += " Winner"
+            header_parts.append(f"{name:<{col_widths[i]}}")
+        header_parts.append(f"{'Winner':<{winner_col_width}}")
+        header = " ".join(header_parts)
         print(header)
-        print("-" * len(header))
+        # Calculate separator length: sum of column widths + spaces between columns
+        separator_len = trick_col_width + sum(col_widths) + winner_col_width + (num_players + 1)
+        print("-" * separator_len)
         
         # Print each trick
         for trick_data in self.hand_tricks:
@@ -356,23 +375,26 @@ class TextTUI:
             for card, pid in zip(played_cards, player_ids):
                 trick_cards[pid] = str(card)
             
-            # Build row
-            row = f"{trick_num:<{trick_col_width}}"
+            # Build row with proper alignment
+            row_parts = [f"{trick_num:<{trick_col_width}}"]
             for i in range(num_players):
                 card_str = trick_cards.get(i, "-")
-                display_str = card_str
                 # Highlight winner's card
                 if i == winner_id:
                     display_str = self._red_text(card_str)
-                # Pad based on original string length to maintain alignment
-                padding = col_widths[i] - len(card_str)
-                row += f" {display_str}{' ' * padding}"
+                else:
+                    display_str = card_str
+                # Pad based on original string length (ANSI codes don't affect visual width)
+                padding_needed = col_widths[i] - len(card_str)
+                row_parts.append(f"{display_str}{' ' * padding_needed}")
             
             # Add winner name
             winner_name = self.players[winner_id].name if winner_id < len(self.players) else f"Player {winner_id}"
             winner_display = self._red_text(winner_name)
-            row += f" {winner_display}"
-            print(row)
+            winner_padding = winner_col_width - len(winner_name)
+            row_parts.append(f"{winner_display}{' ' * winner_padding}")
+            
+            print(" ".join(row_parts))
         
         print("=" * 80)
     
