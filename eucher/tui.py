@@ -475,6 +475,11 @@ class TextTUI:
         # Display trick summary after hand log
         self.display_trick_summary()
         
+        # Pause so user can see the summary before continuing
+        if self.hand_tricks:
+            print("\nPress spacebar to continue...")
+            self._wait_for_spacebar()
+        
         return hand_log_copy
 
     def set_players(self, players: List[Player], dealer_id: Optional[int] = None) -> None:
