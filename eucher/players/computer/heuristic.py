@@ -1,6 +1,6 @@
 """Heuristic-based player using rule-based logic."""
 
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 from eucher.cards import Card, Rank, Suit
 from eucher.players.computer.base import ComputerPlayer

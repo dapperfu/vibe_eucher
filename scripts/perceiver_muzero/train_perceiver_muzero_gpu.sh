@@ -1,5 +1,5 @@
 #!/bin/bash
-# GPU-specific training script for EuchrePerceiverMuZero
+# GPU-specific training script for EucherPerceiverMuZero
 
 set -e
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-# CPU-specific training script for EuchrePerceiverMuZero
+# CPU-specific training script for EucherPerceiverMuZero
 
 set -e
 

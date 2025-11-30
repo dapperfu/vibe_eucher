@@ -15,7 +15,7 @@ class PluginMetadata:
     Parameters
     ----------
     name : str
-        Plugin identifier (e.g., "heuristic", "euchre_zero").
+        Plugin identifier (e.g., "heuristic", "eucher_zero").
     display_name : str
         Human-readable name for the plugin.
     description : str

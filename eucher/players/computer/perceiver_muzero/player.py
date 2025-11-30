@@ -1,4 +1,4 @@
-"""EuchrePerceiverMuZero player profile implementation."""
+"""EucherPerceiverMuZero player profile implementation."""
 
 from pathlib import Path
 from typing import TYPE_CHECKING, List, Optional
@@ -19,8 +19,8 @@ if TYPE_CHECKING:
     from eucher.players import Player
 
 
-class EuchrePerceiverMuZeroPlayer(PlayerProfile):
-    """EuchrePerceiverMuZero player profile using MuZero-style MCTS for decisions."""
+class EucherPerceiverMuZeroPlayer(PlayerProfile):
+    """EucherPerceiverMuZero player profile using MuZero-style MCTS for decisions."""
 
     def __init__(
         self,
@@ -33,7 +33,7 @@ class EuchrePerceiverMuZeroPlayer(PlayerProfile):
         fast_mode: bool = False,
     ) -> None:
         """
-        Initialize EuchrePerceiverMuZero player.
+        Initialize EucherPerceiverMuZero player.
 
         Parameters
         ----------
@@ -384,6 +384,6 @@ class EuchrePerceiverMuZeroPlayer(PlayerProfile):
             Game instance.
         """
         if self.game is None:
-            raise RuntimeError("Game not set for EuchrePerceiverMuZero player")
+            raise RuntimeError("Game not set for EucherPerceiverMuZero player")
         return self.game
 

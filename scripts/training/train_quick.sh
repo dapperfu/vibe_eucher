@@ -43,11 +43,11 @@ echo ""
 # For quick training, we just need to initialize the models - they'll be trained on-the-fly
 python -c "
 from eucher.players.computer.ml.ml_config import MLConfig
-from eucher.players.computer.ml.ml_model import EuchreMLModel
+from eucher.players.computer.ml.ml_model import EucherMLModel
 import torch
 
 config = MLConfig()
-model = EuchreMLModel(config)
+model = EucherMLModel(config)
 
 # Save empty/initialized models to ensure correct feature size
 model_paths = {

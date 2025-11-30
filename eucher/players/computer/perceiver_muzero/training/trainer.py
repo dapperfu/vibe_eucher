@@ -1,4 +1,4 @@
-"""Trainer for EuchrePerceiverMuZero with multi-component loss."""
+"""Trainer for EucherPerceiverMuZero with multi-component loss."""
 
 from typing import Dict, Optional
 
@@ -12,7 +12,7 @@ from .replay_buffer import ReplayBuffer
 
 
 class PerceiverMuZeroTrainer:
-    """Trainer for EuchrePerceiverMuZero model."""
+    """Trainer for EucherPerceiverMuZero model."""
 
     def __init__(
         self,

@@ -1,2 +1,2 @@
-"""Neural networks for EuchrePerceiverMuZero."""
+"""Neural networks for EucherPerceiverMuZero."""
 

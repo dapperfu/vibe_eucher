@@ -25,12 +25,12 @@ from eucher.game import Game
 
 
 # Available bot types to test
-BOT_TYPES = ["heuristic", "ai", "random", "euchre_zero"]
+BOT_TYPES = ["heuristic", "ai", "random", "eucher_zero"]
 
-# Try to import euchre_zero, skip if not available
+# Try to import eucher_zero, skip if not available
 EUCHRE_ZERO_AVAILABLE = True
 try:
-    from eucher.players.computer.euchre_zero.player import EuchreZeroPlayer
+    from eucher.players.computer.eucher_zero.player import EucherZeroPlayer
 except ImportError:
     EUCHRE_ZERO_AVAILABLE = False
     BOT_TYPES = ["heuristic", "ai", "random"]
@@ -575,15 +575,15 @@ Examples:
 
     args = parser.parse_args()
 
-    # Filter out euchre_zero if not available
-    bots_to_test = [b for b in args.bots if b != "euchre_zero" or EUCHRE_ZERO_AVAILABLE]
+    # Filter out eucher_zero if not available
+    bots_to_test = [b for b in args.bots if b != "eucher_zero" or EUCHRE_ZERO_AVAILABLE]
 
     if not bots_to_test:
         print("Error: No valid bot types to test")
         sys.exit(1)
 
-    if "euchre_zero" in args.bots and not EUCHRE_ZERO_AVAILABLE:
-        print("Warning: euchre_zero not available, skipping")
+    if "eucher_zero" in args.bots and not EUCHRE_ZERO_AVAILABLE:
+        print("Warning: eucher_zero not available, skipping")
 
     print("=" * 80)
     print("Monte Carlo Bot Comparison")

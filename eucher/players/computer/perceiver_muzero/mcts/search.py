@@ -1,4 +1,4 @@
-"""MuZero-style MCTS search algorithm for EuchrePerceiverMuZero."""
+"""MuZero-style MCTS search algorithm for EucherPerceiverMuZero."""
 
 from typing import Optional
 

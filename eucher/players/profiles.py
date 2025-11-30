@@ -124,7 +124,7 @@ class MLBasedProfile(PlayerProfile):
         Parameters
         ----------
         ml_model
-            The EuchreMLModel instance to use.
+            The EucherMLModel instance to use.
         encoder
             The GameStateEncoder instance to use.
         game_state_provider

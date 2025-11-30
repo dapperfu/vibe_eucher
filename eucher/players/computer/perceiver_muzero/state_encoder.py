@@ -1,4 +1,4 @@
-"""Token-based state encoder for EuchrePerceiverMuZero Perceiver-IO."""
+"""Token-based state encoder for EucherPerceiverMuZero Perceiver-IO."""
 
 from typing import Dict, List, Optional
 

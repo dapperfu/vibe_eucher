@@ -202,10 +202,10 @@ class AssistantHelper:
                 # Random bot: equal probability for both options
                 return {True: 0.5, False: 0.5}, hand_strength
             
-            # For EuchreZero, try to get full policy distribution
-            if self.bot_type == "euchre_zero" and hasattr(profile, 'mcts'):
+            # For EucherZero, try to get full policy distribution
+            if self.bot_type == "eucher_zero" and hasattr(profile, 'mcts'):
                 try:
-                    from eucher.players.computer.euchre_zero.action_space import ActionEncoder
+                    from eucher.players.computer.eucher_zero.action_space import ActionEncoder
                     import torch
                     
                     # Encode state
@@ -288,10 +288,10 @@ class AssistantHelper:
                         result[suit] = prob
                     return result, hand_strengths
             
-            # For EuchreZero, try to get full policy distribution
-            if self.bot_type == "euchre_zero" and hasattr(profile, 'mcts'):
+            # For EucherZero, try to get full policy distribution
+            if self.bot_type == "eucher_zero" and hasattr(profile, 'mcts'):
                 try:
-                    from eucher.players.computer.euchre_zero.action_space import ActionEncoder
+                    from eucher.players.computer.eucher_zero.action_space import ActionEncoder
                     import torch
                     
                     # Encode state
@@ -399,8 +399,8 @@ class AssistantHelper:
                 prob = 1.0 / len(valid_cards) if valid_cards else 0.0
                 return {card: prob for card in valid_cards}
             
-            # For EuchreZero, try to get full policy distribution
-            if self.bot_type == "euchre_zero" and hasattr(profile, 'mcts') and trump_suit is not None:
+            # For EucherZero, try to get full policy distribution
+            if self.bot_type == "eucher_zero" and hasattr(profile, 'mcts') and trump_suit is not None:
                 try:
                     import torch
                     
@@ -504,8 +504,8 @@ class AssistantHelper:
                 prob = 1.0 / len(hand) if hand else 0.0
                 return {card: prob for card in hand}
             
-            # For EuchreZero, try to get full policy distribution
-            if self.bot_type == "euchre_zero" and hasattr(profile, 'mcts'):
+            # For EucherZero, try to get full policy distribution
+            if self.bot_type == "eucher_zero" and hasattr(profile, 'mcts'):
                 try:
                     import torch
                     

@@ -1,4 +1,4 @@
-"""Configuration for EuchrePerceiverMuZero."""
+"""Configuration for EucherPerceiverMuZero."""
 
 from enum import Enum
 from pathlib import Path
@@ -25,7 +25,7 @@ class Mode(Enum):
 
 
 class PerceiverMuZeroConfig:
-    """Configuration for EuchrePerceiverMuZero model and training."""
+    """Configuration for EucherPerceiverMuZero model and training."""
 
     def __init__(
         self,
@@ -53,7 +53,7 @@ class PerceiverMuZeroConfig:
         action_space_size: int = 20,
     ) -> None:
         """
-        Initialize EuchrePerceiverMuZero configuration.
+        Initialize EucherPerceiverMuZero configuration.
 
         Parameters
         ----------

@@ -183,7 +183,7 @@ class DiscardNet(nn.Module):
         return self.discard_output(features)
 
 
-class EuchreMLModel:
+class EucherMLModel:
     """Container for all ML models used in Euchre AI."""
 
     def __init__(self, config: Optional[MLConfig] = None) -> None:

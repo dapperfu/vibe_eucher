@@ -4,7 +4,7 @@ from typing import Optional
 
 from eucher.players.computer.ml.ml_config import MLConfig
 from eucher.players.computer.ml.ml_features import GameStateEncoder
-from eucher.players.computer.ml.ml_model import EuchreMLModel
+from eucher.players.computer.ml.ml_model import EucherMLModel
 from eucher.players.computer.ml.player import MLPlayer
 from eucher.players.profiles import MLBasedProfile
 from eucher.plugins.registry import register_plugin
@@ -80,7 +80,7 @@ def create_ml_pytorch_player(
     """
     # Lazy initialization of ML components
     config = MLConfig()
-    ml_model = EuchreMLModel(config)
+    ml_model = EucherMLModel(config)
     ml_encoder = GameStateEncoder()
 
     # Try to load existing weights

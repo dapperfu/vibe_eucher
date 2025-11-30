@@ -21,7 +21,7 @@ from src.ai import AIDecisionMaker
 from src.game import Game
 from src.ml_config import MLConfig
 from src.ml_features import GameStateEncoder
-from src.ml_model import EuchreMLModel
+from src.ml_model import EucherMLModel
 from src.ml_player import MLPlayer
 from src.player_profiles import AIPlayer, HeuristicPlayer, PlayerProfile, RandomPlayer
 from src.probability_wrapper import ProbabilityAwareProfile

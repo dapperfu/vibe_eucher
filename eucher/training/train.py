@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader, Dataset
 from eucher.cards import Card, Rank, Suit
 from eucher.players.computer.ml.ml_config import MLConfig
 from eucher.players.computer.ml.ml_features import GameStateEncoder
-from eucher.players.computer.ml.ml_model import EuchreMLModel
+from eucher.players.computer.ml.ml_model import EucherMLModel
 
 
 class EuchreDataset(Dataset):
@@ -182,7 +182,7 @@ class EuchreDataset(Dataset):
 
 
 def train_model(
-    model: EuchreMLModel,
+    model: EucherMLModel,
     train_loader: DataLoader,
     val_loader: Optional[DataLoader],
     config: MLConfig,
@@ -194,7 +194,7 @@ def train_model(
 
     Parameters
     ----------
-    model : EuchreMLModel
+    model : EucherMLModel
         The model to train.
     train_loader : DataLoader
         Training data loader.
@@ -320,7 +320,7 @@ def main() -> None:
         config.num_epochs = args.num_epochs
     
     encoder = GameStateEncoder()
-    model = EuchreMLModel(config)
+    model = EucherMLModel(config)
 
     # Load training data - try unified format first, then separate files
     data_path = config.get_training_data_path("training_data.json")

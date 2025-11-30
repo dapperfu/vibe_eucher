@@ -11,7 +11,7 @@ from eucher.players import Player
 from eucher.players.computer.ai import AIDecisionMaker
 from eucher.players.computer.ml.ml_config import MLConfig
 from eucher.players.computer.ml.ml_features import GameStateEncoder
-from eucher.players.computer.ml.ml_model import EuchreMLModel
+from eucher.players.computer.ml.ml_model import EucherMLModel
 from eucher.players.computer.ml.player import MLPlayer
 from eucher.players.computer import AIPlayer, HeuristicPlayer, HeuristicPlayer2, RandomPlayer
 from eucher.players.profiles import HumanProfile, MLBasedProfile, PlayerProfile
@@ -95,7 +95,7 @@ class Game:
         self.stats = GameStatistics()
 
         # ML model setup (lazy initialization)
-        self._ml_model: Optional[EuchreMLModel] = None
+        self._ml_model: Optional[EucherMLModel] = None
         self._ml_encoder: Optional[GameStateEncoder] = None
 
         # Game state tracking for ML profiles
@@ -193,16 +193,16 @@ class Game:
             from eucher.players.computer.ml.pytorch.pytorch_player import PyTorchStrategicPlayer
 
             return PyTorchStrategicPlayer()
-        elif profile_type == "euchre_zero":
-            from eucher.players.computer.euchre_zero.player import EuchreZeroPlayer
-            from eucher.players.computer.euchre_zero.config import EuchreZeroConfig
+        elif profile_type == "eucher_zero":
+            from eucher.players.computer.eucher_zero.player import EucherZeroPlayer
+            from eucher.players.computer.eucher_zero.config import EucherZeroConfig
 
-            config = EuchreZeroConfig()
-            player = EuchreZeroPlayer(config=config, game=self)
+            config = EucherZeroConfig()
+            player = EucherZeroPlayer(config=config, game=self)
             return player
         elif profile_type.startswith("perceiver_muzero"):
             from eucher.players.computer.perceiver_muzero.player import (
-                EuchrePerceiverMuZeroPlayer,
+                EucherPerceiverMuZeroPlayer,
             )
             from eucher.players.computer.perceiver_muzero.config import (
                 PerceiverMuZeroConfig,
@@ -222,10 +222,10 @@ class Game:
             
             # If no simulation count specified or 1, use fast mode (equivalent to 1 simulation)
             if num_simulations is None or num_simulations == 1:
-                player = EuchrePerceiverMuZeroPlayer(config=config, game=self, fast_mode=True)
+                player = EucherPerceiverMuZeroPlayer(config=config, game=self, fast_mode=True)
             else:
                 # Use specified number of simulations (not fast mode)
-                player = EuchrePerceiverMuZeroPlayer(
+                player = EucherPerceiverMuZeroPlayer(
                     config=config, game=self, num_simulations=num_simulations, fast_mode=False
                 )
             return player
@@ -253,7 +253,7 @@ class Game:
         # Lazy initialization of ML components
         if self._ml_model is None:
             config = MLConfig()
-            self._ml_model = EuchreMLModel(config)
+            self._ml_model = EucherMLModel(config)
             self._ml_encoder = GameStateEncoder()
 
             # Try to load existing weights

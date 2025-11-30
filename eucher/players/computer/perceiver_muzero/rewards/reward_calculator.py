@@ -1,10 +1,10 @@
-"""Reward calculator for EuchrePerceiverMuZero."""
+"""Reward calculator for EucherPerceiverMuZero."""
 
 from typing import Optional
 
 
 class RewardCalculator:
-    """Calculate rewards according to EuchrePerceiverMuZero specification."""
+    """Calculate rewards according to EucherPerceiverMuZero specification."""
 
     # Standard Euchre scoring rewards
     NORMAL_WIN = 1.0
@@ -27,7 +27,7 @@ class RewardCalculator:
         renege_successful: bool = False,
     ) -> float:
         """
-        Calculate hand outcome reward according to EuchrePerceiverMuZero spec.
+        Calculate hand outcome reward according to EucherPerceiverMuZero spec.
 
         Parameters
         ----------

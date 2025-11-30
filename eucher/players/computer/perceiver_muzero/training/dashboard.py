@@ -1,4 +1,4 @@
-"""Rich-based dashboard for EuchrePerceiverMuZero training with comprehensive metrics display."""
+"""Rich-based dashboard for EucherPerceiverMuZero training with comprehensive metrics display."""
 
 import time
 from typing import Dict, Optional
@@ -19,7 +19,7 @@ from rich.table import Table
 
 
 class PerceiverMuZeroDashboard:
-    """Rich-based dashboard for EuchrePerceiverMuZero training with live metrics display."""
+    """Rich-based dashboard for EucherPerceiverMuZero training with live metrics display."""
 
     def __init__(
         self,
@@ -73,7 +73,7 @@ class PerceiverMuZeroDashboard:
             console=self.console,
         )
         self.task_id = self.progress.add_task(
-            "Training EuchrePerceiverMuZero...", total=num_games
+            "Training EucherPerceiverMuZero...", total=num_games
         )
 
     def update(

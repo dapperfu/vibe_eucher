@@ -1,2 +1,2 @@
-"""Reward system for EuchrePerceiverMuZero."""
+"""Reward system for EucherPerceiverMuZero."""
 

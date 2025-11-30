@@ -1,4 +1,4 @@
-"""Self-play game generation for EuchrePerceiverMuZero training."""
+"""Self-play game generation for EucherPerceiverMuZero training."""
 
 from typing import List, Optional, Tuple
 

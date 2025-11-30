@@ -1,4 +1,4 @@
-"""Prediction network for EuchrePerceiverMuZero."""
+"""Prediction network for EucherPerceiverMuZero."""
 
 import torch
 import torch.nn as nn

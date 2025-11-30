@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Training script for EuchrePerceiverMuZero player.
+"""Training script for EucherPerceiverMuZero player.
 
-EuchrePerceiverMuZero is a MuZero-style planning architecture with Perceiver-IO encoder.
+EucherPerceiverMuZero is a MuZero-style planning architecture with Perceiver-IO encoder.
 Supports cumulative training, multi-device support, and checkpoint management.
 """
 
@@ -99,7 +99,7 @@ def find_latest_checkpoint(checkpoint_dir: Path) -> Optional[Path]:
 
 def main() -> None:
     """Main training function."""
-    parser = argparse.ArgumentParser(description="Train EuchrePerceiverMuZero player")
+    parser = argparse.ArgumentParser(description="Train EucherPerceiverMuZero player")
     parser.add_argument(
         "--device",
         type=str,
@@ -169,7 +169,7 @@ def main() -> None:
         max_duration_seconds = 60.0
 
     print("=" * 80)
-    print("EuchrePerceiverMuZero Training Script")
+    print("EucherPerceiverMuZero Training Script")
     print("=" * 80)
     print(f"Duration: {args.duration} ({max_duration_seconds:.0f} seconds)")
     print(f"Device: {args.device}")

@@ -14,7 +14,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
-from src.ai_players.transformer_rl.euchre_transformer import EuchreTransformer, create_transformer_network
+from src.ai_players.transformer_rl.eucher_transformer import EucherTransformer, create_transformer_network
 
 if TYPE_CHECKING:
     from src.ai_players.transformer_rl.checkpoint_manager import CumulativeCheckpointManager

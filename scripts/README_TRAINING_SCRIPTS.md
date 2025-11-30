@@ -6,7 +6,7 @@ This document describes the consistent naming and organization of all training s
 
 All main training scripts are located in `scripts/` root directory and follow the pattern `train_<architecture>.sh`:
 
-- **`train_euchre_zero.sh`** - Main wrapper for EuchreZero training (auto-detects device)
+- **`train_eucher_zero.sh`** - Main wrapper for EucherZero training (auto-detects device)
 - **`train_transformer_rl.sh`** - Main wrapper for Transformer RL training (auto-detects device)
 - **`train_pytorch_ai.sh`** - Main wrapper for PyTorch AI training (auto-detects device)
 
@@ -20,10 +20,10 @@ All main wrappers:
 
 Each architecture has its Python training script and CPU/GPU variants in subdirectories:
 
-### EuchreZero
-- **Python script**: `scripts/euchre_zero/train_euchre_zero.py`
-- **CPU variant**: `scripts/euchre_zero/train_euchre_zero_cpu.sh`
-- **GPU variant**: `scripts/euchre_zero/train_euchre_zero_gpu.sh`
+### EucherZero
+- **Python script**: `scripts/eucher_zero/train_eucher_zero.py`
+- **CPU variant**: `scripts/eucher_zero/train_eucher_zero_cpu.sh`
+- **GPU variant**: `scripts/eucher_zero/train_eucher_zero_gpu.sh`
 
 ### Transformer RL
 - **Python script**: `scripts/transformer_rl/train_transformer_rl.py`
@@ -59,12 +59,12 @@ Additional workflow scripts for specialized training scenarios:
 
 ```bash
 # Auto-detect device and train
-./scripts/train_euchre_zero.sh --duration 1h
+./scripts/train_eucher_zero.sh --duration 1h
 ./scripts/train_transformer_rl.sh --num-hands 20000
 ./scripts/train_pytorch_ai.sh --epochs 10
 
 # Force specific device
-./scripts/train_euchre_zero.sh --device cpu --duration 30m
+./scripts/train_eucher_zero.sh --device cpu --duration 30m
 ./scripts/train_transformer_rl.sh --device gpu --num-hands 50000
 ```
 
@@ -72,12 +72,12 @@ Additional workflow scripts for specialized training scenarios:
 
 ```bash
 # Force CPU training
-./scripts/euchre_zero/train_euchre_zero_cpu.sh --duration 1h
+./scripts/eucher_zero/train_eucher_zero_cpu.sh --duration 1h
 ./scripts/transformer_rl/train_transformer_rl_cpu.sh --num-hands 10000
 ./scripts/pytorch_ai/train_pytorch_ai_cpu.sh --epochs 5
 
 # Force GPU training
-./scripts/euchre_zero/train_euchre_zero_gpu.sh --duration 2h
+./scripts/eucher_zero/train_eucher_zero_gpu.sh --duration 2h
 ./scripts/transformer_rl/train_transformer_rl_gpu.sh --num-hands 50000
 ./scripts/pytorch_ai/train_pytorch_ai_gpu.sh --epochs 20
 ```
@@ -86,7 +86,7 @@ Additional workflow scripts for specialized training scenarios:
 
 ```bash
 # Direct Python script invocation
-python scripts/euchre_zero/train_euchre_zero.py --device auto --duration 1h
+python scripts/eucher_zero/train_eucher_zero.py --device auto --duration 1h
 python scripts/transformer_rl/train_transformer_rl.py --device gpu --num-hands 20000
 python scripts/pytorch_ai/train_pytorch_ai.py --device cpu --epochs 10
 ```

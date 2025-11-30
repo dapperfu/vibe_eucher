@@ -1,4 +1,4 @@
-"""Perceiver-IO encoder for EuchrePerceiverMuZero."""
+"""Perceiver-IO encoder for EucherPerceiverMuZero."""
 
 from typing import Optional
 

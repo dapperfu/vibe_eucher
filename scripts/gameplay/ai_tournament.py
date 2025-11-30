@@ -34,7 +34,7 @@ DEFAULT_PLAYER_TYPES = [
     "ml_sklearn",
     "ml_pytorch",
     "perceiver_muzero",
-    "euchre_zero",
+    "eucher_zero",
     "pytorch_ai",
 ]
 
@@ -853,7 +853,7 @@ Examples:
     parser.add_argument(
         "--skip-slow",
         action="store_true",
-        help="Skip slow player types (perceiver_muzero, euchre_zero) that may hang",
+        help="Skip slow player types (perceiver_muzero, eucher_zero) that may hang",
     )
     parser.add_argument(
         "--checkpoint",
@@ -875,7 +875,7 @@ Examples:
     
     # Skip slow player types if requested
     if args.skip_slow:
-        slow_types = {"perceiver_muzero", "euchre_zero"}
+        slow_types = {"perceiver_muzero", "eucher_zero"}
         requested_types = [pt for pt in requested_types if pt not in slow_types]
         print(f"Skipping slow player types: {', '.join(slow_types)}")
     

@@ -1,4 +1,4 @@
-"""Unified action space for EuchrePerceiverMuZero."""
+"""Unified action space for EucherPerceiverMuZero."""
 
 from enum import IntEnum
 from typing import Optional, Tuple

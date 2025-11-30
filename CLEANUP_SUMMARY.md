@@ -31,7 +31,7 @@
 
 ### Documentation Files (Consider Moving)
 - `README_SCRIPTS.md` - Could move to `docs/` or `scripts/`
-- `euchre_transformer_rl_requirements.md` - Could move to `docs/` or `bot_requirements/`
+- `eucher_transformer_rl_requirements.md` - Could move to `docs/` or `bot_requirements/`
 
 ### Legacy/Duplicate Files (Remove)
 These files are duplicates of files in `eucher/` package and should be removed:

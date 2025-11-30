@@ -27,7 +27,7 @@ def create_perceiver_muzero_player(
 
     Returns
     -------
-    EuchrePerceiverMuZeroPlayer
+    EucherPerceiverMuZeroPlayer
         A new PerceiverMuZero player instance.
 
     Raises
@@ -40,7 +40,7 @@ def create_perceiver_muzero_player(
 
     from eucher.players.computer.perceiver_muzero.config import PerceiverMuZeroConfig
     from eucher.players.computer.perceiver_muzero.player import (
-        EuchrePerceiverMuZeroPlayer,
+        EucherPerceiverMuZeroPlayer,
     )
 
     config = kwargs.get("config")
@@ -56,9 +56,9 @@ def create_perceiver_muzero_player(
             fast_mode = False
 
     if fast_mode:
-        return EuchrePerceiverMuZeroPlayer(config=config, game=game, fast_mode=True)
+        return EucherPerceiverMuZeroPlayer(config=config, game=game, fast_mode=True)
     else:
-        return EuchrePerceiverMuZeroPlayer(
+        return EucherPerceiverMuZeroPlayer(
             config=config, game=game, num_simulations=num_simulations, fast_mode=False
         )
 

@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader, Dataset
 from src.cards import Card, Rank, Suit
 from src.ml_config import MLConfig
 from src.ml_features import GameStateEncoder
-from src.ml_model import EuchreMLModel
+from src.ml_model import EucherMLModel
 
 
 class EuchreDataset(Dataset):
@@ -182,7 +182,7 @@ class EuchreDataset(Dataset):
 
 
 def train_model(
-    model: EuchreMLModel,
+    model: EucherMLModel,
     train_loader: DataLoader,
     val_loader: Optional[DataLoader],
     config: MLConfig,
@@ -194,7 +194,7 @@ def train_model(
 
     Parameters
     ----------
-    model : EuchreMLModel
+    model : EucherMLModel
         The model to train.
     train_loader : DataLoader
         Training data loader.
@@ -306,7 +306,7 @@ def main() -> None:
     """Main training function."""
     config = MLConfig()
     encoder = GameStateEncoder()
-    model = EuchreMLModel(config)
+    model = EucherMLModel(config)
 
     # Load training data
     data_path = config.get_training_data_path("training_data.json")

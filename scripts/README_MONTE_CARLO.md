@@ -23,7 +23,7 @@ python scripts/monte_carlo_bot_comparison.py --num-games 100 --seed 42
 - `heuristic` - Improved HeuristicPlayer (rule-based)
 - `ai` - AIDecisionMaker (weighted heuristics)
 - `random` - RandomPlayer (baseline)
-- `euchre_zero` - EuchreZeroPlayer (MCTS-based, if available)
+- `eucher_zero` - EucherZeroPlayer (MCTS-based, if available)
 
 ## How It Works
 
@@ -75,7 +75,7 @@ BOT RANKINGS (by win rate)
 ## Notes
 
 - The script requires all dependencies to be installed (including torch if using ML players)
-- EuchreZero will be automatically skipped if not available
+- EucherZero will be automatically skipped if not available
 - Games are deterministic when using a seed
 - Progress is shown with a progress bar
 

@@ -1,2 +1,2 @@
-"""MCTS engine for EuchrePerceiverMuZero."""
+"""MCTS engine for EucherPerceiverMuZero."""
 

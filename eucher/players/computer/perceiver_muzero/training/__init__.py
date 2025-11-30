@@ -1,2 +1,2 @@
-"""Training infrastructure for EuchrePerceiverMuZero."""
+"""Training infrastructure for EucherPerceiverMuZero."""
 

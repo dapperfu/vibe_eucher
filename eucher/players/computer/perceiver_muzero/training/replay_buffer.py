@@ -1,4 +1,4 @@
-"""Replay buffer for EuchrePerceiverMuZero training."""
+"""Replay buffer for EucherPerceiverMuZero training."""
 
 from typing import List, Optional, Tuple
 

@@ -4,17 +4,17 @@ This directory contains documentation for the Euchre game implementation and AI 
 
 ## Documentation Structure
 
-### EuchreZero
-Comprehensive documentation for the EuchreZero implementation (AlphaZero/MuZero-inspired RL system).
+### EucherZero
+Comprehensive documentation for the EucherZero implementation (AlphaZero/MuZero-inspired RL system).
 
-**Location**: [`euchre_zero/`](./euchre_zero/)
+**Location**: [`eucher_zero/`](./eucher_zero/)
 
-**Start here**: [`euchre_zero/README.md`](./euchre_zero/README.md)
+**Start here**: [`eucher_zero/README.md`](./eucher_zero/README.md)
 
 Contains:
-- [Implementation Plan](./euchre_zero/implementation_plan.md) - Complete roadmap
-- [Technical Specification](./euchre_zero/technical_spec.md) - Code structure and examples
-- [Summary](./euchre_zero/summary.md) - Quick reference guide
+- [Implementation Plan](./eucher_zero/implementation_plan.md) - Complete roadmap
+- [Technical Specification](./eucher_zero/technical_spec.md) - Code structure and examples
+- [Summary](./eucher_zero/summary.md) - Quick reference guide
 
 ### General Documentation
 
@@ -25,11 +25,11 @@ Contains:
 
 ## Quick Links
 
-### For EuchreZero Implementation
-1. Read the [EuchreZero README](./euchre_zero/README.md)
-2. Review the [Implementation Plan](./euchre_zero/implementation_plan.md)
-3. Check the [Technical Spec](./euchre_zero/technical_spec.md) for code examples
-4. Use the [Summary](./euchre_zero/summary.md) as a quick reference
+### For EucherZero Implementation
+1. Read the [EucherZero README](./eucher_zero/README.md)
+2. Review the [Implementation Plan](./eucher_zero/implementation_plan.md)
+3. Check the [Technical Spec](./eucher_zero/technical_spec.md) for code examples
+4. Use the [Summary](./eucher_zero/summary.md) as a quick reference
 
 ### For Existing ML Systems
 - See [Training Guide](./training_guide.md) for training existing models
@@ -38,6 +38,6 @@ Contains:
 
 ## Requirements
 
-EuchreZero requirements are documented in:
-- `../bot_requirements/euchre_zero_requirements.md`
+EucherZero requirements are documented in:
+- `../bot_requirements/eucher_zero_requirements.md`
 

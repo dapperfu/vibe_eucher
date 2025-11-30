@@ -180,7 +180,7 @@ def train_rl_through_self_play(
     print("  - MLPlayer with RL backend currently uses heuristic fallback for decisions")
     print("  - Experience collection is simplified (no per-decision state-action-reward tuples)")
     print("  - The trained agent may not converge well due to these limitations")
-    print("  - Consider using Transformer RL or EuchreZero for better RL training\n")
+    print("  - Consider using Transformer RL or EucherZero for better RL training\n")
 
     # Create agent
     agent = RLAgent(config)

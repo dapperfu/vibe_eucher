@@ -191,41 +191,41 @@ def test_rl_models() -> bool:
         return False
 
 
-def test_euchre_zero() -> bool:
-    """Test EuchreZero model."""
+def test_eucher_zero() -> bool:
+    """Test EucherZero model."""
     print("\n" + "=" * 60)
-    print("Testing EuchreZero Model")
+    print("Testing EucherZero Model")
     print("=" * 60)
     
     try:
-        # Check if EuchreZero is available
+        # Check if EucherZero is available
         try:
-            from eucher.players.computer.euchre_zero.player import EuchreZeroPlayer
+            from eucher.players.computer.eucher_zero.player import EucherZeroPlayer
         except ImportError:
-            print("   ⚠ EuchreZero not available, skipping test")
+            print("   ⚠ EucherZero not available, skipping test")
             return True  # Not a failure, just missing dependency
         
         # Test that player can be created
-        print("\n1. Testing EuchreZero player creation...")
+        print("\n1. Testing EucherZero player creation...")
         try:
             player_config = [
-                ("Zero1", "euchre_zero"),
-                ("Zero2", "euchre_zero"),
-                ("Zero3", "euchre_zero"),
-                ("Zero4", "euchre_zero"),
+                ("Zero1", "eucher_zero"),
+                ("Zero2", "eucher_zero"),
+                ("Zero3", "eucher_zero"),
+                ("Zero4", "eucher_zero"),
             ]
             game = Game(player_config)
-            print("   ✓ Created EuchreZero players")
+            print("   ✓ Created EucherZero players")
             
             # Run a quick game to test
             print("\n2. Running test game...")
             game.play_hand()
             print("   ✓ Test game completed successfully")
         except Exception as e:
-            # EuchreZero may require trained models or have shape mismatches - this is OK for smoke test
+            # EucherZero may require trained models or have shape mismatches - this is OK for smoke test
             error_str = str(e).lower()
             if any(keyword in error_str for keyword in ["model", "load", "shape", "dimension", "mat1", "mat2"]):
-                print(f"   ⚠ EuchreZero issue (may need retraining): {e}")
+                print(f"   ⚠ EucherZero issue (may need retraining): {e}")
                 print("   ⚠ Skipping game test (model training/retraining may be required)")
                 return True  # Not a failure, just needs training/retraining
             else:
@@ -258,8 +258,8 @@ def main() -> None:
     # Test RL models
     results["rl"] = test_rl_models()
     
-    # Test EuchreZero
-    results["euchre_zero"] = test_euchre_zero()
+    # Test EucherZero
+    results["eucher_zero"] = test_eucher_zero()
     
     # Print summary
     print("\n" + "=" * 60)

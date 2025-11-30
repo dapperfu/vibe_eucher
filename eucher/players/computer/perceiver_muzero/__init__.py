@@ -1,2 +1,2 @@
-"""EuchrePerceiverMuZero player implementation."""
+"""EucherPerceiverMuZero player implementation."""
 

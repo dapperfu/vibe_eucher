@@ -1,7 +1,7 @@
 """PyTorch-based strategic AI player profile."""
 
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 import torch
 
@@ -482,4 +482,286 @@ class PyTorchStrategicPlayer(PlayerProfile):
         # Simple heuristic: trade-in if eligible cards are low value (9s or 10s)
         # and we might get better cards from the kitty
         return False  # Conservative: don't trade-in by default
+
+    def get_order_up_probabilities(
+        self, player: "Player", turned_card: Card, dealer_id: int, trump_suit: Optional[Suit]
+    ) -> Dict[bool, float]:
+        """
+        Return probability distribution for order up decision from model logits.
+
+        Parameters
+        ----------
+        player : Player
+            The player making the decision.
+        turned_card : Card
+            The card that was turned up.
+        dealer_id : int
+            The ID of the dealer.
+        trump_suit : Optional[Suit]
+            Current trump suit if already determined.
+
+        Returns
+        -------
+        Dict[bool, float]
+            Dictionary mapping decision (True=order up, False=pass) to probability.
+        """
+        self.dealer_id = dealer_id
+
+        # Encode game state
+        features = self.feature_encoder.encode_full_state(
+            hand=player.hand,
+            trick_history=self.trick_history,
+            tracker=self.tracker,
+            trick_number=0,
+            team_score=self.team_scores[player.team],
+            opponent_score=self.team_scores[1 - player.team],
+            player_position=player.player_id,
+            dealer_id=dealer_id,
+            trump_suit=turned_card.suit,  # Potential trump
+        )
+
+        # Get model prediction
+        with torch.no_grad():
+            outputs = self.model(
+                hand=features["hand"].unsqueeze(0).to(self.device),
+                trick_history=features["trick_history"].unsqueeze(0).to(self.device),
+                won_tricks_summary=features["won_tricks_summary"].unsqueeze(0).to(self.device),
+                game_context=features["game_context"].unsqueeze(0).to(self.device),
+            )
+
+            order_up_logit = outputs["order_up"][0, 0].item()
+            # Convert logit to probability using sigmoid
+            prob_order_up = 1.0 / (1.0 + torch.exp(-torch.tensor(order_up_logit))).item()
+            return {True: float(prob_order_up), False: float(1.0 - prob_order_up)}
+
+    def get_call_trump_probabilities(
+        self,
+        player: "Player",
+        turned_card: Card,
+        trump_suit: Optional[Suit],
+        must_choose: bool = False,
+    ) -> Dict[Optional[Suit], float]:
+        """
+        Return probability distribution for call trump decision from model logits.
+
+        Parameters
+        ----------
+        player : Player
+            The player making the decision.
+        turned_card : Card
+            The card that was turned up (cannot be chosen).
+        trump_suit : Optional[Suit]
+            Current trump suit if already determined.
+        must_choose : bool
+            If True, must choose a suit (cannot pass).
+
+        Returns
+        -------
+        Dict[Optional[Suit], float]
+            Dictionary mapping suit (or None for pass) to probability.
+        """
+        if trump_suit is not None:
+            return {trump_suit: 1.0}
+
+        forbidden_suit = turned_card.suit
+        available_suits = [suit for suit in Suit if suit != forbidden_suit]
+
+        # Encode game state for each possible trump suit
+        suit_scores: Dict[Suit, float] = {}
+        pass_score = 0.0
+
+        for suit in available_suits:
+            features = self.feature_encoder.encode_full_state(
+                hand=player.hand,
+                trick_history=self.trick_history,
+                tracker=self.tracker,
+                trick_number=0,
+                team_score=self.team_scores[player.team],
+                opponent_score=self.team_scores[1 - player.team],
+                player_position=player.player_id,
+                dealer_id=self.dealer_id,
+                trump_suit=suit,
+            )
+
+            with torch.no_grad():
+                outputs = self.model(
+                    hand=features["hand"].unsqueeze(0).to(self.device),
+                    trick_history=features["trick_history"].unsqueeze(0).to(self.device),
+                    won_tricks_summary=features["won_tricks_summary"].unsqueeze(0).to(self.device),
+                    game_context=features["game_context"].unsqueeze(0).to(self.device),
+                )
+
+                # Get trump selection logits (5 classes: 4 suits + pass)
+                trump_logits = outputs["trump_selection"][0]
+                suit_idx = list(Suit).index(suit)
+                suit_scores[suit] = trump_logits[suit_idx].item()
+
+        # Get pass score
+        if not must_choose:
+            features = self.feature_encoder.encode_full_state(
+                hand=player.hand,
+                trick_history=self.trick_history,
+                tracker=self.tracker,
+                trick_number=0,
+                team_score=self.team_scores[player.team],
+                opponent_score=self.team_scores[1 - player.team],
+                player_position=player.player_id,
+                dealer_id=self.dealer_id,
+                trump_suit=None,
+            )
+
+            with torch.no_grad():
+                outputs = self.model(
+                    hand=features["hand"].unsqueeze(0).to(self.device),
+                    trick_history=features["trick_history"].unsqueeze(0).to(self.device),
+                    won_tricks_summary=features["won_tricks_summary"].unsqueeze(0).to(self.device),
+                    game_context=features["game_context"].unsqueeze(0).to(self.device),
+                )
+
+                pass_score = outputs["trump_selection"][0, 4].item()  # Pass is index 4
+
+        # Convert scores to probabilities using softmax
+        all_scores = [pass_score] + [suit_scores[suit] for suit in available_suits]
+        scores_tensor = torch.tensor(all_scores)
+        probs_tensor = torch.softmax(scores_tensor, dim=0)
+
+        result: Dict[Optional[Suit], float] = {}
+        if not must_choose:
+            result[None] = float(probs_tensor[0].item())
+        for i, suit in enumerate(available_suits):
+            result[suit] = float(probs_tensor[i + (0 if must_choose else 1)].item())
+
+        return result
+
+    def get_play_card_probabilities(
+        self,
+        player: "Player",
+        led_suit: Optional[Suit],
+        trump_suit: Optional[Suit],
+        trick_cards: List[Card],
+        trick_player_ids: List[int],
+    ) -> Dict[Card, float]:
+        """
+        Return probability distribution for play card decision from model logits.
+
+        Parameters
+        ----------
+        player : Player
+            The player making the decision.
+        led_suit : Optional[Suit]
+            The suit that was led, if any.
+        trump_suit : Optional[Suit]
+            The current trump suit, if any.
+        trick_cards : List[Card]
+            Cards already played in the trick.
+        trick_player_ids : List[int]
+            Player IDs who played each card in trick_cards.
+
+        Returns
+        -------
+        Dict[Card, float]
+            Dictionary mapping card to probability (only valid cards).
+        """
+        valid_cards = self.rules.get_valid_plays(player.hand, led_suit, trump_suit)
+        if not valid_cards:
+            return {}
+
+        # Encode game state
+        features = self.feature_encoder.encode_full_state(
+            hand=player.hand,
+            trick_history=self.trick_history,
+            tracker=self.tracker,
+            trick_number=self.current_trick_number,
+            team_score=self.team_scores[player.team],
+            opponent_score=self.team_scores[1 - player.team],
+            player_position=player.player_id,
+            dealer_id=self.dealer_id,
+            trump_suit=trump_suit,
+            current_trick=trick_cards,
+        )
+
+        # Get model prediction
+        with torch.no_grad():
+            outputs = self.model(
+                hand=features["hand"].unsqueeze(0).to(self.device),
+                trick_history=features["trick_history"].unsqueeze(0).to(self.device),
+                won_tricks_summary=features["won_tricks_summary"].unsqueeze(0).to(self.device),
+                game_context=features["game_context"].unsqueeze(0).to(self.device),
+                current_trick=features["current_trick"].unsqueeze(0).to(self.device)
+                if trick_cards
+                else None,
+            )
+
+            card_play_logits = outputs["card_play"][0]
+
+            # Get valid indices
+            valid_indices = [i for i, card in enumerate(player.hand) if card in valid_cards]
+            if not valid_indices:
+                return {valid_cards[0]: 1.0}
+
+            # Get scores for valid cards
+            valid_scores = [card_play_logits[i].item() for i in valid_indices]
+            valid_scores_tensor = torch.tensor(valid_scores)
+            valid_probs = torch.softmax(valid_scores_tensor, dim=0)
+
+            result: Dict[Card, float] = {}
+            for i, idx in enumerate(valid_indices):
+                card = player.hand[idx]
+                result[card] = float(valid_probs[i].item())
+            return result
+
+    def get_discard_probabilities(
+        self, player: "Player", turned_card: Optional[Card] = None, ordered_up_by: Optional[str] = None
+    ) -> Dict[Card, float]:
+        """
+        Return probability distribution for discard decision from model logits.
+
+        Parameters
+        ----------
+        player : Player
+            The dealer player.
+        turned_card : Optional[Card]
+            The card that was ordered up, if available.
+        ordered_up_by : Optional[str]
+            Name of the player who ordered up, if available.
+
+        Returns
+        -------
+        Dict[Card, float]
+            Dictionary mapping card to probability.
+        """
+        if not player.hand:
+            return {}
+
+        # Use model to get discard probabilities
+        features = self.feature_encoder.encode_full_state(
+            hand=player.hand,
+            trick_history=self.trick_history,
+            tracker=self.tracker,
+            trick_number=0,
+            team_score=self.team_scores[player.team],
+            opponent_score=self.team_scores[1 - player.team],
+            player_position=player.player_id,
+            dealer_id=self.dealer_id,
+            trump_suit=turned_card.suit if turned_card else None,
+        )
+
+        with torch.no_grad():
+            outputs = self.model(
+                hand=features["hand"].unsqueeze(0).to(self.device),
+                trick_history=features["trick_history"].unsqueeze(0).to(self.device),
+                won_tricks_summary=features["won_tricks_summary"].unsqueeze(0).to(self.device),
+                game_context=features["game_context"].unsqueeze(0).to(self.device),
+            )
+
+            discard_logits = outputs["discard"][0]
+            discard_probs = torch.softmax(discard_logits, dim=0)
+
+            result: Dict[Card, float] = {}
+            for i, card in enumerate(player.hand):
+                if i < len(discard_probs):
+                    result[card] = float(discard_probs[i].item())
+                else:
+                    result[card] = 0.0
+            return result
 

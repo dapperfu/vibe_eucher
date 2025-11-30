@@ -867,7 +867,7 @@ def list(as_json: bool) -> None:
         },
         {
             "name": "perceiver_muzero",
-            "display_name": "EuchrePerceiverMuZero",
+            "display_name": "EucherPerceiverMuZero",
             "personality": "Advanced MuZero-style planning architecture with Perceiver-IO encoder for state representation.",
             "training_method": "Reinforcement learning - MuZero-style self-play with Perceiver-IO encoder, learned dynamics, and MCTS planning",
             "characteristics": [
@@ -881,8 +881,8 @@ def list(as_json: bool) -> None:
             ]
         },
         {
-            "name": "euchre_zero",
-            "display_name": "EuchreZero",
+            "name": "eucher_zero",
+            "display_name": "EucherZero",
             "personality": "AlphaZero/MuZero-inspired reinforcement learning system for Euchre.",
             "training_method": "Reinforcement learning - self-play with representation learning, learned dynamics, and MCTS",
             "characteristics": [

@@ -39,12 +39,12 @@ else
     exit 1
 fi
 
-# Test 3: EuchreZero training script (main wrapper)
-echo "Test 3: EuchreZero training script (main wrapper)"
-if timeout 5 bash scripts/train_euchre_zero.sh --help > /dev/null 2>&1; then
-    echo "  ✓ EuchreZero wrapper script works"
+# Test 3: EucherZero training script (main wrapper)
+echo "Test 3: EucherZero training script (main wrapper)"
+if timeout 5 bash scripts/train_eucher_zero.sh --help > /dev/null 2>&1; then
+    echo "  ✓ EucherZero wrapper script works"
 else
-    echo "  ✗ EuchreZero wrapper script failed"
+    echo "  ✗ EucherZero wrapper script failed"
     exit 1
 fi
 

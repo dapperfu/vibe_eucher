@@ -1,4 +1,4 @@
-"""Unified EuchrePerceiverMuZero model combining all networks."""
+"""Unified EucherPerceiverMuZero model combining all networks."""
 
 from pathlib import Path
 from typing import Dict, Optional, Tuple
@@ -18,7 +18,7 @@ class PerceiverMuZeroModel(nn.Module):
 
     def __init__(self, config: PerceiverMuZeroConfig) -> None:
         """
-        Initialize EuchrePerceiverMuZero model.
+        Initialize EucherPerceiverMuZero model.
 
         Parameters
         ----------
