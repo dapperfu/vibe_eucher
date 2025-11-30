@@ -705,6 +705,22 @@ class TextTUI:
         self._clear_screen()
         self._display_gameboard_header(player)
         
+        # Show decisions made so far by other players
+        if self.current_hand_log:
+            decisions_shown = False
+            for log_entry in self.current_hand_log:
+                if log_entry.endswith(": Ordered up") or log_entry.endswith(": Passed"):
+                    # Extract player name (everything before ": ")
+                    if ": " in log_entry:
+                        player_name = log_entry.rsplit(": ", 1)[0].strip()
+                        if player_name != player.name:
+                            if not decisions_shown:
+                                print("Decisions so far:")
+                                decisions_shown = True
+                            print(f"  {log_entry}")
+            if decisions_shown:
+                print()
+        
         # Show context
         dealer_name = self.players[dealer_id].name if self.players else f"Player {dealer_id}"
         print(f"Order up?")
