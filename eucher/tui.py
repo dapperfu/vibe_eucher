@@ -54,6 +54,7 @@ class TextTUI:
         self.initial_hands = {}
         self.trump_suit = None
         self.current_hand_number += 1
+        self.current_trick_number = 0  # Reset trick number for new hand
         self.current_tricks_won = (0, 0)  # Reset trick counts for new hand
         self.hand_tricks = []  # Reset trick tracking for new hand
 
