@@ -1,7 +1,7 @@
 """Example script for training RL agents."""
 
-from src.ml_config import MLConfig
-from src.training.train_rl import train_rl_through_self_play
+from eucher.players.computer.ml.ml_config import MLConfig
+from eucher.training.train_rl import train_rl_through_self_play
 
 
 def main() -> None:

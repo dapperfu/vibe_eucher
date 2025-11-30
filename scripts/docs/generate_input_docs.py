@@ -3,7 +3,7 @@
 import argparse
 from pathlib import Path
 
-from src.training.input_documentation import InputDocumentationGenerator
+from eucher.training.input_documentation import InputDocumentationGenerator
 
 
 def main() -> None:
