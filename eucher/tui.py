@@ -35,6 +35,8 @@ class TextTUI:
         self.current_hand_number: int = 0
         self.dealer_id: Optional[int] = None
         self.trump_suit: Optional[Suit] = None
+        # Trick tracking
+        self.current_tricks_won: Tuple[int, int] = (0, 0)  # Team 0, Team 1
         # Assistant helper
         self.assistant_helper = assistant_helper
 
@@ -44,6 +46,7 @@ class TextTUI:
         self.initial_hands = {}
         self.trump_suit = None
         self.current_hand_number += 1
+        self.current_tricks_won = (0, 0)  # Reset trick counts for new hand
 
     def log_initial_hands(self, players: List[Player]) -> None:
         """
@@ -436,7 +439,10 @@ class TextTUI:
             hand_str = f"Hand: {self.current_hand_number}"
             if self.current_trick_number > 0:
                 trick_str = f"Trick: {self.current_trick_number}/5"
-                print(f"{hand_str} | {trick_str}")
+                # Show current trick counts
+                tricks_team0, tricks_team1 = self.current_tricks_won
+                tricks_str = f"Tricks: Team 0: {tricks_team0}, Team 1: {tricks_team1}"
+                print(f"{hand_str} | {trick_str} | {tricks_str}")
             else:
                 print(hand_str)
         elif self.current_trick_number > 0:
@@ -566,7 +572,12 @@ class TextTUI:
                 winner_marker = " *" if winner_id is not None and pid == winner_id else ""
                 print(f"  {player_name}: {card}{winner_marker}")
         
+        # Display trick summary with current counts
+        tricks_team0, tricks_team1 = self.current_tricks_won
         print(f"\n{winner_name} wins the trick!")
+        print(f"\nTrick Summary:")
+        print(f"  Team 0: {tricks_team0} tricks")
+        print(f"  Team 1: {tricks_team1} tricks")
         print("Press spacebar to continue to next trick...")
         self._wait_for_spacebar()
     
@@ -620,6 +631,28 @@ class TextTUI:
             The current trick number (0-4).
         """
         self.current_trick_number = trick_number
+    
+    def update_tricks_won(self, tricks_won: Tuple[int, int]) -> None:
+        """
+        Update the current tricks won by each team.
+        
+        Parameters
+        ----------
+        tricks_won : Tuple[int, int]
+            Tricks won by Team 0 and Team 1.
+        """
+        self.current_tricks_won = tricks_won
+    
+    def update_dealer_id(self, dealer_id: int) -> None:
+        """
+        Update the dealer ID.
+        
+        Parameters
+        ----------
+        dealer_id : int
+            The dealer's player ID.
+        """
+        self.dealer_id = dealer_id
 
     def display_game_over(self, winning_team: int) -> None:
         """
@@ -857,6 +890,10 @@ class TextTUI:
             if ordered_up_by and ordered_up_by != player.name:
                 print(f"{ordered_up_by} ordered up the {turned_card} ({turned_card.suit.value}).")
                 print(f"You (the dealer) must pick it up. You now have 6 cards.")
+            elif ordered_up_by is None:
+                # Dealer ordered up themselves
+                print(f"You ordered up the {turned_card} ({turned_card.suit.value}).")
+                print(f"You now have 6 cards (including the {turned_card.suit.value} you picked up).")
             else:
                 print(f"The {turned_card} ({turned_card.suit.value}) was ordered up. You now have 6 cards.")
         else:
