@@ -37,6 +37,7 @@ class TextTUI:
         self.trump_suit: Optional[Suit] = None
         # Trick tracking
         self.current_tricks_won: Tuple[int, int] = (0, 0)  # Team 0, Team 1
+        self.hand_tricks: List[Dict] = []  # Store trick data for summary display
         # Assistant helper
         self.assistant_helper = assistant_helper
 
@@ -47,6 +48,7 @@ class TextTUI:
         self.trump_suit = None
         self.current_hand_number += 1
         self.current_tricks_won = (0, 0)  # Reset trick counts for new hand
+        self.hand_tricks = []  # Reset trick tracking for new hand
 
     def log_initial_hands(self, players: List[Player]) -> None:
         """
@@ -262,6 +264,15 @@ class TextTUI:
         if self.players is None:
             return
 
+        # Store trick data for summary display
+        trick_data = {
+            "trick_num": trick_num,
+            "played_cards": played_cards.copy(),
+            "player_ids": player_ids.copy(),
+            "winner_id": winner_id,
+        }
+        self.hand_tricks.append(trick_data)
+
         self.current_hand_log.append(f"\nTrick {trick_num}:")
         for card, pid in zip(played_cards, player_ids):
             player_name = self.players[pid].name
@@ -304,6 +315,67 @@ class TextTUI:
         """
         return self.current_hand_log.copy()
 
+    def display_trick_summary(self) -> None:
+        """
+        Display a tabular summary of all tricks in the hand.
+        
+        Shows columns for each player, rows for each trick, with cards played and winner.
+        """
+        if not self.hand_tricks or self.players is None:
+            return
+        
+        print("\n" + "=" * 80)
+        print("TRICK SUMMARY")
+        print("=" * 80)
+        
+        # Get player names
+        player_names = [p.name for p in self.players]
+        num_players = len(player_names)
+        
+        # Calculate column widths
+        col_widths = [max(len(name), 15) for name in player_names]
+        trick_col_width = 8
+        
+        # Print header
+        header = f"{'Trick':<{trick_col_width}}"
+        for i, name in enumerate(player_names):
+            header += f" {name:<{col_widths[i]}}"
+        header += " Winner"
+        print(header)
+        print("-" * len(header))
+        
+        # Print each trick
+        for trick_data in self.hand_tricks:
+            trick_num = trick_data["trick_num"]
+            played_cards = trick_data["played_cards"]
+            player_ids = trick_data["player_ids"]
+            winner_id = trick_data["winner_id"]
+            
+            # Create a mapping of player_id -> card for this trick
+            trick_cards: Dict[int, str] = {}
+            for card, pid in zip(played_cards, player_ids):
+                trick_cards[pid] = str(card)
+            
+            # Build row
+            row = f"{trick_num:<{trick_col_width}}"
+            for i in range(num_players):
+                card_str = trick_cards.get(i, "-")
+                display_str = card_str
+                # Highlight winner's card
+                if i == winner_id:
+                    display_str = self._red_text(card_str)
+                # Pad based on original string length to maintain alignment
+                padding = col_widths[i] - len(card_str)
+                row += f" {display_str}{' ' * padding}"
+            
+            # Add winner name
+            winner_name = self.players[winner_id].name if winner_id < len(self.players) else f"Player {winner_id}"
+            winner_display = self._red_text(winner_name)
+            row += f" {winner_display}"
+            print(row)
+        
+        print("=" * 80)
+    
     def display_hand_log(self) -> List[str]:
         """
         Display the current hand log and add it to game log.
@@ -321,6 +393,10 @@ class TextTUI:
             # Store last hand log before clearing
             self.last_hand_log = hand_log_copy.copy()
             self.current_hand_log = []
+        
+        # Display trick summary after hand log
+        self.display_trick_summary()
+        
         return hand_log_copy
 
     def set_players(self, players: List[Player], dealer_id: Optional[int] = None) -> None:
