@@ -1,7 +1,7 @@
-# EucherZero Implementation Plan
+# EuchreZero Implementation Plan
 
 ## Overview
-This document outlines the complete implementation plan for EucherZero, an AlphaZero/MuZero-inspired reinforcement learning system for Euchre. The implementation will be integrated into the existing Euchre codebase structure.
+This document outlines the complete implementation plan for EuchreZero, an AlphaZero/MuZero-inspired reinforcement learning system for Euchre. The implementation will be integrated into the existing Euchre codebase structure.
 
 ## Architecture Overview
 
@@ -22,7 +22,7 @@ Matches the existing taxonomic structure of the codebase:
 eucher/
 ├── players/
 │   └── computer/
-│       └── eucher_zero/                  # Player implementation (matches ml/, pytorch/ pattern)
+│       └── euchre_zero/                  # Player implementation (matches ml/, pytorch/ pattern)
 │           ├── __init__.py
 │           ├── networks/
 │           │   ├── __init__.py
@@ -51,18 +51,19 @@ eucher/
 │           │   └── reward_calculator.py   # Reward computation
 │           ├── state_encoder.py          # Game state to tensor encoding
 │           ├── action_space.py            # Unified action space
-│           ├── player.py                  # EucherZero player profile
+│           ├── player.py                  # EuchreZero player profile
 │           └── config.py                 # Configuration
 ├── training/                              # General training utilities (existing)
 │   ├── train_gan.py
 │   ├── train_rl.py
 │   ├── train_supervised.py
 │   └── ... (existing files)
-└── scripts/                               # Training scripts (at root level)
-    └── eucher_zero/                      # Matches pytorch_ai/, transformer_rl/ pattern
-        ├── train_eucher_zero.py          # Main training script
-        ├── train_eucher_zero_cpu.sh       # CPU training wrapper
-        └── train_eucher_zero_gpu.sh      # GPU training wrapper
+└── scripts/                               # Training scripts
+    └── training/                          # All training scripts
+        └── euchre_zero/                  # Matches pytorch_ai/, transformer_rl/ pattern
+        ├── train_euchre_zero.py          # Main training script
+        ├── train_euchre_zero_cpu.sh       # CPU training wrapper
+        └── train_euchre_zero_gpu.sh      # GPU training wrapper
 ```
 
 ## Component Specifications
@@ -269,7 +270,7 @@ eucher/
 ### 9. Training System
 
 #### 9.1 Self-Play (`training/self_play.py`)
-- Run games with 4 EucherZero players
+- Run games with 4 EuchreZero players
 - Each action guided by MCTS
 - Store (state, improved_policy, final_outcome) tuples
 - Support batched self-play for GPU efficiency
@@ -342,7 +343,7 @@ total_loss = (
 
 ### 10. Integration Layer
 
-#### 10.1 EucherZero Player (`player.py`)
+#### 10.1 EuchreZero Player (`player.py`)
 - Implements `PlayerProfile` interface
 - Uses MCTS for all decisions
 - Integrates with existing game system
@@ -398,9 +399,9 @@ total_loss = (
 5. Implement evaluator
 
 ### Phase 6: Integration (Week 6-7)
-1. Create EucherZero player profile
+1. Create EuchreZero player profile
 2. Integrate with game system
-3. Add CLI support for EucherZero players
+3. Add CLI support for EuchreZero players
 4. Test end-to-end gameplay
 
 ### Phase 7: Training and Optimization (Week 7-8)
@@ -419,9 +420,9 @@ total_loss = (
 
 ## Training Scripts
 
-### Main Training Script (`scripts/eucher_zero/train_eucher_zero.py`)
+### Main Training Script (`scripts/training/euchre_zero/train_euchre_zero.py`)
 
-**Location**: Matches existing pattern (`scripts/pytorch_ai/`, `scripts/transformer_rl/`)
+**Location**: Matches existing pattern (`scripts/training/pytorch_ai/`, `scripts/training/transformer_rl/`)
 
 **Features**:
 - Load or initialize model
@@ -445,7 +446,7 @@ total_loss = (
 - `--curriculum`: Enable curriculum learning
 - `--evaluate_every`: Evaluation frequency
 
-**Note**: Training modules (self_play, replay_buffer, trainer, etc.) are in `eucher/players/computer/eucher_zero/training/` (matches `pytorch/training/` pattern)
+**Note**: Training modules (self_play, replay_buffer, trainer, etc.) are in `eucher/players/computer/euchre_zero/training/` (matches `pytorch/training/` pattern)
 
 ### Curriculum Training
 - Integrated into main training script
@@ -461,18 +462,18 @@ total_loss = (
 ## Integration with Existing System
 
 ### Game Integration
-- Add `"eucher_zero"` profile type to `Game._create_profile()`
-- EucherZero player uses MCTS for all decisions
+- Add `"euchre_zero"` profile type to `Game._create_profile()`
+- EuchreZero player uses MCTS for all decisions
 - Supports risk factor configuration
 - Compatible with existing TUI
 
 ### CLI Integration
-- Add `"eucher_zero"` profile type to `Game._create_profile()` in `eucher/game.py`
-- Import: `from eucher.players.computer.eucher_zero.player import EucherZeroPlayer`
+- Add `"euchre_zero"` profile type to `Game._create_profile()` in `eucher/game.py`
+- Import: `from eucher.players.computer.euchre_zero.player import EuchreZeroPlayer`
 - Support checkpoint loading via model path
 - Configurable MCTS parameters
 - Risk factor configuration
-- Training scripts in `scripts/eucher_zero/` (matches existing pattern)
+- Training scripts in `scripts/training/euchre_zero/` (matches existing pattern)
 
 ### Training Data Integration
 - Can use existing training data for supervised pretraining (optional)
@@ -481,7 +482,7 @@ total_loss = (
 
 ## Configuration Files
 
-### Model Config (`eucher_zero_config.yaml`)
+### Model Config (`euchre_zero_config.yaml`)
 ```yaml
 model:
   latent_size: 512

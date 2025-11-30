@@ -1,0 +1,76 @@
+{
+  "timestamp": "2025-11-25T00:52:19.628508",
+  "num_games": 1000,
+  "seed": null,
+  "euchergo_model_path": null,
+  "euchre_zero_model_path": null,
+  "euchergo_num_simulations": null,
+  "euchre_zero_num_simulations": null,
+  "total_games": 0,
+  "euchergo": {
+    "games_won": 0,
+    "games_lost": 0,
+    "total_score": 0,
+    "total_tricks_won": 0,
+    "total_hands_played": 0,
+    "hands_won": 0,
+    "hands_lost": 0,
+    "trump_makes": 0,
+    "going_alone_attempts": 0,
+    "going_alone_successes": 0,
+    "win_rate": 0.0,
+    "avg_score": 0.0,
+    "avg_tricks_per_game": 0.0,
+    "going_alone_success_rate": 0.0
+  },
+  "euchre_zero": {
+    "games_won": 0,
+    "games_lost": 0,
+    "total_score": 0,
+    "total_tricks_won": 0,
+    "total_hands_played": 0,
+    "hands_won": 0,
+    "hands_lost": 0,
+    "trump_makes": 0,
+    "going_alone_attempts": 0,
+    "going_alone_successes": 0,
+    "win_rate": 0.0,
+    "avg_score": 0.0,
+    "avg_tricks_per_game": 0.0,
+    "going_alone_success_rate": 0.0
+  },
+  "avg_hands_per_game": 0.0,
+  "player_stats": {
+    "euchergo": {},
+    "euchre_zero": {}
+  },
+  "detailed_statistics": {
+    "games": [],
+    "euchergo_team_stats": {
+      "games_won": 0,
+      "games_lost": 0,
+      "total_score": 0,
+      "total_tricks_won": 0,
+      "total_hands_played": 0,
+      "hands_won": 0,
+      "hands_lost": 0,
+      "trump_makes": 0,
+      "going_alone_attempts": 0,
+      "going_alone_successes": 0
+    },
+    "euchre_zero_team_stats": {
+      "games_won": 0,
+      "games_lost": 0,
+      "total_score": 0,
+      "total_tricks_won": 0,
+      "total_hands_played": 0,
+      "hands_won": 0,
+      "hands_lost": 0,
+      "trump_makes": 0,
+      "going_alone_attempts": 0,
+      "going_alone_successes": 0
+    },
+    "euchergo_player_stats": {},
+    "euchre_zero_player_stats": {}
+  }
+}

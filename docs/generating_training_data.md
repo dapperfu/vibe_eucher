@@ -18,13 +18,13 @@ The easiest way to collect data:
 
 ```bash
 # Collect 1000 games of data
-python scripts/collect_training_data.py --num_games 1000
+python scripts/data/collect_training_data.py --num_games 1000
 
 # Specify output directory
-python scripts/collect_training_data.py --num_games 500 --output_dir /path/to/data
+python scripts/data/collect_training_data.py --num_games 500 --output_dir /path/to/data
 
 # Custom data prefix
-python scripts/collect_training_data.py --num_games 1000 --data_prefix my_data
+python scripts/data/collect_training_data.py --num_games 1000 --data_prefix my_data
 ```
 
 **What it does:**
@@ -39,19 +39,19 @@ More control with orchestrator, convergence tracking, and progress display:
 
 ```bash
 # Collect data for 500 games
-python scripts/train_models.py --mode self_play --num_games 500
+python scripts/training/train_models.py --mode self_play --num_games 500
 
 # Collect data for a specific duration
-python scripts/train_models.py --mode self_play --duration 30m
+python scripts/training/train_models.py --mode self_play --duration 30m
 
 # Collect data until convergence (90% win rate)
-python scripts/train_models.py --mode self_play --until-converged
+python scripts/training/train_models.py --mode self_play --until-converged
 
 # Custom convergence target
-python scripts/train_models.py --mode self_play --until-converged --target-win-rate 0.95
+python scripts/training/train_models.py --mode self_play --until-converged --target-win-rate 0.95
 
 # With custom risk factors
-python scripts/train_models.py --mode self_play --num_games 1000 \
+python scripts/training/train_models.py --mode self_play --num_games 1000 \
     --trump-selection-risk 0.3 --gameplay-risk 0.7
 ```
 
@@ -102,11 +102,11 @@ For ongoing data collection while training:
 
 ```bash
 # Collect data continuously for 1 hour
-python scripts/train_models.py --mode self_play --duration 1h
+python scripts/training/train_models.py --mode self_play --duration 1h
 
 # Collect data with periodic saves (every 100 games)
 # The script automatically saves every 50-100 games
-python scripts/train_models.py --mode self_play --num_games 10000
+python scripts/training/train_models.py --mode self_play --num_games 10000
 ```
 
 ## Data Output Format
@@ -182,19 +182,19 @@ np.savez_compressed(
 
 ```bash
 # Quick: 500 games
-python scripts/collect_training_data.py --num_games 500
+python scripts/data/collect_training_data.py --num_games 500
 
 # Medium: 5000 games (takes ~30-60 minutes)
-python scripts/collect_training_data.py --num_games 5000
+python scripts/data/collect_training_data.py --num_games 5000
 
 # Large: 20000 games (takes ~2-4 hours)
-python scripts/collect_training_data.py --num_games 20000
+python scripts/data/collect_training_data.py --num_games 20000
 
 # Continuous: Run for 2 hours
-python scripts/train_models.py --mode self_play --duration 2h
+python scripts/training/train_models.py --mode self_play --duration 2h
 
 # Until convergence: Collect until 90% win rate
-python scripts/train_models.py --mode self_play --until-converged
+python scripts/training/train_models.py --mode self_play --until-converged
 ```
 
 ## Checking Data Size
@@ -218,7 +218,7 @@ for name in ["order_up", "call_trump", "play_card", "discard"]:
 ## Next Steps
 
 After collecting data:
-1. Train supervised models: `python scripts/train_models.py --mode train`
-2. Train GAN models: `python scripts/train_models.py --mode train_gan`
-3. Train RL agents: `python scripts/train_models.py --mode train_rl`
+1. Train supervised models: `python scripts/training/train_models.py --mode train`
+2. Train GAN models: `python scripts/training/train_models.py --mode train_gan`
+3. Train RL agents: `python scripts/training/train_models.py --mode train_rl`
 

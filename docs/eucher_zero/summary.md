@@ -1,9 +1,9 @@
-# EucherZero Implementation Summary
+# EuchreZero Implementation Summary
 
 ## Quick Reference
 
 ### Core Concept
-EucherZero is an AlphaZero/MuZero-inspired reinforcement learning system for Euchre that learns optimal strategy through self-play, using:
+EuchreZero is an AlphaZero/MuZero-inspired reinforcement learning system for Euchre that learns optimal strategy through self-play, using:
 - **Representation Network**: Encodes game state to latent vector
 - **Dynamics Network**: Predicts next state and immediate reward
 - **Prediction Network**: Outputs policy and value estimates
@@ -14,14 +14,14 @@ EucherZero is an AlphaZero/MuZero-inspired reinforcement learning system for Euc
 1. **Unified Action Space**: All game phases (bidding, discard, play) use same 18-action space
 2. **Hidden Information Handling**: Belief-based MCTS with deduction probability maps
 3. **Risk Tuning**: Adjustable risk profiles via risk factor scaling
-4. **Self-Play Training**: All 4 players controlled by EucherZero
+4. **Self-Play Training**: All 4 players controlled by EuchreZero
 5. **Curriculum Learning**: Progressive training from legality to full strategy
 
 ### Directory Structure
 Matches existing taxonomic pattern (similar to `ml/` and `pytorch/`):
 
 ```
-eucher/players/computer/eucher_zero/
+eucher/players/computer/euchre_zero/
 ├── networks/          # Representation, Dynamics, Prediction networks
 ├── mcts/              # MCTS tree, search, belief sampling
 ├── deduction/         # Card tracking, probability maps, inference
@@ -29,19 +29,19 @@ eucher/players/computer/eucher_zero/
 ├── rewards/           # Reward calculation
 ├── state_encoder.py   # Game state to tensor
 ├── action_space.py    # Unified action encoding
-├── player.py          # EucherZero player profile
+├── player.py          # EuchreZero player profile
 └── config.py          # Configuration
 
-scripts/eucher_zero/   # Training scripts (matches pytorch_ai/, transformer_rl/ pattern)
-├── train_eucher_zero.py
-├── train_eucher_zero_cpu.sh
-└── train_eucher_zero_gpu.sh
+scripts/training/euchre_zero/   # Training scripts (matches pytorch_ai/, transformer_rl/ pattern)
+├── train_euchre_zero.py
+├── train_euchre_zero_cpu.sh
+└── train_euchre_zero_gpu.sh
 ```
 
 ### Training Workflow
 
 1. **Self-Play Generation**
-   - Run games with 4 EucherZero players
+   - Run games with 4 EuchreZero players
    - Each action uses MCTS search
    - Store (state, improved_policy, outcome) tuples
 
@@ -65,23 +65,23 @@ scripts/eucher_zero/   # Training scripts (matches pytorch_ai/, transformer_rl/ 
 ### Integration Points
 
 **Game Integration**:
-- Add `"eucher_zero"` profile type to `Game._create_profile()`
-- EucherZero player implements `PlayerProfile` interface
+- Add `"euchre_zero"` profile type to `Game._create_profile()`
+- EuchreZero player implements `PlayerProfile` interface
 - Compatible with existing game flow and TUI
 
 **CLI Integration**:
 ```bash
-# Play with EucherZero players (via Game player_config)
-# In code: player_config = [("Player 1", "eucher_zero"), ...]
+# Play with EuchreZero players (via Game player_config)
+# In code: player_config = [("Player 1", "euchre_zero"), ...]
 
 # Training (matches scripts/pytorch_ai/ pattern)
-python scripts/eucher_zero/train_eucher_zero.py \
-    --config eucher_zero_config.yaml \
+python scripts/training/euchre_zero/train_euchre_zero.py \
+    --config euchre_zero_config.yaml \
     --num_games 100 \
     --num_iterations 1000
 
 # Or use shell wrappers
-./scripts/eucher_zero/train_eucher_zero_gpu.sh
+./scripts/training/euchre_zero/train_euchre_zero_gpu.sh
 ```
 
 ### Reward Structure
@@ -168,9 +168,9 @@ python scripts/eucher_zero/train_eucher_zero.py \
 
 ### Documentation Files
 
-- `eucher_zero_implementation_plan.md`: Complete implementation plan
-- `eucher_zero_technical_spec.md`: Technical specifications with code examples
-- `eucher_zero_summary.md`: This quick reference (you are here)
+- `euchre_zero_implementation_plan.md`: Complete implementation plan
+- `euchre_zero_technical_spec.md`: Technical specifications with code examples
+- `euchre_zero_summary.md`: This quick reference (you are here)
 
 ### Questions to Resolve
 

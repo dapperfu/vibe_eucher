@@ -16,7 +16,7 @@ The Euchre AI system supports three ML approaches:
 First, collect training data by running games:
 
 ```bash
-python scripts/collect_training_data.py --num_games 1000
+python scripts/data/collect_training_data.py --num_games 1000
 ```
 
 This will:
@@ -29,7 +29,7 @@ This will:
 Train sklearn models on collected data:
 
 ```bash
-python scripts/train_models.py --mode train --model_type random_forest
+python scripts/training/train_models.py --mode train --model_type random_forest
 ```
 
 Available model types:
@@ -65,7 +65,7 @@ The GAN model can be initialized without a trained model file, but it will use r
 Train GAN models on expert/human decision data:
 
 ```bash
-python scripts/train_models.py --mode train_gan
+python scripts/training/train_models.py --mode train_gan
 ```
 
 Or use the example script:
@@ -102,7 +102,7 @@ The `MLPlayer` will automatically load the trained model from `models/gan_model.
 Train RL agents through self-play:
 
 ```bash
-python scripts/train_models.py --mode train_rl --num_games 1000
+python scripts/training/train_models.py --mode train_rl --num_games 1000
 ```
 
 Or use the example script:
@@ -182,7 +182,7 @@ loader.merge_with_training_data(
 Review AI decisions to validate playing style:
 
 ```bash
-python scripts/review_decisions.py --decisions_file training_data/decisions_to_review.json
+python scripts/review/review_decisions.py --decisions_file training_data/decisions_to_review.json
 ```
 
 The review interface allows you to:
@@ -197,7 +197,7 @@ The review interface allows you to:
 View review statistics:
 
 ```bash
-python scripts/review_decisions.py --stats
+python scripts/review/review_decisions.py --stats
 ```
 
 ### Export Reviews
@@ -205,7 +205,7 @@ python scripts/review_decisions.py --stats
 Export reviews for analysis:
 
 ```bash
-python scripts/review_decisions.py --export reviews.csv --export_format csv
+python scripts/review/review_decisions.py --export reviews.csv --export_format csv
 ```
 
 ## 6. Complete Training Workflow
@@ -219,7 +219,7 @@ python scripts/review_decisions.py --export reviews.csv --export_format csv
 
 2. **Train Supervised Models**:
    ```bash
-   python scripts/train_models.py --mode train
+   python scripts/training/train_models.py --mode train
    ```
 
 3. **Test Models in Games**:
@@ -233,18 +233,18 @@ python scripts/review_decisions.py --export reviews.csv --export_format csv
 
 5. **Train GAN Models** (required if using GAN backend):
    ```bash
-   python scripts/train_models.py --mode train_gan
+   python scripts/training/train_models.py --mode train_gan
    ```
    **Note:** GAN models require training data and must be trained before use. Without training, the GAN backend will use random weights and make essentially random decisions.
 
 6. **Train RL Agents** (optional):
    ```bash
-   python scripts/train_models.py --mode train_rl --num_games 1000
+   python scripts/training/train_models.py --mode train_rl --num_games 1000
    ```
 
 7. **Review Decisions**:
    ```bash
-   python scripts/review_decisions.py
+   python scripts/review/review_decisions.py
    ```
 
 8. **Iterate**: Collect more data, retrain, review, improve
@@ -290,13 +290,13 @@ Train for a specific duration:
 
 ```bash
 # Train for 30 minutes
-python scripts/train_models.py --mode train_rl --duration 30m
+python scripts/training/train_models.py --mode train_rl --duration 30m
 
 # Train for 2 hours
-python scripts/train_models.py --mode train_rl --duration 2h
+python scripts/training/train_models.py --mode train_rl --duration 2h
 
 # Train for 1 day
-python scripts/train_models.py --mode train_rl --duration 1d
+python scripts/training/train_models.py --mode train_rl --duration 1d
 ```
 
 ### Convergence-Based Training
@@ -305,13 +305,13 @@ Train until the model achieves a target win rate:
 
 ```bash
 # Train until 90% win rate (default)
-python scripts/train_models.py --mode train_rl --until-converged
+python scripts/training/train_models.py --mode train_rl --until-converged
 
 # Train until 95% win rate
-python scripts/train_models.py --mode train_rl --until-converged --target-win-rate 0.95
+python scripts/training/train_models.py --mode train_rl --until-converged --target-win-rate 0.95
 
 # Use custom window size for convergence check
-python scripts/train_models.py --mode train_rl --until-converged --window-size 200
+python scripts/training/train_models.py --mode train_rl --until-converged --window-size 200
 ```
 
 ### Risk/Temperature Parameters
@@ -320,12 +320,12 @@ Control player behavior with separate risk factors for trump selection and gamep
 
 ```bash
 # Conservative trump selection, risky gameplay
-python scripts/train_models.py --mode train_rl \
+python scripts/training/train_models.py --mode train_rl \
     --trump-selection-risk 0.3 \
     --gameplay-risk 0.8
 
 # Balanced play (default: 0.5 for both)
-python scripts/train_models.py --mode train_rl \
+python scripts/training/train_models.py --mode train_rl \
     --trump-selection-risk 0.5 \
     --gameplay-risk 0.5
 ```
@@ -353,7 +353,7 @@ Save training progress at regular intervals:
 
 ```bash
 # Save checkpoint every 50 games
-python scripts/train_models.py --mode train_rl --checkpoint-interval 50
+python scripts/training/train_models.py --mode train_rl --checkpoint-interval 50
 ```
 
 Checkpoints are saved to `models/checkpoints/` directory.
@@ -366,16 +366,16 @@ Generate human-readable documentation of all 236 model input features:
 
 ```bash
 # Generate both markdown and HTML documentation
-python scripts/generate_input_docs.py
+python scripts/docs/generate_input_docs.py
 
 # Generate only markdown
-python scripts/generate_input_docs.py --format markdown
+python scripts/docs/generate_input_docs.py --format markdown
 
 # Generate only HTML
-python scripts/generate_input_docs.py --format html
+python scripts/docs/generate_input_docs.py --format html
 
 # Specify output directory
-python scripts/generate_input_docs.py --output-dir docs/
+python scripts/docs/generate_input_docs.py --output-dir docs/
 ```
 
 ### Reviewing Model Inputs

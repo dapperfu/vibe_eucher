@@ -1,11 +1,11 @@
-# EucherZero Technical Specification
+# EuchreZero Technical Specification
 
 ## Code Structure Examples
 
 ### 1. Unified Action Space
 
 ```python
-# eucher/players/computer/eucher_zero/action_space.py
+# eucher/players/computer/euchre_zero/action_space.py
 
 from enum import IntEnum
 from typing import Optional, Tuple
@@ -97,7 +97,7 @@ class ActionEncoder:
 ### 2. State Encoder
 
 ```python
-# eucher/players/computer/eucher_zero/state_encoder.py
+# eucher/players/computer/euchre_zero/state_encoder.py
 
 import torch
 import torch.nn as nn
@@ -230,7 +230,7 @@ class StateEncoder:
 ### 3. Representation Network
 
 ```python
-# eucher/players/computer/eucher_zero/networks/representation.py
+# eucher/players/computer/euchre_zero/networks/representation.py
 
 import torch
 import torch.nn as nn
@@ -354,7 +354,7 @@ class RepresentationNetwork(nn.Module):
 ### 4. MCTS Node
 
 ```python
-# eucher/players/computer/eucher_zero/mcts/tree.py
+# eucher/players/computer/euchre_zero/mcts/tree.py
 
 from typing import Dict, Optional, List
 import torch
@@ -487,15 +487,15 @@ class MCTSNode:
 ### 5. MCTS Search
 
 ```python
-# eucher/players/computer/eucher_zero/mcts/search.py
+# eucher/players/computer/euchre_zero/mcts/search.py
 
 from typing import Dict, List, Tuple
 import torch
 import numpy as np
-from eucher.players.computer.eucher_zero.mcts.tree import MCTSNode
-from eucher.players.computer.eucher_zero.networks.representation import RepresentationNetwork
-from eucher.players.computer.eucher_zero.networks.dynamics import DynamicsNetwork
-from eucher.players.computer.eucher_zero.networks.prediction import PredictionNetwork
+from eucher.players.computer.euchre_zero.mcts.tree import MCTSNode
+from eucher.players.computer.euchre_zero.networks.representation import RepresentationNetwork
+from eucher.players.computer.euchre_zero.networks.dynamics import DynamicsNetwork
+from eucher.players.computer.euchre_zero.networks.prediction import PredictionNetwork
 
 class MCTSSearch:
     """Monte Carlo Tree Search with belief sampling."""
@@ -654,13 +654,13 @@ class MCTSSearch:
 ### 6. Reward Calculator
 
 ```python
-# eucher/players/computer/eucher_zero/rewards/reward_calculator.py
+# eucher/players/computer/euchre_zero/rewards/reward_calculator.py
 
 from typing import Optional
 from eucher.cards import Card
 
 class RewardCalculator:
-    """Calculate rewards according to EucherZero specification."""
+    """Calculate rewards according to EuchreZero specification."""
     
     # Immediate rewards
     TRICK_WON = 1.0
@@ -807,12 +807,12 @@ class RewardCalculator:
 ## Training Loop Structure
 
 ```python
-# scripts/eucher_zero/train_eucher_zero.py (simplified)
+# scripts/training/euchre_zero/train_euchre_zero.py (simplified)
 
 def train_iteration(
-    model: EucherZeroModel,
+    model: EuchreZeroModel,
     replay_buffer: ReplayBuffer,
-    config: EucherZeroConfig,
+    config: EuchreZeroConfig,
 ) -> Dict[str, float]:
     """One training iteration."""
     # 1. Generate self-play games
@@ -831,9 +831,9 @@ def train_iteration(
     return losses
 
 def train_step(
-    model: EucherZeroModel,
+    model: EuchreZeroModel,
     batch: Batch,
-    config: EucherZeroConfig,
+    config: EuchreZeroConfig,
 ) -> Dict[str, float]:
     """Single training step."""
     # Forward passes
@@ -874,29 +874,29 @@ def train_step(
 ## Integration Example
 
 ```python
-# eucher/players/computer/eucher_zero/player.py
+# eucher/players/computer/euchre_zero/player.py
 
 from eucher.players.base import PlayerProfile
 from eucher.cards import Card, Suit
 from typing import List, Optional
-from eucher.players.computer.eucher_zero.mcts.search import MCTSSearch
+from eucher.players.computer.euchre_zero.mcts.search import MCTSSearch
 
-class EucherZeroPlayer(PlayerProfile):
-    """EucherZero player profile."""
+class EuchreZeroPlayer(PlayerProfile):
+    """EuchreZero player profile."""
     
     def __init__(
         self,
-        model: EucherZeroModel,
+        model: EuchreZeroModel,
         num_simulations: int = 100,
         risk_factor: float = 0.0,
     ) -> None:
         """
-        Initialize EucherZero player.
+        Initialize EuchreZero player.
         
         Parameters
         ----------
-        model : EucherZeroModel
-            Trained EucherZero model.
+        model : EuchreZeroModel
+            Trained EuchreZero model.
         num_simulations : int
             MCTS simulations per decision.
         risk_factor : float

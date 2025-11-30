@@ -30,7 +30,9 @@ class CardEmbedding(nn.Module):
         """
         super().__init__()
         self.embedding = nn.Linear(input_dim, embedding_dim)
+        # Use LayerNorm for variable-length sequences (works with both 2D and 3D)
         self.norm = nn.LayerNorm(embedding_dim)
+        self.dropout = nn.Dropout(0.1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass.
@@ -45,7 +47,17 @@ class CardEmbedding(nn.Module):
         torch.Tensor
             Embedded tensor of shape (..., embedding_dim).
         """
-        return self.norm(F.relu(self.embedding(x)))
+        # Handle both 2D and 3D inputs
+        if x.dim() == 3:
+            batch_size, seq_len, feat_dim = x.shape
+            x_flat = x.view(-1, feat_dim)
+            out = self.embedding(x_flat)
+            out = self.norm(out)
+            out = out.view(batch_size, seq_len, -1)
+        else:
+            out = self.embedding(x)
+            out = self.norm(out)
+        return self.dropout(F.gelu(out))
 
 
 class AttentionMechanism(nn.Module):
@@ -136,15 +148,13 @@ class HybridNetwork(nn.Module):
         card_input_dim = 12  # suit(4) + rank(6) + is_trump(1) + trump_rank(1)
         self.card_embedding = CardEmbedding(card_input_dim, card_embedding_dim)
 
-        # CNN branch for hand processing
-        self.cnn_branch = nn.Sequential(
-            nn.Conv1d(card_embedding_dim, cnn_channels, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.Conv1d(cnn_channels, cnn_channels * 2, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.AdaptiveAvgPool1d(1),
-            nn.Flatten(),
-        )
+        # CNN branch for hand processing with batch norm and residual-like structure
+        self.cnn_conv1 = nn.Conv1d(card_embedding_dim, cnn_channels, kernel_size=3, padding=1)
+        self.cnn_bn1 = nn.BatchNorm1d(cnn_channels)
+        self.cnn_conv2 = nn.Conv1d(cnn_channels, cnn_channels * 2, kernel_size=3, padding=1)
+        self.cnn_bn2 = nn.BatchNorm1d(cnn_channels * 2)
+        self.cnn_pool = nn.AdaptiveAvgPool1d(1)
+        self.cnn_flatten = nn.Flatten()
 
         # LSTM branch for trick history
         self.lstm_branch = nn.LSTM(
@@ -166,42 +176,51 @@ class HybridNetwork(nn.Module):
             cnn_output_dim + lstm_output_dim + attention_output_dim + context_dim + summary_dim
         )
 
-        # Shared MLP layers
-        self.shared_mlp = nn.Sequential(
-            nn.Linear(combined_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Dropout(0.2),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Dropout(0.2),
-        )
+        # Shared MLP layers with residual connections and batch norm
+        self.shared_mlp_layer1 = nn.Linear(combined_dim, hidden_dim)
+        self.shared_mlp_bn1 = nn.BatchNorm1d(hidden_dim)
+        self.shared_mlp_layer2 = nn.Linear(hidden_dim, hidden_dim)
+        self.shared_mlp_bn2 = nn.BatchNorm1d(hidden_dim)
+        self.shared_mlp_dropout = nn.Dropout(0.3)
+        
+        # Optional: deeper MLP with residual
+        self.shared_mlp_layer3 = nn.Linear(hidden_dim, hidden_dim)
+        self.shared_mlp_bn3 = nn.BatchNorm1d(hidden_dim)
 
-        # Decision heads
+        # Decision heads with batch normalization
         # Order up (binary classification)
         self.order_up_head = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim // 2),
-            nn.ReLU(),
+            nn.BatchNorm1d(hidden_dim // 2),
+            nn.GELU(),
+            nn.Dropout(0.2),
             nn.Linear(hidden_dim // 2, 1),
         )
 
         # Trump selection (5 classes: 4 suits + pass)
         self.trump_selection_head = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim // 2),
-            nn.ReLU(),
+            nn.BatchNorm1d(hidden_dim // 2),
+            nn.GELU(),
+            nn.Dropout(0.2),
             nn.Linear(hidden_dim // 2, 5),
         )
 
         # Discard selection (6 classes: one for each card in hand)
         self.discard_head = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim // 2),
-            nn.ReLU(),
+            nn.BatchNorm1d(hidden_dim // 2),
+            nn.GELU(),
+            nn.Dropout(0.2),
             nn.Linear(hidden_dim // 2, 6),
         )
 
         # Card play head (variable output, will be filtered by valid plays)
         self.card_play_head = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim // 2),
-            nn.ReLU(),
+            nn.BatchNorm1d(hidden_dim // 2),
+            nn.GELU(),
+            nn.Dropout(0.2),
             nn.Linear(hidden_dim // 2, 6),  # Max 6 cards in hand
         )
 
@@ -244,9 +263,13 @@ class HybridNetwork(nn.Module):
         trick_history_flat = trick_history.view(batch_size, -1, hand.shape[-1])  # Flatten tricks
         trick_history_embedded = self.card_embedding(trick_history_flat)  # (batch, seq, embed_dim)
 
-        # CNN branch for hand
+        # CNN branch for hand with improved forward pass
         hand_cnn_input = hand_embedded.transpose(1, 2)  # (batch, embed_dim, 6)
-        cnn_features = self.cnn_branch(hand_cnn_input)  # (batch, cnn_output_dim)
+        cnn_out = self.cnn_conv1(hand_cnn_input)
+        cnn_out = F.gelu(self.cnn_bn1(cnn_out))
+        cnn_out = self.cnn_conv2(cnn_out)
+        cnn_out = F.gelu(self.cnn_bn2(cnn_out))
+        cnn_features = self.cnn_flatten(self.cnn_pool(cnn_out))  # (batch, cnn_output_dim)
 
         # LSTM branch for trick history
         lstm_out, (h_n, c_n) = self.lstm_branch(trick_history_embedded)
@@ -265,8 +288,26 @@ class HybridNetwork(nn.Module):
             dim=1,
         )
 
-        # Shared MLP
-        shared_features = self.shared_mlp(combined_features)
+        # Shared MLP with residual connections
+        mlp_out = self.shared_mlp_layer1(combined_features)
+        mlp_out = F.gelu(self.shared_mlp_bn1(mlp_out))
+        mlp_out = self.shared_mlp_dropout(mlp_out)
+        
+        # Second layer with residual
+        mlp_residual = mlp_out
+        mlp_out = self.shared_mlp_layer2(mlp_out)
+        mlp_out = self.shared_mlp_bn2(mlp_out)
+        mlp_out = mlp_out + mlp_residual  # Residual connection
+        mlp_out = F.gelu(mlp_out)
+        mlp_out = self.shared_mlp_dropout(mlp_out)
+        
+        # Optional third layer
+        mlp_residual2 = mlp_out
+        mlp_out = self.shared_mlp_layer3(mlp_out)
+        mlp_out = self.shared_mlp_bn3(mlp_out)
+        mlp_out = mlp_out + mlp_residual2  # Residual connection
+        mlp_out = F.gelu(mlp_out)
+        shared_features = self.shared_mlp_dropout(mlp_out)
 
         # Decision heads
         outputs = {
@@ -329,6 +370,29 @@ def create_network(
 
     if device is not None:
         network = network.to(device)
+    
+    # Initialize weights using Xavier/Kaiming initialization
+    def init_weights(m: nn.Module) -> None:
+        """Initialize network weights.
+
+        Parameters
+        ----------
+        m : nn.Module
+            Module to initialize.
+        """
+        if isinstance(m, nn.Linear):
+            nn.init.xavier_uniform_(m.weight, gain=1.0)
+            if m.bias is not None:
+                nn.init.constant_(m.bias, 0.0)
+        elif isinstance(m, nn.Conv1d):
+            nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+            if m.bias is not None:
+                nn.init.constant_(m.bias, 0.0)
+        elif isinstance(m, (nn.BatchNorm1d, nn.LayerNorm)):
+            nn.init.constant_(m.weight, 1.0)
+            nn.init.constant_(m.bias, 0.0)
+    
+    network.apply(init_weights)
 
     return network
 

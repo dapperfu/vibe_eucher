@@ -1,5 +1,6 @@
 """PyTorch-based strategic AI player profile."""
 
+import random
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Optional
 
@@ -30,6 +31,8 @@ class PyTorchStrategicPlayer(PlayerProfile):
         Device to run on ("cpu", "cuda", or None for auto).
     use_strategic_overrides : bool
         Whether to use strategic overrides (bower drawing).
+    exploration_epsilon : float
+        Exploration probability for epsilon-greedy (0.0 = no exploration, 1.0 = always random).
     """
 
     def __init__(
@@ -37,6 +40,7 @@ class PyTorchStrategicPlayer(PlayerProfile):
         model_path: Optional[str] = None,
         device: Optional[str] = None,
         use_strategic_overrides: bool = True,
+        exploration_epsilon: float = 0.0,
     ) -> None:
         """Initialize PyTorch strategic player.
 
@@ -48,6 +52,8 @@ class PyTorchStrategicPlayer(PlayerProfile):
             Device string.
         use_strategic_overrides : bool
             Enable strategic overrides.
+        exploration_epsilon : float
+            Exploration probability (0.0-1.0) for epsilon-greedy exploration.
         """
         # Setup device
         if device is None:
@@ -67,6 +73,7 @@ class PyTorchStrategicPlayer(PlayerProfile):
         )
 
         self.use_strategic_overrides = use_strategic_overrides
+        self.exploration_epsilon = exploration_epsilon
 
         # Load or create model
         if model_path:
@@ -115,6 +122,10 @@ class PyTorchStrategicPlayer(PlayerProfile):
             True to order up, False to pass.
         """
         self.dealer_id = dealer_id
+
+        # Epsilon-greedy exploration: random decision with probability epsilon
+        if random.random() < self.exploration_epsilon:
+            return random.choice([True, False])
 
         # Encode game state
         features = self.feature_encoder.encode_full_state(
@@ -170,6 +181,15 @@ class PyTorchStrategicPlayer(PlayerProfile):
         """
         if trump_suit is not None:
             return trump_suit
+
+        # Epsilon-greedy exploration: random decision with probability epsilon
+        if random.random() < self.exploration_epsilon:
+            available_suits = [s for s in Suit if s != turned_card.suit]
+            if must_choose:
+                return random.choice(available_suits)
+            else:
+                # Randomly choose suit or pass
+                return random.choice(available_suits + [None])
 
         # Encode game state for each possible trump suit
         available_suits = [s for s in Suit if s != turned_card.suit]
@@ -257,6 +277,10 @@ class PyTorchStrategicPlayer(PlayerProfile):
         if not player.hand:
             raise ValueError("Player has no cards to discard")
 
+        # Epsilon-greedy exploration: random discard with probability epsilon
+        if random.random() < self.exploration_epsilon:
+            return random.choice(player.hand)
+
         # Use model to select discard
         features = self.feature_encoder.encode_full_state(
             hand=player.hand,
@@ -323,6 +347,10 @@ class PyTorchStrategicPlayer(PlayerProfile):
         if not valid_cards:
             # Fallback: if no valid cards (shouldn't happen), return first card
             return player.hand[0]
+
+        # Epsilon-greedy exploration: random valid card with probability epsilon
+        if random.random() < self.exploration_epsilon:
+            return random.choice(valid_cards)
 
         # Check for strategic override (bower drawing) - but only if it's valid
         if (

@@ -4,7 +4,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+PROJECT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
 cd "${PROJECT_DIR}"
 
@@ -36,7 +36,7 @@ if command -v nvidia-smi &> /dev/null; then
 fi
 
 # Run training script
-python scripts/pytorch_ai/train_pytorch_ai.py \
+python scripts/training/pytorch_ai/train_pytorch_ai.py \
     --device "${DEVICE}" \
     ${BATCH_SIZE} \
     "$@"

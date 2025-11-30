@@ -332,3 +332,61 @@ class TrainingDataManager:
             "rows": len(df),
         }
 
+    def load_from_collector(self, collector) -> List[Dict]:
+        """Convert GameDataCollector in-memory data to training dataset format.
+
+        Parameters
+        ----------
+        collector : GameDataCollector
+            Data collector with in-memory data.
+
+        Returns
+        -------
+        List[Dict]
+            List of training samples in format compatible with EuchreDataset.
+        """
+        from eucher.training.data_collector import GameDataCollector
+
+        if not isinstance(collector, GameDataCollector):
+            raise TypeError(f"Expected GameDataCollector, got {type(collector)}")
+
+        training_data = []
+
+        # Convert each data type
+        # Map collector action types to EuchreDataset action types
+        action_type_map = {
+            "order_up": "order_up",
+            "call_trump": "trump_selection",  # Map call_trump to trump_selection
+            "play_card": "play_card",
+            "discard": "discard",
+        }
+
+        for data_list, collector_action_type in [
+            (collector.order_up_data, "order_up"),
+            (collector.call_trump_data, "call_trump"),
+            (collector.play_card_data, "play_card"),
+            (collector.discard_data, "discard"),
+        ]:
+            action_type = action_type_map.get(collector_action_type, collector_action_type)
+            for item in data_list:
+                # Convert to format expected by EuchreDataset
+                # EuchreDataset expects either:
+                # 1. {"features": list, "decision": int, "action_type": str}
+                # 2. Raw game state format
+                sample = {
+                    "features": item.get("features", []),
+                    "decision": item.get("decision", 0),
+                    "action_type": action_type,
+                }
+                # Add any additional fields that might be useful
+                if "game_id" in item:
+                    sample["game_id"] = item["game_id"]
+                if "player_id" in item:
+                    sample["player_id"] = item["player_id"]
+                # Add trump_suit if available (for call_trump decisions)
+                if "trump_suit" in item:
+                    sample["trump_suit"] = item["trump_suit"]
+                training_data.append(sample)
+
+        return training_data
+

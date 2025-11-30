@@ -546,6 +546,61 @@ class Player:
         """
         return self.profile.decide_trade_in(self, eligible_cards)
 
+    def get_belief_map(self) -> Optional[dict]:
+        """
+        Return current belief map if tracked by profile.
+
+        This is an optional method for EucherGo and similar players that track
+        probability distributions of unknown cards.
+
+        Returns
+        -------
+        Optional[dict]
+            Belief map dictionary if available, None otherwise.
+        """
+        if hasattr(self.profile, "belief_tracker"):
+            return self.profile.belief_tracker.get_all_belief_maps()
+        return None
+
+    def get_game_state(self) -> Optional[dict]:
+        """
+        Return full game state dict if available.
+
+        This is an optional method for EucherGo and similar players that need
+        access to comprehensive game state.
+
+        Returns
+        -------
+        Optional[dict]
+            Game state dictionary if available, None otherwise.
+        """
+        if hasattr(self.profile, "_get_game"):
+            try:
+                game = self.profile._get_game(self)
+                return {
+                    "dealer_id": game.dealer_id,
+                    "trump_suit": game.trump_suit,
+                    "turned_card": game.turned_card,
+                    "scores": game.scores,
+                }
+            except Exception:
+                return None
+        return None
+
+    def set_belief_tracker(self, tracker) -> None:
+        """
+        Set belief tracking instance if supported by profile.
+
+        This is an optional method for EucherGo and similar players.
+
+        Parameters
+        ----------
+        tracker
+            Belief tracker instance.
+        """
+        if hasattr(self.profile, "belief_tracker"):
+            self.profile.belief_tracker = tracker
+
     def __repr__(self) -> str:
         """
         Return string representation of the player.

@@ -2,6 +2,9 @@
 """Training script for PyTorch AI player.
 
 Supports cumulative training, multi-device support, and checkpoint management.
+
+NOTE: For self-play training (recommended), use train_pytorch_ai_self_play.py instead.
+This script is for supervised learning on pre-collected data files.
 """
 
 import argparse
@@ -220,14 +223,26 @@ def main() -> None:
     parser.add_argument(
         "--learning-rate",
         type=float,
-        default=1e-4,
-        help="Learning rate (default: 1e-4)",
+        default=5e-5,  # Lower default LR to help with convergence
+        help="Learning rate (default: 5e-5, reduced from 1e-4 for better convergence)",
     )
     parser.add_argument(
         "--num-epochs",
         type=int,
         default=10,
         help="Number of epochs to train (default: 10, used if --epochs and --duration not specified)",
+    )
+    parser.add_argument(
+        "--no-lr-scheduler",
+        action="store_true",
+        help="Disable learning rate scheduler (use fixed learning rate)",
+    )
+    parser.add_argument(
+        "--scheduler-type",
+        type=str,
+        default="cosine",
+        choices=["cosine", "step", "reduce_on_plateau"],
+        help="Learning rate scheduler type (default: cosine)",
     )
 
     args = parser.parse_args()
@@ -437,6 +452,8 @@ def main() -> None:
             batch_size=args.batch_size,
             resume=not args.no_resume,
             checkpoint_interval=args.checkpoint_interval,
+            use_lr_scheduler=not args.no_lr_scheduler,
+            scheduler_type=args.scheduler_type,
         )
 
         print(f"\nTraining completed!")

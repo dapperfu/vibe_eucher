@@ -5,6 +5,7 @@ import uuid
 from typing import List, Optional, Tuple, Union
 
 import numpy as np
+import torch
 
 from eucher.cards import Card, Deck, Suit
 from eucher.players import Player
@@ -13,7 +14,7 @@ from eucher.players.computer.ml.ml_config import MLConfig
 from eucher.players.computer.ml.ml_features import GameStateEncoder
 from eucher.players.computer.ml.ml_model import EucherMLModel
 from eucher.players.computer.ml.player import MLPlayer
-from eucher.players.computer import AIPlayer, HeuristicPlayer, HeuristicPlayer2, RandomPlayer
+from eucher.players.computer import AIPlayer, HeuristicPlayer, RandomPlayer
 from eucher.players.profiles import HumanProfile, MLBasedProfile, PlayerProfile
 from eucher.plugins import get_registry
 from eucher.rules import RulesEngine
@@ -176,7 +177,7 @@ class Game:
         if profile_type == "heuristic":
             return HeuristicPlayer()
         elif profile_type == "heuristic2":
-            return HeuristicPlayer2()
+            return HeuristicPlayer()
         elif profile_type == "ai":
             return AIPlayer(self.ai_decision_maker)
         elif profile_type == "random":
@@ -228,6 +229,25 @@ class Game:
                 player = EucherPerceiverMuZeroPlayer(
                     config=config, game=self, num_simulations=num_simulations, fast_mode=False
                 )
+            return player
+        elif profile_type == "reinforcement_eucher":
+            from eucher.players.computer.reinforcement_eucher.player import ReinforcementEucherPlayer
+            from eucher.players.computer.reinforcement_eucher.config import ReinforcementEucherConfig
+            from eucher.players.computer.reinforcement_eucher.networks.model import ReinforcementEucherModel
+
+            config = ReinforcementEucherConfig()
+            model = ReinforcementEucherModel(config)
+            
+            # Try to load checkpoint if available
+            checkpoint_dir = config.checkpoint_dir
+            latest_checkpoint = checkpoint_dir / "latest_checkpoint.pt"
+            if latest_checkpoint.exists() and latest_checkpoint.is_symlink():
+                resolved = latest_checkpoint.resolve()
+                if resolved.exists():
+                    checkpoint = torch.load(resolved, map_location=config.torch_device)
+                    model.load_state_dict(checkpoint["model_state_dict"])
+            
+            player = ReinforcementEucherPlayer(model=model, game=self)
             return player
         else:
             # Unknown profile type - check if it's a plugin we haven't loaded yet

@@ -154,8 +154,8 @@ class EuchreDataset(Dataset):
             "won_tricks_summary": features["won_tricks_summary"],
             "game_context": features["game_context"],
             "current_trick": features["current_trick"],
-            "target": torch.tensor([sample.get("decision", 0)], dtype=torch.long),
-            "action_type": "play_card",  # Default action type
+            "target": torch.tensor(sample.get("decision", 0), dtype=torch.long),  # Scalar, not list
+            "action_type": sample.get("action_type", "play_card"),  # Use action_type from sample
         }
 
     def _from_raw_state(self, sample: Dict) -> Dict:
@@ -316,15 +316,16 @@ class EuchreDataset(Dataset):
         Returns
         -------
         torch.Tensor
-            Target tensor.
+            Target tensor (scalar, will be batched to 1D by DataLoader).
         """
         if "decision" in sample:
-            return torch.tensor([sample["decision"]], dtype=torch.long)
+            # Return scalar tensor (0D) so DataLoader batches to 1D (batch_size,)
+            return torch.tensor(sample["decision"], dtype=torch.long)
         elif "action_value" in sample:
             # Parse action value
-            return torch.tensor([0], dtype=torch.long)  # Placeholder
+            return torch.tensor(0, dtype=torch.long)  # Placeholder
         else:
-            return torch.tensor([0], dtype=torch.long)
+            return torch.tensor(0, dtype=torch.long)
 
 
 class MultiDeviceTrainer:
@@ -365,6 +366,9 @@ class MultiDeviceTrainer:
 
         # Gradient accumulation
         self.gradient_accumulation_steps = self.config.get("gradient_accumulation_steps", 1)
+        
+        # Label smoothing (default 0.1 = 10%)
+        self.label_smoothing = 0.1
 
         print(f"Training on {device}")
         print(f"Configuration: {self.config}")
@@ -385,7 +389,9 @@ class MultiDeviceTrainer:
         return torch.optim.AdamW(
             self.model.parameters(),
             lr=learning_rate,
-            weight_decay=1e-5,
+            weight_decay=1e-4,  # Increased weight decay for better regularization
+            betas=(0.9, 0.999),
+            eps=1e-8,
         )
 
     def create_data_loader(
@@ -486,8 +492,9 @@ class MultiDeviceTrainer:
         else:
             outputs = self._forward_pass(batch)
 
-        # Calculate loss
-        loss = self._calculate_loss(outputs, batch, criterion)
+        # Calculate loss with label smoothing
+        label_smoothing = getattr(self, 'label_smoothing', 0.1)
+        loss = self._calculate_loss(outputs, batch, criterion, label_smoothing=label_smoothing)
 
         # Backward pass
         if self.use_mixed_precision:
@@ -497,10 +504,14 @@ class MultiDeviceTrainer:
 
         # Update weights if accumulation is complete
         if (accumulation_step + 1) % self.gradient_accumulation_steps == 0:
+            # Gradient clipping to prevent exploding gradients
             if self.use_mixed_precision:
+                self.scaler.unscale_(optimizer)
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
                 self.scaler.step(optimizer)
                 self.scaler.update()
             else:
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
                 optimizer.step()
             optimizer.zero_grad()
 
@@ -528,9 +539,9 @@ class MultiDeviceTrainer:
         )
 
     def _calculate_loss(
-        self, outputs: Dict, batch: Dict, criterion: nn.Module
+        self, outputs: Dict, batch: Dict, criterion: nn.Module, label_smoothing: float = 0.1
     ) -> torch.Tensor:
-        """Calculate loss from outputs and targets.
+        """Calculate loss from outputs and targets with label smoothing.
 
         Parameters
         ----------
@@ -540,6 +551,8 @@ class MultiDeviceTrainer:
             Batch with targets.
         criterion : nn.Module
             Loss function.
+        label_smoothing : float
+            Label smoothing factor (0.0 = no smoothing, 0.1 = 10% smoothing).
 
         Returns
         -------
@@ -574,43 +587,60 @@ class MultiDeviceTrainer:
         # Select appropriate output head
         if action_type == "order_up":
             output = outputs["order_up"].squeeze(-1)  # Binary classification
-            # For binary, use BCEWithLogitsLoss
+            # For binary, use BCEWithLogitsLoss with label smoothing
             if output.shape[-1] == 1:
-                # Binary classification - target should be 0 or 1
                 target_float = target.float().squeeze()
                 if target_float.dim() == 0:
                     target_float = target_float.unsqueeze(0)
+                # Apply label smoothing: 0 -> 0.05, 1 -> 0.95
+                target_smooth = target_float * (1.0 - 2 * label_smoothing) + label_smoothing
                 return nn.functional.binary_cross_entropy_with_logits(
-                    output.squeeze(-1), target_float
+                    output.squeeze(-1), target_smooth
                 )
             else:
-                # Multi-class (shouldn't happen for order_up)
                 return criterion(output, target.squeeze())
         elif action_type == "trump_selection":
             output = outputs["trump_selection"]
             target_squeezed = target.squeeze()
             if target_squeezed.dim() == 0:
                 target_squeezed = target_squeezed.unsqueeze(0)
-            # Clamp target to valid range
             target_squeezed = torch.clamp(target_squeezed, 0, output.shape[-1] - 1)
+            # Use label smoothing for multi-class
+            if label_smoothing > 0:
+                num_classes = output.shape[-1]
+                target_one_hot = torch.zeros_like(output)
+                target_one_hot.scatter_(1, target_squeezed.unsqueeze(1), 1.0)
+                target_one_hot = target_one_hot * (1.0 - label_smoothing) + label_smoothing / num_classes
+                log_probs = nn.functional.log_softmax(output, dim=1)
+                return -(target_one_hot * log_probs).sum(dim=1).mean()
             return criterion(output, target_squeezed)
         elif action_type == "discard":
             output = outputs["discard"]
             target_squeezed = target.squeeze()
             if target_squeezed.dim() == 0:
                 target_squeezed = target_squeezed.unsqueeze(0)
-            # Clamp target to valid range (0-5 for 6 cards)
             target_squeezed = torch.clamp(target_squeezed, 0, output.shape[-1] - 1)
+            if label_smoothing > 0:
+                num_classes = output.shape[-1]
+                target_one_hot = torch.zeros_like(output)
+                target_one_hot.scatter_(1, target_squeezed.unsqueeze(1), 1.0)
+                target_one_hot = target_one_hot * (1.0 - label_smoothing) + label_smoothing / num_classes
+                log_probs = nn.functional.log_softmax(output, dim=1)
+                return -(target_one_hot * log_probs).sum(dim=1).mean()
             return criterion(output, target_squeezed)
         elif action_type == "play_card":
             output = outputs["card_play"]
             target_squeezed = target.squeeze()
             if target_squeezed.dim() == 0:
                 target_squeezed = target_squeezed.unsqueeze(0)
-            # The target might be a global card index, but output is hand position
-            # For now, clamp to valid range (0-5 for 6 cards in hand)
-            # In production, you'd want to map global card index to hand position
             target_squeezed = torch.clamp(target_squeezed, 0, output.shape[-1] - 1)
+            if label_smoothing > 0:
+                num_classes = output.shape[-1]
+                target_one_hot = torch.zeros_like(output)
+                target_one_hot.scatter_(1, target_squeezed.unsqueeze(1), 1.0)
+                target_one_hot = target_one_hot * (1.0 - label_smoothing) + label_smoothing / num_classes
+                log_probs = nn.functional.log_softmax(output, dim=1)
+                return -(target_one_hot * log_probs).sum(dim=1).mean()
             return criterion(output, target_squeezed)
         else:
             # Default to card_play
@@ -619,6 +649,13 @@ class MultiDeviceTrainer:
             if target_squeezed.dim() == 0:
                 target_squeezed = target_squeezed.unsqueeze(0)
             target_squeezed = torch.clamp(target_squeezed, 0, output.shape[-1] - 1)
+            if label_smoothing > 0:
+                num_classes = output.shape[-1]
+                target_one_hot = torch.zeros_like(output)
+                target_one_hot.scatter_(1, target_squeezed.unsqueeze(1), 1.0)
+                target_one_hot = target_one_hot * (1.0 - label_smoothing) + label_smoothing / num_classes
+                log_probs = nn.functional.log_softmax(output, dim=1)
+                return -(target_one_hot * log_probs).sum(dim=1).mean()
             return criterion(output, target_squeezed)
 
 
@@ -673,6 +710,8 @@ class CumulativeTrainer:
         batch_size: Optional[int] = None,
         resume: bool = False,
         checkpoint_interval: int = 5,
+        use_lr_scheduler: bool = True,
+        scheduler_type: str = "cosine",
     ) -> Dict:
         """Train the model.
 
@@ -710,6 +749,27 @@ class CumulativeTrainer:
         optimizer = self._create_optimizer(learning_rate)
         criterion = nn.CrossEntropyLoss()
 
+        # Create learning rate scheduler
+        scheduler = None
+        warmup_epochs = max(1, num_epochs // 10)  # 10% warmup
+        if use_lr_scheduler:
+            if scheduler_type == "cosine":
+                scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+                    optimizer, T_max=num_epochs, eta_min=learning_rate * 0.001  # Lower minimum LR
+                )
+            elif scheduler_type == "step":
+                scheduler = torch.optim.lr_scheduler.StepLR(
+                    optimizer, step_size=max(1, num_epochs // 3), gamma=0.5
+                )
+            elif scheduler_type == "reduce_on_plateau":
+                scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                    optimizer, mode='min', factor=0.5, patience=3, verbose=True, min_lr=learning_rate * 0.001
+                )
+            else:
+                scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+                    optimizer, T_max=num_epochs, eta_min=learning_rate * 0.001
+                )
+
         data_loader = self.device_trainer.create_data_loader(dataset, batch_size)
 
         start_time = time.time()
@@ -717,15 +777,32 @@ class CumulativeTrainer:
 
         for epoch in range(self.current_epoch, self.current_epoch + num_epochs):
             epoch_start = time.time()
+            
+            # Warmup learning rate for first few epochs
+            if epoch < warmup_epochs and use_lr_scheduler:
+                warmup_lr = learning_rate * (epoch + 1) / warmup_epochs
+                for param_group in optimizer.param_groups:
+                    param_group['lr'] = warmup_lr
+            
             epoch_metrics = self._train_epoch(data_loader, optimizer, criterion)
             epoch_duration = time.time() - epoch_start
             total_duration += epoch_duration
 
+            # Update learning rate (skip warmup epochs)
+            current_lr = optimizer.param_groups[0]['lr']
+            if scheduler is not None and epoch >= warmup_epochs:
+                if scheduler_type == "reduce_on_plateau":
+                    scheduler.step(epoch_metrics.get("loss", 0.0))
+                else:
+                    scheduler.step()
+                current_lr = optimizer.param_groups[0]['lr']
+
             epoch_metrics["epoch"] = epoch
             epoch_metrics["duration"] = epoch_duration
+            epoch_metrics["learning_rate"] = current_lr
             self.training_history.append(epoch_metrics)
 
-            print(f"Epoch {epoch}: {epoch_metrics}")
+            print(f"Epoch {epoch}: loss={epoch_metrics.get('loss', 0.0):.4f}, lr={current_lr:.6f}")
 
             # Save checkpoint periodically
             if (epoch + 1) % checkpoint_interval == 0:

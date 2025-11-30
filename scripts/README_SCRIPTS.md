@@ -8,19 +8,19 @@ All scripts are executable and can be run directly:
 
 ```bash
 # Quick 30-minute training
-./scripts/train_quick.sh
+./scripts/training/train_quick.sh
 
 # Train until convergence (90% win rate)
-./scripts/train_until_converged.sh
+./scripts/training/train_until_converged.sh
 
 # Train with custom risk factors
-./scripts/train_with_risk.sh 0.3 0.7
+./scripts/training/train_with_risk.sh 0.3 0.7
 
 # Full training workflow
-./scripts/train_full_workflow.sh
+./scripts/training/train_full_workflow.sh
 
 # Generate model input documentation
-./scripts/generate_docs.sh
+./scripts/docs/generate_docs.sh
 ```
 
 ## Scripts Overview
@@ -30,7 +30,7 @@ Quick training for 30 minutes with default settings.
 
 **Usage:**
 ```bash
-./scripts/train_quick.sh
+./scripts/training/train_quick.sh
 ```
 
 **What it does:**
@@ -44,13 +44,13 @@ Train until model achieves target win rate.
 **Usage:**
 ```bash
 # Default: 90% win rate, 100 game window
-./scripts/train_until_converged.sh
+./scripts/training/train_until_converged.sh
 
 # Custom win rate: 95%
-./scripts/train_until_converged.sh 0.95
+./scripts/training/train_until_converged.sh 0.95
 
 # Custom win rate and window size
-./scripts/train_until_converged.sh 0.95 200
+./scripts/training/train_until_converged.sh 0.95 200
 ```
 
 **What it does:**
@@ -64,13 +64,13 @@ Train with custom risk/temperature factors.
 **Usage:**
 ```bash
 # Default: balanced play (0.5/0.5)
-./scripts/train_with_risk.sh
+./scripts/training/train_with_risk.sh
 
 # Conservative trump (0.2), risky gameplay (0.8)
-./scripts/train_with_risk.sh 0.2 0.8
+./scripts/training/train_with_risk.sh 0.2 0.8
 
 # Custom duration: 1 day
-./scripts/train_with_risk.sh 0.3 0.7 "1d"
+./scripts/training/train_with_risk.sh 0.3 0.7 "1d"
 ```
 
 **Risk Factor Guide:**
@@ -84,10 +84,10 @@ Complete training pipeline from data collection to convergence.
 **Usage:**
 ```bash
 # Default: 500 data games, 90% target win rate
-./scripts/train_full_workflow.sh
+./scripts/training/train_full_workflow.sh
 
 # Custom data collection and target
-./scripts/train_full_workflow.sh 1000 0.95
+./scripts/training/train_full_workflow.sh 1000 0.95
 ```
 
 **What it does:**
@@ -101,13 +101,13 @@ Generate model input documentation.
 **Usage:**
 ```bash
 # Generate both markdown and HTML
-./scripts/generate_docs.sh
+./scripts/docs/generate_docs.sh
 
 # Generate only markdown
-./scripts/generate_docs.sh markdown
+./scripts/docs/generate_docs.sh markdown
 
 # Generate only HTML
-./scripts/generate_docs.sh html
+./scripts/docs/generate_docs.sh html
 ```
 
 **Output:**
@@ -134,17 +134,17 @@ Each script displays the Python command it runs. You can also run these directly
 
 ```bash
 # Quick training
-python scripts/train_models.py --mode train_rl --duration 30m
+python scripts/training/train_models.py --mode train_rl --duration 30m
 
 # Convergence training
-python scripts/train_models.py --mode train_rl --until-converged --target-win-rate 0.90
+python scripts/training/train_models.py --mode train_rl --until-converged --target-win-rate 0.90
 
 # Risk-based training
-python scripts/train_models.py --mode train_rl --duration 2h \
+python scripts/training/train_models.py --mode train_rl --duration 2h \
     --trump-selection-risk 0.3 --gameplay-risk 0.7
 
 # Generate documentation
-python scripts/generate_input_docs.py --format both
+python scripts/docs/generate_input_docs.py --format both
 ```
 
 ## Output Locations
