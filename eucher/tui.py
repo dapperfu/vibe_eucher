@@ -376,24 +376,26 @@ class TextTUI:
                 trick_cards[pid] = str(card)
             
             # Build row with proper alignment
+            # Format trick number
             row_parts = [f"{trick_num:<{trick_col_width}}"]
+            
+            # Format each player's card column
             for i in range(num_players):
                 card_str = trick_cards.get(i, "-")
-                # Highlight winner's card
+                # Format to column width first (using uncolored string)
+                formatted_card = f"{card_str:<{col_widths[i]}}"
+                # Then apply color if needed (this preserves the padding)
                 if i == winner_id:
-                    display_str = self._red_text(card_str)
-                else:
-                    display_str = card_str
-                # Pad based on original string length (ANSI codes don't affect visual width)
-                padding_needed = col_widths[i] - len(card_str)
-                row_parts.append(f"{display_str}{' ' * padding_needed}")
+                    formatted_card = self._red_text(formatted_card)
+                row_parts.append(formatted_card)
             
-            # Add winner name
+            # Format winner column
             winner_name = self.players[winner_id].name if winner_id < len(self.players) else f"Player {winner_id}"
-            winner_display = self._red_text(winner_name)
-            winner_padding = winner_col_width - len(winner_name)
-            row_parts.append(f"{winner_display}{' ' * winner_padding}")
+            formatted_winner = f"{winner_name:<{winner_col_width}}"
+            formatted_winner = self._red_text(formatted_winner)
+            row_parts.append(formatted_winner)
             
+            # Join with single space between columns
             print(" ".join(row_parts))
         
         print("=" * 80)
