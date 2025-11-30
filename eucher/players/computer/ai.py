@@ -1,7 +1,7 @@
 """AI decision making for Euchre game."""
 
 import random
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from typing import TYPE_CHECKING
 
@@ -1036,6 +1036,248 @@ class AIPlayer(ComputerPlayer):
     def decide_trade_in(self, player: "Player", eligible_cards: List[Card]) -> bool:
         """Use AI to decide whether to trade-in."""
         return self.ai.decide_trade_in(player, eligible_cards)
+
+    def get_order_up_probabilities(
+        self, player: "Player", turned_card: Card, dealer_id: int, trump_suit: Optional[Suit]
+    ) -> Dict[bool, float]:
+        """
+        Return probability distribution for order up decision based on hand strength.
+
+        Parameters
+        ----------
+        player : Player
+            The player making the decision.
+        turned_card : Card
+            The card that was turned up.
+        dealer_id : int
+            The ID of the dealer.
+        trump_suit : Optional[Suit]
+            Current trump suit if already determined.
+
+        Returns
+        -------
+        Dict[bool, float]
+            Dictionary mapping decision (True=order up, False=pass) to probability.
+        """
+        if trump_suit is not None:
+            return {False: 1.0, True: 0.0}
+
+        potential_trump = turned_card.suit
+        hand_strength = self.ai._evaluate_hand_strength(player.hand, potential_trump)
+
+        # Base threshold for ordering up
+        base_threshold = 150.0
+
+        # Adjust threshold based on position (being dealer's partner is better)
+        is_dealer_partner = (player.player_id % 2) == (dealer_id % 2)
+        if is_dealer_partner:
+            base_threshold -= 20.0
+
+        # Convert hand strength to probability using sigmoid-like function
+        # Higher hand strength = higher probability of ordering up
+        diff = hand_strength - base_threshold
+        # Use sigmoid to convert difference to probability
+        import math
+        prob_order_up = 1.0 / (1.0 + math.exp(-diff / 20.0))  # Scale factor of 20
+
+        return {True: float(prob_order_up), False: float(1.0 - prob_order_up)}
+
+    def get_call_trump_probabilities(
+        self,
+        player: "Player",
+        turned_card: Card,
+        trump_suit: Optional[Suit],
+        must_choose: bool = False,
+    ) -> Dict[Optional[Suit], float]:
+        """
+        Return probability distribution for call trump decision based on hand strength scores.
+
+        Parameters
+        ----------
+        player : Player
+            The player making the decision.
+        turned_card : Card
+            The card that was turned up (cannot be chosen).
+        trump_suit : Optional[Suit]
+            Current trump suit if already determined.
+        must_choose : bool
+            If True, must choose a suit (cannot pass).
+
+        Returns
+        -------
+        Dict[Optional[Suit], float]
+            Dictionary mapping suit (or None for pass) to probability.
+        """
+        if trump_suit is not None:
+            return {trump_suit: 1.0}
+
+        forbidden_suit = turned_card.suit
+        suits = [Suit.HEARTS, Suit.DIAMONDS, Suit.CLUBS, Suit.SPADES]
+
+        # Calculate scores for each suit
+        suit_scores: Dict[Suit, float] = {}
+        for suit in suits:
+            if suit == forbidden_suit:
+                continue
+
+            hand_strength = self.ai._evaluate_hand_strength(player.hand, suit)
+            trump_count = self.ai._count_trump_cards(player.hand, suit)
+
+            score = hand_strength
+
+            # Bonus for having bowers
+            if self.ai._has_bower(player.hand, suit):
+                score += 30.0
+
+            # Bonus for multiple trump cards
+            if trump_count >= 3:
+                score += 20.0
+            elif trump_count >= 2:
+                score += 10.0
+
+            suit_scores[suit] = score
+
+        # Calculate pass score (lower threshold means more likely to pass)
+        threshold = 140.0 if not must_choose else 80.0
+        pass_score = threshold  # Pass is equivalent to threshold score
+
+        # Convert scores to probabilities using softmax
+        all_scores = [pass_score] + [suit_scores[suit] for suit in suit_scores]
+        # Normalize scores to positive values for softmax
+        min_score = min(all_scores)
+        normalized_scores = [s - min_score + 1.0 for s in all_scores]
+
+        # Apply softmax
+        import math
+        exp_scores = [math.exp(s) for s in normalized_scores]
+        total_exp = sum(exp_scores)
+        probs = [s / total_exp for s in exp_scores]
+
+        result: Dict[Optional[Suit], float] = {}
+        if not must_choose:
+            result[None] = float(probs[0])
+        for i, suit in enumerate(suit_scores.keys()):
+            result[suit] = float(probs[i + (0 if must_choose else 1)])
+
+        return result
+
+    def get_play_card_probabilities(
+        self,
+        player: "Player",
+        led_suit: Optional[Suit],
+        trump_suit: Optional[Suit],
+        trick_cards: List[Card],
+        trick_player_ids: List[int],
+    ) -> Dict[Card, float]:
+        """
+        Return probability distribution for play card decision based on card power scores.
+
+        Parameters
+        ----------
+        player : Player
+            The player making the decision.
+        led_suit : Optional[Suit]
+            The suit that was led, if any.
+        trump_suit : Optional[Suit]
+            The current trump suit, if any.
+        trick_cards : List[Card]
+            Cards already played in the trick.
+        trick_player_ids : List[int]
+            Player IDs who played each card in trick_cards.
+
+        Returns
+        -------
+        Dict[Card, float]
+            Dictionary mapping card to probability (only valid cards).
+        """
+        valid_cards = self.ai.rules.get_valid_plays(player.hand, led_suit, trump_suit)
+        if not valid_cards:
+            return {}
+
+        # Determine context for card power calculation
+        context = "general"
+        if led_suit is None:
+            context = "leading"
+        elif len(trick_cards) == 3:
+            context = "last_play"
+        else:
+            context = "following"
+
+        # Calculate power scores for each valid card
+        card_scores: Dict[Card, float] = {}
+        for card in valid_cards:
+            power = self.ai._calculate_card_power(card, trump_suit, context)
+            card_scores[card] = power
+
+        # Convert scores to probabilities using softmax
+        scores = list(card_scores.values())
+        if not scores:
+            return {}
+
+        import math
+        # Normalize scores to positive values
+        min_score = min(scores)
+        normalized_scores = [s - min_score + 1.0 for s in scores]
+
+        # Apply softmax
+        exp_scores = [math.exp(s) for s in normalized_scores]
+        total_exp = sum(exp_scores)
+        probs = [s / total_exp for s in exp_scores]
+
+        result: Dict[Card, float] = {}
+        for i, card in enumerate(valid_cards):
+            result[card] = float(probs[i])
+
+        return result
+
+    def get_discard_probabilities(
+        self, player: "Player", turned_card: Optional[Card] = None, ordered_up_by: Optional[str] = None
+    ) -> Dict[Card, float]:
+        """
+        Return probability distribution for discard decision based on card values.
+
+        Parameters
+        ----------
+        player : Player
+            The dealer player.
+        turned_card : Optional[Card]
+            The card that was ordered up, if available.
+        ordered_up_by : Optional[str]
+            Name of the player who ordered up, if available.
+
+        Returns
+        -------
+        Dict[Card, float]
+            Dictionary mapping card to probability.
+        """
+        if not player.hand:
+            return {}
+
+        # Calculate discard value for each card (lower is better to discard)
+        # Use rank value as proxy (lower rank = more likely to discard)
+        card_values: Dict[Card, float] = {}
+        for card in player.hand:
+            # Higher rank value = less likely to discard
+            # Invert so higher values become lower discard probabilities
+            value = card.rank.value
+            card_values[card] = value
+
+        # Convert to discard probabilities (lower value = higher discard probability)
+        # Invert the scores
+        max_value = max(card_values.values())
+        discard_scores = {card: max_value - value + 1.0 for card, value in card_values.items()}
+
+        # Normalize to probabilities
+        total_score = sum(discard_scores.values())
+        if total_score > 0:
+            result: Dict[Card, float] = {}
+            for card in player.hand:
+                result[card] = discard_scores[card] / total_score
+            return result
+        else:
+            # Fallback: equal distribution
+            prob = 1.0 / len(player.hand)
+            return {card: prob for card in player.hand}
 
     def decide_going_alone(self, player: "Player", trump_suit: Suit) -> bool:
         """Use AI to decide whether to go alone."""
