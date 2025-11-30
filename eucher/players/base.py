@@ -1,7 +1,7 @@
 """Base player classes for Euchre game."""
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 from eucher.cards import Card, Suit
 
@@ -164,6 +164,184 @@ class PlayerProfile(ABC):
             True to trade-in, False to pass.
         """
         pass
+
+    def get_order_up_probabilities(
+        self, player: "Player", turned_card: Card, dealer_id: int, trump_suit: Optional[Suit]
+    ) -> Dict[bool, float]:
+        """
+        Return probability distribution for order up decision.
+
+        Default implementation calls decide_order_up() and returns binary distribution.
+        Subclasses should override to return actual probability distributions.
+
+        Parameters
+        ----------
+        player : Player
+            The player making the decision.
+        turned_card : Card
+            The card that was turned up.
+        dealer_id : int
+            The ID of the dealer.
+        trump_suit : Optional[Suit]
+            Current trump suit if already determined.
+
+        Returns
+        -------
+        Dict[bool, float]
+            Dictionary mapping decision (True=order up, False=pass) to probability.
+        """
+        decision = self.decide_order_up(player, turned_card, dealer_id, trump_suit)
+        return {decision: 1.0, not decision: 0.0}
+
+    def get_call_trump_probabilities(
+        self,
+        player: "Player",
+        turned_card: Card,
+        trump_suit: Optional[Suit],
+        must_choose: bool = False,
+    ) -> Dict[Optional[Suit], float]:
+        """
+        Return probability distribution for call trump decision.
+
+        Default implementation calls decide_call_trump() and returns binary distribution.
+        Subclasses should override to return actual probability distributions.
+
+        Parameters
+        ----------
+        player : Player
+            The player making the decision.
+        turned_card : Card
+            The card that was turned up (cannot be chosen).
+        trump_suit : Optional[Suit]
+            Current trump suit if already determined.
+        must_choose : bool
+            If True, must choose a suit (cannot pass).
+
+        Returns
+        -------
+        Dict[Optional[Suit], float]
+            Dictionary mapping suit (or None for pass) to probability.
+        """
+        decision = self.decide_call_trump(player, turned_card, trump_suit, must_choose)
+        forbidden_suit = turned_card.suit
+        available_suits = [suit for suit in Suit if suit != forbidden_suit]
+        
+        result: Dict[Optional[Suit], float] = {}
+        for suit in available_suits:
+            result[suit] = 0.0
+        if not must_choose:
+            result[None] = 0.0
+        result[decision] = 1.0
+        return result
+
+    def get_play_card_probabilities(
+        self,
+        player: "Player",
+        led_suit: Optional[Suit],
+        trump_suit: Optional[Suit],
+        trick_cards: List[Card],
+        trick_player_ids: List[int],
+    ) -> Dict[Card, float]:
+        """
+        Return probability distribution for play card decision.
+
+        Default implementation calls play_card() and returns binary distribution.
+        Subclasses should override to return actual probability distributions.
+
+        Parameters
+        ----------
+        player : Player
+            The player making the decision.
+        led_suit : Optional[Suit]
+            The suit that was led, if any.
+        trump_suit : Optional[Suit]
+            The current trump suit, if any.
+        trick_cards : List[Card]
+            Cards already played in the trick.
+        trick_player_ids : List[int]
+            Player IDs who played each card in trick_cards.
+
+        Returns
+        -------
+        Dict[Card, float]
+            Dictionary mapping card to probability (only valid cards).
+        """
+        from eucher.rules import RulesEngine
+        
+        rules = RulesEngine()
+        valid_cards = rules.get_valid_plays(player.hand, led_suit, trump_suit)
+        
+        if not valid_cards:
+            return {}
+        
+        decision = self.play_card(player, led_suit, trump_suit, trick_cards, trick_player_ids)
+        
+        result: Dict[Card, float] = {}
+        for card in valid_cards:
+            result[card] = 0.0
+        
+        # Find matching card by suit and rank
+        matching_card = None
+        for card in valid_cards:
+            if card.suit == decision.suit and card.rank == decision.rank:
+                matching_card = card
+                break
+        
+        if matching_card is not None:
+            result[matching_card] = 1.0
+        else:
+            # Fallback: equal distribution
+            prob = 1.0 / len(valid_cards)
+            for card in valid_cards:
+                result[card] = prob
+        
+        return result
+
+    def get_discard_probabilities(
+        self, player: "Player", turned_card: Optional[Card] = None, ordered_up_by: Optional[str] = None
+    ) -> Dict[Card, float]:
+        """
+        Return probability distribution for discard decision.
+
+        Default implementation calls choose_card_to_discard() and returns binary distribution.
+        Subclasses should override to return actual probability distributions.
+
+        Parameters
+        ----------
+        player : Player
+            The dealer player.
+        turned_card : Optional[Card]
+            The card that was ordered up, if available.
+        ordered_up_by : Optional[str]
+            Name of the player who ordered up, if available.
+
+        Returns
+        -------
+        Dict[Card, float]
+            Dictionary mapping card to probability.
+        """
+        decision = self.choose_card_to_discard(player, turned_card, ordered_up_by)
+        
+        result: Dict[Card, float] = {}
+        for card in player.hand:
+            result[card] = 0.0
+        
+        # Find matching card by suit and rank
+        matching_card = None
+        for card in player.hand:
+            if card.suit == decision.suit and card.rank == decision.rank:
+                matching_card = card
+                break
+        
+        if matching_card is not None:
+            result[matching_card] = 1.0
+        else:
+            # Fallback: equal distribution
+            prob = 1.0 / len(player.hand) if player.hand else 0.0
+            for card in player.hand:
+                result[card] = prob
+        
+        return result
 
 
 class Player:

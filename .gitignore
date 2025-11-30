@@ -60,11 +60,16 @@ models/**/*.hdf5
 models/checkpoints/
 !models/.gitkeep
 
-# Notebooks (can contain large outputs)
-*.ipynb
-!examples/*.ipynb
-!notebooks/*.ipynb
 
 # Profiles and logs
 profiles/
 *.log
+
+**/training_data/*
+
+# Temporary result files
+checkpoint.json
+results*.json
+*_comparison.json
+*_simulation_comparison_*.json
+tournament_results_*.json

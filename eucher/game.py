@@ -468,6 +468,10 @@ class Game:
             tricks_won[winner.team] += 1
             self._current_tricks_won = tricks_won.copy()
             
+            # Update TUI with current tricks won
+            if self.tui is not None and hasattr(self.tui, "update_tricks_won"):
+                self.tui.update_tricks_won(tuple(tricks_won))
+            
             # Record statistics
             self.stats.record_trick_winner(winner_id, winner.team)
 
@@ -517,6 +521,10 @@ class Game:
 
         # Rotate dealer
         self.dealer_id = (self.dealer_id + 1) % 4
+        
+        # Update TUI with new dealer ID
+        if self.tui is not None and hasattr(self.tui, "update_dealer_id"):
+            self.tui.update_dealer_id(self.dealer_id)
 
         # Check for game end
         return not self._is_game_over()

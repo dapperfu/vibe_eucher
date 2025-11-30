@@ -1,6 +1,6 @@
 """Player profile implementations."""
 
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 # torch is imported lazily only when needed for ML profiles
 from eucher.cards import Card, Rank, Suit
@@ -415,3 +415,267 @@ class MLBasedProfile(PlayerProfile):
             return True
 
         return False
+
+    def get_order_up_probabilities(
+        self, player: "Player", turned_card: Card, dealer_id: int, trump_suit: Optional[Suit]
+    ) -> Dict[bool, float]:
+        """
+        Return probability distribution for order up decision from ML model.
+
+        Parameters
+        ----------
+        player : Player
+            The player making the decision.
+        turned_card : Card
+            The card that was turned up.
+        dealer_id : int
+            The ID of the dealer.
+        trump_suit : Optional[Suit]
+            Current trump suit if already determined.
+
+        Returns
+        -------
+        Dict[bool, float]
+            Dictionary mapping decision (True=order up, False=pass) to probability.
+        """
+        if trump_suit is not None:
+            return {False: 1.0, True: 0.0}
+
+        trick_num, tricks_won_team0, tricks_won_team1 = self._get_game_state()
+
+        features = self.encoder.encode_game_state(
+            hand=player.hand,
+            turned_card=turned_card,
+            trump_suit=None,
+            led_suit=None,
+            trick_cards=[],
+            player_id=player.player_id,
+            dealer_id=dealer_id,
+            team=player.team,
+            trick_number=trick_num,
+            tricks_won_team0=tricks_won_team0,
+            tricks_won_team1=tricks_won_team1,
+        )
+
+        import torch  # Lazy import
+        with torch.no_grad():
+            features = features.unsqueeze(0).to(self.ml_model.device)
+            order_up_logits, _ = self.ml_model.trump_net(features)
+            order_up_prob = torch.sigmoid(order_up_logits).item()
+
+        return {True: float(order_up_prob), False: float(1.0 - order_up_prob)}
+
+    def get_call_trump_probabilities(
+        self,
+        player: "Player",
+        turned_card: Card,
+        trump_suit: Optional[Suit],
+        must_choose: bool = False,
+    ) -> Dict[Optional[Suit], float]:
+        """
+        Return probability distribution for call trump decision from ML model.
+
+        Parameters
+        ----------
+        player : Player
+            The player making the decision.
+        turned_card : Card
+            The card that was turned up (cannot be chosen).
+        trump_suit : Optional[Suit]
+            Current trump suit if already determined.
+        must_choose : bool
+            If True, must choose a suit (cannot pass).
+
+        Returns
+        -------
+        Dict[Optional[Suit], float]
+            Dictionary mapping suit (or None for pass) to probability.
+        """
+        if trump_suit is not None:
+            return {trump_suit: 1.0}
+
+        trick_num, tricks_won_team0, tricks_won_team1 = self._get_game_state()
+
+        features = self.encoder.encode_game_state(
+            hand=player.hand,
+            turned_card=turned_card,
+            trump_suit=None,
+            led_suit=None,
+            trick_cards=[],
+            player_id=player.player_id,
+            dealer_id=0,
+            team=player.team,
+            trick_number=trick_num,
+            tricks_won_team0=tricks_won_team0,
+            tricks_won_team1=tricks_won_team1,
+        )
+
+        import torch  # Lazy import
+        with torch.no_grad():
+            features = features.unsqueeze(0).to(self.ml_model.device)
+            _, call_trump_logits = self.ml_model.trump_net(features)
+            call_trump_probs = torch.softmax(call_trump_logits, dim=1).squeeze(0)
+
+        # Map to suits: [pass, HEARTS, DIAMONDS, CLUBS, SPADES]
+        suits = [None, Suit.HEARTS, Suit.DIAMONDS, Suit.CLUBS, Suit.SPADES]
+        forbidden_suit = turned_card.suit
+
+        result: Dict[Optional[Suit], float] = {}
+        for i, suit in enumerate(suits):
+            if suit != forbidden_suit:
+                if must_choose and suit is None:
+                    continue
+                result[suit] = float(call_trump_probs[i].item())
+
+        # Normalize if needed
+        total = sum(result.values())
+        if total > 0:
+            for suit in result:
+                result[suit] /= total
+
+        return result
+
+    def get_play_card_probabilities(
+        self,
+        player: "Player",
+        led_suit: Optional[Suit],
+        trump_suit: Optional[Suit],
+        trick_cards: List[Card],
+        trick_player_ids: List[int],
+    ) -> Dict[Card, float]:
+        """
+        Return probability distribution for play card decision from ML model.
+
+        Parameters
+        ----------
+        player : Player
+            The player making the decision.
+        led_suit : Optional[Suit]
+            The suit that was led, if any.
+        trump_suit : Optional[Suit]
+            The current trump suit, if any.
+        trick_cards : List[Card]
+            Cards already played in the trick.
+        trick_player_ids : List[int]
+            Player IDs who played each card in trick_cards.
+
+        Returns
+        -------
+        Dict[Card, float]
+            Dictionary mapping card to probability (only valid cards).
+        """
+        valid_cards = self.rules.get_valid_plays(player.hand, led_suit, trump_suit)
+        if not valid_cards:
+            return {}
+
+        trick_num, tricks_won_team0, tricks_won_team1 = self._get_game_state()
+
+        features = self.encoder.encode_game_state(
+            hand=player.hand,
+            turned_card=None,
+            trump_suit=trump_suit,
+            led_suit=led_suit,
+            trick_cards=trick_cards,
+            player_id=player.player_id,
+            dealer_id=0,
+            team=player.team,
+            trick_number=trick_num,
+            tricks_won_team0=tricks_won_team0,
+            tricks_won_team1=tricks_won_team1,
+        )
+
+        import torch  # Lazy import
+        with torch.no_grad():
+            features = features.unsqueeze(0).to(self.ml_model.device)
+            card_logits = self.ml_model.card_play_net(features)
+
+        valid_indices = self.encoder.get_valid_card_indices(valid_cards)
+
+        from eucher.players.computer.ml.ml_decision_weights import get_decision_weights_from_logits
+
+        weights = get_decision_weights_from_logits(card_logits.squeeze(0))
+
+        result: Dict[Card, float] = {}
+        total_weight = 0.0
+        for idx in valid_indices:
+            if 0 <= idx < len(weights):
+                card = self.encoder.decode_card_index(idx)
+                if card in valid_cards:
+                    weight = float(weights[idx])
+                    result[card] = weight
+                    total_weight += weight
+
+        # Normalize
+        if total_weight > 0:
+            for card in result:
+                result[card] /= total_weight
+        else:
+            # Fallback: equal distribution
+            prob = 1.0 / len(valid_cards)
+            for card in valid_cards:
+                result[card] = prob
+
+        return result
+
+    def get_discard_probabilities(
+        self, player: "Player", turned_card: Optional[Card] = None, ordered_up_by: Optional[str] = None
+    ) -> Dict[Card, float]:
+        """
+        Return probability distribution for discard decision from ML model.
+
+        Parameters
+        ----------
+        player : Player
+            The dealer player.
+        turned_card : Optional[Card]
+            The card that was ordered up, if available.
+        ordered_up_by : Optional[str]
+            Name of the player who ordered up, if available.
+
+        Returns
+        -------
+        Dict[Card, float]
+            Dictionary mapping card to probability.
+        """
+        if not player.hand:
+            return {}
+
+        trick_num, tricks_won_team0, tricks_won_team1 = self._get_game_state()
+
+        features = self.encoder.encode_game_state(
+            hand=player.hand,
+            turned_card=turned_card,
+            trump_suit=turned_card.suit if turned_card else None,
+            led_suit=None,
+            trick_cards=[],
+            player_id=player.player_id,
+            dealer_id=player.player_id,
+            team=player.team,
+            trick_number=trick_num,
+            tricks_won_team0=tricks_won_team0,
+            tricks_won_team1=tricks_won_team1,
+        )
+
+        import torch  # Lazy import
+        with torch.no_grad():
+            features = features.unsqueeze(0).to(self.ml_model.device)
+            discard_logits = self.ml_model.discard_net(features)
+
+        from eucher.players.computer.ml.ml_decision_weights import get_decision_weights_from_logits
+
+        weights = get_decision_weights_from_logits(discard_logits.squeeze(0))
+
+        result: Dict[Card, float] = {}
+        for i, card in enumerate(player.hand):
+            if i < len(weights):
+                result[card] = float(weights[i])
+            else:
+                result[card] = 0.0
+
+        # Normalize
+        total = sum(result.values())
+        if total > 0:
+            for card in result:
+                result[card] /= total
+
+        return result

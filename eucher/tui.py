@@ -606,6 +606,22 @@ class TextTUI:
             # Fallback for systems without termios (e.g., Windows)
             # Just wait for Enter key
             input()
+    
+    def _red_text(self, text: str) -> str:
+        """
+        Format text in red using ANSI color codes.
+        
+        Parameters
+        ----------
+        text : str
+            Text to format in red.
+        
+        Returns
+        -------
+        str
+            Text with ANSI red color codes.
+        """
+        return f"\033[91m{text}\033[0m"
 
     def display_scores(self, team0_score: int, team1_score: int) -> None:
         """
@@ -702,9 +718,10 @@ class TextTUI:
         # Get assistant recommendations if available
         yes_prob = None
         no_prob = None
+        hand_strength = None
         if self.assistant_helper is not None:
             try:
-                recommendations = self.assistant_helper.get_order_up_recommendation(
+                recommendations, hand_strength = self.assistant_helper.get_order_up_recommendation(
                     player.hand, turned_card, dealer_id
                 )
                 yes_prob = recommendations.get(True, 0.0) * 100
@@ -712,12 +729,18 @@ class TextTUI:
             except Exception:
                 pass  # Silently fail if assistant fails
         
+        # Display hand strength if available
+        if hand_strength is not None:
+            print(f"\n{self._red_text(f'Hand Strength: {hand_strength:.1f}')}")
+        
         # Get decision
         while True:
             print("\nOrder up this card?")
             if yes_prob is not None and no_prob is not None:
-                print(f"  y) Yes ({yes_prob:.0f}%)")
-                print(f"  n) No ({no_prob:.0f}%)")
+                yes_str = self._red_text(f"({yes_prob:.0f}%)")
+                no_str = self._red_text(f"({no_prob:.0f}%)")
+                print(f"  y) Yes {yes_str}")
+                print(f"  n) No {no_str}")
             else:
                 print("  y) Yes")
                 print("  n) No")
@@ -807,9 +830,10 @@ class TextTUI:
         # Get assistant recommendations if available
         suit_probs: Dict[Suit, float] = {}
         pass_prob: Optional[float] = None
+        hand_strengths: Optional[Dict[Suit, float]] = None
         if self.assistant_helper is not None:
             try:
-                recommendations = self.assistant_helper.get_call_trump_recommendation(
+                recommendations, hand_strengths = self.assistant_helper.get_call_trump_recommendation(
                     player.hand, turned_card, must_choose
                 )
                 for suit, prob in recommendations.items():
@@ -819,6 +843,12 @@ class TextTUI:
                         suit_probs[suit] = prob * 100
             except Exception:
                 pass  # Silently fail if assistant fails
+        
+        # Display hand strengths if available
+        if hand_strengths is not None:
+            print(f"\n{self._red_text('Hand Strength by Suit:')}")
+            for suit, strength in hand_strengths.items():
+                print(f"  {self._red_text(f'{suit.value}: {strength:.1f}')}")
         
         # Get decision
         while True:
@@ -833,13 +863,13 @@ class TextTUI:
             for choice, suit in suit_map.items():
                 prob_str = ""
                 if suit in suit_probs:
-                    prob_str = f" ({suit_probs[suit]:.0f}%)"
+                    prob_str = f" {self._red_text(f'({suit_probs[suit]:.0f}%)')}"
                 print(f"  {choice}. {suit.value} {suit.unicode_symbol()}{prob_str}")
             
             if not must_choose:
                 pass_str = ""
                 if pass_prob is not None:
-                    pass_str = f" ({pass_prob:.0f}%)"
+                    pass_str = f" {self._red_text(f'({pass_prob:.0f}%)')}"
                 print(f"  5. Pass{pass_str}")
             print(f"\nChoice (1-{'4' if must_choose else '5'}): ", end="")
 
@@ -919,7 +949,7 @@ class TextTUI:
         for i, card in enumerate(sorted_hand):
             prob_str = ""
             if card in card_probs:
-                prob_str = f" ({card_probs[card]:.0f}%)"
+                prob_str = f" {self._red_text(f'({card_probs[card]:.0f}%)')}"
             print(f"  {i + 1}. {card}{prob_str}")
         
         # Get decision
@@ -1080,7 +1110,7 @@ class TextTUI:
             for display_idx, (actual_idx, card) in enumerate(sorted_mapping, start=1):
                 prob_str = ""
                 if card in card_probs:
-                    prob_str = f" ({card_probs[card]:.0f}%)"
+                    prob_str = f" {self._red_text(f'({card_probs[card]:.0f}%)')}"
                 print(f"  {display_idx}. {card}{prob_str}")
             
             # Get decision
@@ -1119,7 +1149,7 @@ class TextTUI:
             for i, card in enumerate(sorted_hand):
                 prob_str = ""
                 if card in card_probs:
-                    prob_str = f" ({card_probs[card]:.0f}%)"
+                    prob_str = f" {self._red_text(f'({card_probs[card]:.0f}%)')}"
                 print(f"  {i + 1}. {card}{prob_str}")
             
             # Get decision

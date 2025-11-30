@@ -100,9 +100,32 @@ def play(opponent_type: Optional[str], name: str, seed: Optional[str], save_dir:
     """
     # Handle assistant list request
     if assistant == "list":
+        registry = get_registry()
+        all_metadata = registry.get_all_metadata()
+        
         click.echo("Available assistant bot types:")
-        for bot_type in COMPUTER_TYPES:
-            click.echo(f"  - {bot_type}")
+        click.echo()
+        
+        # Sort by name for consistent output
+        sorted_plugins = sorted(all_metadata.items(), key=lambda x: x[0])
+        
+        for plugin_name, metadata in sorted_plugins:
+            # Skip human profile
+            if plugin_name == "human":
+                continue
+            
+            display_name = metadata.display_name
+            description = metadata.description
+            
+            # Format output
+            if description:
+                click.echo(f"  {plugin_name}")
+                click.echo(f"    Display Name: {display_name}")
+                click.echo(f"    Description: {description}")
+            else:
+                click.echo(f"  {plugin_name} ({display_name})")
+            click.echo()
+        
         return
     
     # Parse seed - can be integer or UUID string
