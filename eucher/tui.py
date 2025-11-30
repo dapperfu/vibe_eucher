@@ -5,6 +5,13 @@ from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
 from eucher.cards import Card, Suit
 from eucher.players import Player
 
+try:
+    from rich.table import Table
+    from rich.console import Console
+    RICH_AVAILABLE = True
+except ImportError:
+    RICH_AVAILABLE = False
+
 if TYPE_CHECKING:
     from eucher.assistant import AssistantHelper
 
@@ -324,83 +331,127 @@ class TextTUI:
         if not self.hand_tricks or self.players is None:
             return
         
-        print("\n" + "=" * 80)
-        print("TRICK SUMMARY")
-        print("=" * 80)
-        
-        # Get player names
-        player_names = [p.name for p in self.players]
-        num_players = len(player_names)
-        
-        # Collect all card strings to calculate proper column widths
-        all_trick_cards: List[Dict[int, str]] = []
-        for trick_data in self.hand_tricks:
-            trick_cards: Dict[int, str] = {}
-            for card, pid in zip(trick_data["played_cards"], trick_data["player_ids"]):
-                trick_cards[pid] = str(card)
-            all_trick_cards.append(trick_cards)
-        
-        # Calculate column widths: max of player name length and longest card string for that column
-        col_widths = []
-        for i in range(num_players):
-            max_card_len = max(
-                (len(all_trick_cards[trick_idx].get(i, "-")) for trick_idx in range(len(all_trick_cards))),
-                default=0
-            )
-            col_widths.append(max(len(player_names[i]), max_card_len, 8))
-        
-        trick_col_width = 8
-        winner_col_width = max(len(name) for name in player_names) + 5  # Extra space for winner column
-        
-        # Print header with proper alignment (matching data row format)
-        header_parts = [f"{'Trick':<{trick_col_width}}"]
-        for i, name in enumerate(player_names):
-            header_parts.append(f"{name:<{col_widths[i]}}")
-        header_parts.append(f"{'Winner':<{winner_col_width}}")
-        header = " ".join(header_parts)
-        print(header)
-        # Calculate separator length: sum of column widths + spaces between columns
-        separator_len = trick_col_width + sum(col_widths) + winner_col_width + (num_players + 1)
-        print("-" * separator_len)
-        
-        # Print each trick
-        for trick_data in self.hand_tricks:
-            trick_num = trick_data["trick_num"]
-            played_cards = trick_data["played_cards"]
-            player_ids = trick_data["player_ids"]
-            winner_id = trick_data["winner_id"]
+        if RICH_AVAILABLE:
+            # Use Rich table for proper alignment
+            console = Console()
+            table = Table(title="TRICK SUMMARY", show_header=True, header_style="bold")
             
-            # Create a mapping of player_id -> card for this trick
-            trick_cards: Dict[int, str] = {}
-            for card, pid in zip(played_cards, player_ids):
-                trick_cards[pid] = str(card)
+            # Add columns: Trick number, then each player, then Winner
+            table.add_column("Trick", justify="center", style="cyan", no_wrap=True)
+            for player in self.players:
+                table.add_column(player.name, justify="center", no_wrap=True)
+            table.add_column("Winner", justify="center", style="bold red", no_wrap=True)
             
-            # Build row with proper alignment
-            # Format trick number
-            row_parts = [f"{trick_num:<{trick_col_width}}"]
+            # Add rows for each trick
+            for trick_data in self.hand_tricks:
+                trick_num = trick_data["trick_num"]
+                played_cards = trick_data["played_cards"]
+                player_ids = trick_data["player_ids"]
+                winner_id = trick_data["winner_id"]
+                
+                # Create a mapping of player_id -> card for this trick
+                trick_cards: Dict[int, str] = {}
+                for card, pid in zip(played_cards, player_ids):
+                    trick_cards[pid] = str(card)
+                
+                # Build row: trick number, then each player's card, then winner
+                row_data = [str(trick_num)]
+                for i in range(len(self.players)):
+                    card_str = trick_cards.get(i, "-")
+                    # Highlight winner's card
+                    if i == winner_id:
+                        row_data.append(f"[red]{card_str}[/red]")
+                    else:
+                        row_data.append(card_str)
+                
+                # Add winner name
+                winner_name = self.players[winner_id].name if winner_id < len(self.players) else f"Player {winner_id}"
+                row_data.append(winner_name)
+                
+                table.add_row(*row_data)
             
-            # Format each player's card column
+            console.print("\n")
+            console.print(table)
+            console.print()
+        else:
+            # Fallback to simple text format if Rich is not available
+            print("\n" + "=" * 80)
+            print("TRICK SUMMARY")
+            print("=" * 80)
+            
+            # Get player names
+            player_names = [p.name for p in self.players]
+            num_players = len(player_names)
+            
+            # Collect all card strings to calculate proper column widths
+            all_trick_cards: List[Dict[int, str]] = []
+            for trick_data in self.hand_tricks:
+                trick_cards: Dict[int, str] = {}
+                for card, pid in zip(trick_data["played_cards"], trick_data["player_ids"]):
+                    trick_cards[pid] = str(card)
+                all_trick_cards.append(trick_cards)
+            
+            # Calculate column widths: max of player name length and longest card string for that column
+            col_widths = []
             for i in range(num_players):
-                card_str = trick_cards.get(i, "-")
-                # Calculate padding needed
-                padding_needed = col_widths[i] - len(card_str)
-                # Apply color only to the text, then add padding
-                if i == winner_id:
-                    formatted_card = self._red_text(card_str) + " " * padding_needed
-                else:
-                    formatted_card = card_str + " " * padding_needed
-                row_parts.append(formatted_card)
+                max_card_len = max(
+                    (len(all_trick_cards[trick_idx].get(i, "-")) for trick_idx in range(len(all_trick_cards))),
+                    default=0
+                )
+                col_widths.append(max(len(player_names[i]), max_card_len, 8))
             
-            # Format winner column
-            winner_name = self.players[winner_id].name if winner_id < len(self.players) else f"Player {winner_id}"
-            winner_padding = winner_col_width - len(winner_name)
-            formatted_winner = self._red_text(winner_name) + " " * winner_padding
-            row_parts.append(formatted_winner)
+            trick_col_width = 8
+            winner_col_width = max(len(name) for name in player_names) + 5  # Extra space for winner column
             
-            # Join with single space between columns
-            print(" ".join(row_parts))
-        
-        print("=" * 80)
+            # Print header with proper alignment (matching data row format)
+            header_parts = [f"{'Trick':<{trick_col_width}}"]
+            for i, name in enumerate(player_names):
+                header_parts.append(f"{name:<{col_widths[i]}}")
+            header_parts.append(f"{'Winner':<{winner_col_width}}")
+            header = " ".join(header_parts)
+            print(header)
+            # Calculate separator length: sum of column widths + spaces between columns
+            separator_len = trick_col_width + sum(col_widths) + winner_col_width + (num_players + 1)
+            print("-" * separator_len)
+            
+            # Print each trick
+            for trick_data in self.hand_tricks:
+                trick_num = trick_data["trick_num"]
+                played_cards = trick_data["played_cards"]
+                player_ids = trick_data["player_ids"]
+                winner_id = trick_data["winner_id"]
+                
+                # Create a mapping of player_id -> card for this trick
+                trick_cards: Dict[int, str] = {}
+                for card, pid in zip(played_cards, player_ids):
+                    trick_cards[pid] = str(card)
+                
+                # Build row with proper alignment
+                # Format trick number
+                row_parts = [f"{trick_num:<{trick_col_width}}"]
+                
+                # Format each player's card column
+                for i in range(num_players):
+                    card_str = trick_cards.get(i, "-")
+                    # Calculate padding needed
+                    padding_needed = col_widths[i] - len(card_str)
+                    # Apply color only to the text, then add padding
+                    if i == winner_id:
+                        formatted_card = self._red_text(card_str) + " " * padding_needed
+                    else:
+                        formatted_card = card_str + " " * padding_needed
+                    row_parts.append(formatted_card)
+                
+                # Format winner column
+                winner_name = self.players[winner_id].name if winner_id < len(self.players) else f"Player {winner_id}"
+                winner_padding = winner_col_width - len(winner_name)
+                formatted_winner = self._red_text(winner_name) + " " * winner_padding
+                row_parts.append(formatted_winner)
+                
+                # Join with single space between columns
+                print(" ".join(row_parts))
+            
+            print("=" * 80)
     
     def display_hand_log(self) -> List[str]:
         """
