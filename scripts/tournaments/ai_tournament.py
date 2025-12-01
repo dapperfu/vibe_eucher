@@ -31,9 +31,11 @@ from eucher.plugins.discovery import discover_builtin_plugins
 
 
 # Default player types to test (fallback if plugin discovery fails)
+# Note: "ai" is excluded as it's too generic - all players are AI.
+# It will still be discovered automatically via plugin discovery.
 DEFAULT_PLAYER_TYPES = [
     "heuristic",
-    "ai",
+    "heuristic2",
     "random",
     "ml_sklearn",
     "ml_pytorch",
