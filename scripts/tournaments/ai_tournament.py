@@ -24,9 +24,11 @@ from tqdm import tqdm
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from eucher.game import Game
+from eucher.plugins import get_registry
+from eucher.plugins.discovery import discover_builtin_plugins
 
 
-# Default player types to test
+# Default player types to test (fallback if plugin discovery fails)
 DEFAULT_PLAYER_TYPES = [
     "heuristic",
     "ai",
@@ -77,19 +79,40 @@ def get_available_player_types(requested_types: Optional[List[str]] = None) -> L
     """
     Get list of available player types, filtering out unavailable ones.
 
+    Dynamically discovers plugins from the plugin registry, falling back to
+    hardcoded list if discovery fails.
+
     Parameters
     ----------
     requested_types : Optional[List[str]]
-        List of player types to check. If None, uses DEFAULT_PLAYER_TYPES.
+        List of player types to check. If None, discovers all available plugins.
 
     Returns
     -------
     List[str]
         List of available player types.
     """
-    if requested_types is None:
-        requested_types = DEFAULT_PLAYER_TYPES
+    # Try to discover plugins dynamically
+    try:
+        registry = get_registry()
+        discover_builtin_plugins()  # Ensure builtin plugins are loaded
+        all_plugins = registry.list_plugins()
+        
+        # Filter out "human" and any explicitly requested types
+        if requested_types is None:
+            # Use all discovered plugins except "human"
+            discovered_types = [p for p in all_plugins if p != "human"]
+            requested_types = discovered_types if discovered_types else DEFAULT_PLAYER_TYPES
+        else:
+            # Use requested types, but verify they exist in registry
+            requested_types = [p for p in requested_types if p in all_plugins or p in DEFAULT_PLAYER_TYPES]
+    except Exception as e:
+        # Fallback to hardcoded list if discovery fails
+        print(f"Warning: Plugin discovery failed ({e}), using default list")
+        if requested_types is None:
+            requested_types = DEFAULT_PLAYER_TYPES
 
+    # Verify each type can actually be instantiated
     available_types = []
     for player_type in requested_types:
         if check_player_type_available(player_type):
