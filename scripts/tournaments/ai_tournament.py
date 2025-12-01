@@ -18,6 +18,8 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
+from rich.console import Console
+from rich.table import Table
 from tqdm import tqdm
 
 # Add project root to path
@@ -775,31 +777,124 @@ def run_tournament(
     return tournament
 
 
-def print_results(tournament: TournamentSimulator) -> None:
-    """Print tournament results in a readable format."""
+def print_matchup_table(summary: Dict[str, any], console: Optional[Console] = None) -> None:
+    """
+    Print matchup results as a square matrix table using rich.
+
+    Parameters
+    ----------
+    summary : Dict[str, any]
+        Tournament summary dictionary.
+    console : Optional[Console]
+        Rich console instance. If None, creates a new one.
+    """
+    if console is None:
+        console = Console()
+    
+    # Get player types from rankings (sorted by win rate)
+    rankings = summary["player_type_rankings"]
+    player_types = [r["player_type"] for r in rankings]
+    
+    # Create table
+    table = Table(title="Matchup Results Matrix", show_header=True, header_style="bold magenta")
+    
+    # Add header row with player types
+    table.add_column("", style="cyan", no_wrap=True)
+    for player_type in player_types:
+        table.add_column(player_type, justify="center", style="white")
+    
+    # Build matchup lookup - keys are stored as sorted "pt0_vs_pt1"
+    matchup_data: Dict[str, Dict[str, any]] = {}
+    for matchup_key, matchup_stats in summary["matchups"].items():
+        matchup_data[matchup_key] = matchup_stats
+    
+    # Add rows
+    for row_type in player_types:
+        row_data = [row_type]
+        for col_type in player_types:
+            if row_type == col_type:
+                # Diagonal: show "—"
+                row_data.append("[dim]—[/dim]")
+            else:
+                # Find matchup key (always stored as sorted)
+                sorted_types = sorted([row_type, col_type])
+                matchup_key = f"{sorted_types[0]}_vs_{sorted_types[1]}"
+                matchup_stats = matchup_data.get(matchup_key)
+                
+                if matchup_stats and matchup_stats.get("games_played", 0) > 0:
+                    games = matchup_stats["games_played"]
+                    # Determine which team is row_type
+                    # sorted_types[0] is team0, sorted_types[1] is team1
+                    if row_type == sorted_types[0]:
+                        # row_type is team0
+                        wins = matchup_stats["team0_wins"]
+                        losses = matchup_stats["team1_wins"]
+                    else:
+                        # row_type is team1
+                        wins = matchup_stats["team1_wins"]
+                        losses = matchup_stats["team0_wins"]
+                    
+                    win_rate = wins / games if games > 0 else 0.0
+                    
+                    # Color code based on win rate
+                    if win_rate > 0.6:
+                        color = "green"
+                    elif win_rate > 0.4:
+                        color = "yellow"
+                    else:
+                        color = "red"
+                    
+                    # Format: "W-L (win_rate%)"
+                    row_data.append(f"[{color}]{wins}-{losses}[/{color}]\n[{color}]({win_rate:.0%})[/{color}]")
+                else:
+                    # No data available
+                    row_data.append("[dim]—[/dim]")
+        
+        table.add_row(*row_data)
+    
+    console.print("\n")
+    console.print(table)
+    console.print()
+
+
+def print_results(tournament: TournamentSimulator, show_table: bool = True) -> None:
+    """
+    Print tournament results in a readable format.
+
+    Parameters
+    ----------
+    tournament : TournamentSimulator
+        Tournament simulator with results.
+    show_table : bool
+        Whether to display the matchup matrix table.
+    """
+    console = Console()
     summary = tournament.get_summary()
 
-    print("\n" + "=" * 80)
-    print("PLAYER TYPE RANKINGS (by win rate)")
-    print("=" * 80)
-    print()
+    console.print("\n" + "=" * 80)
+    console.print("[bold]PLAYER TYPE RANKINGS (by win rate)[/bold]")
+    console.print("=" * 80)
+    console.print()
 
     rankings = summary["player_type_rankings"]
     for rank, player_data in enumerate(rankings, 1):
         player_type = player_data["player_type"]
         stats = {k: v for k, v in player_data.items() if k != "player_type"}
-        print(f"{rank}. {player_type.upper()}")
-        print(f"   Win Rate: {stats['win_rate']:.1%} ({stats['wins']}/{stats['total_games']})")
-        print(f"   Avg Score: {stats['avg_score']:.2f}")
-        print(f"   Avg Score Against: {stats['avg_score_against']:.2f}")
-        print(f"   Score Difference: {stats['avg_score_diff']:+.2f}")
-        print(f"   Games Played: {stats['total_games']}")
-        print()
+        console.print(f"{rank}. [bold]{player_type.upper()}[/bold]")
+        console.print(f"   Win Rate: {stats['win_rate']:.1%} ({stats['wins']}/{stats['total_games']})")
+        console.print(f"   Avg Score: {stats['avg_score']:.2f}")
+        console.print(f"   Avg Score Against: {stats['avg_score_against']:.2f}")
+        console.print(f"   Score Difference: {stats['avg_score_diff']:+.2f}")
+        console.print(f"   Games Played: {stats['total_games']}")
+        console.print()
 
-    print("=" * 80)
-    print("MATCHUP DETAILS")
-    print("=" * 80)
-    print()
+    if show_table:
+        print_matchup_table(summary, console)
+
+    console.print("=" * 80)
+    console.print("[bold]MATCHUP DETAILS[/bold]")
+    console.print("=" * 80)
+    console.print()
 
     for matchup_key, matchup_stats in sorted(summary["matchups"].items()):
         games = matchup_stats["games_played"]
@@ -815,12 +910,65 @@ def print_results(tournament: TournamentSimulator) -> None:
             np.mean(matchup_stats["hands_played"]) if matchup_stats["hands_played"] else 0.0
         )
 
-        print(f"{matchup_key}")
-        print(f"  Games: {games}")
-        print(f"  Team 0 Win Rate: {team0_win_rate:.1%} ({team0_wins} wins)")
-        print(f"  Team 1 Win Rate: {team1_win_rate:.1%} ({team1_wins} wins)")
-        print(f"  Avg Hands per Game: {avg_hands:.1f}")
-        print()
+        console.print(f"{matchup_key}")
+        console.print(f"  Games: {games}")
+        console.print(f"  Team 0 Win Rate: {team0_win_rate:.1%} ({team0_wins} wins)")
+        console.print(f"  Team 1 Win Rate: {team1_win_rate:.1%} ({team1_wins} wins)")
+        console.print(f"  Avg Hands per Game: {avg_hands:.1f}")
+        console.print()
+
+
+def load_and_display_results(results_file: Path) -> None:
+    """
+    Load and display tournament results from a JSON file.
+
+    Parameters
+    ----------
+    results_file : Path
+        Path to tournament results JSON file.
+    """
+    if not results_file.exists():
+        print(f"Error: Results file not found: {results_file}")
+        sys.exit(1)
+    
+    try:
+        data = json.loads(results_file.read_text())
+    except Exception as e:
+        print(f"Error loading results file: {e}")
+        sys.exit(1)
+    
+    console = Console()
+    console.print(f"\n[bold]Tournament Results: {results_file.name}[/bold]")
+    console.print(f"Timestamp: {data.get('timestamp', 'Unknown')}")
+    console.print(f"Player Types: {', '.join(data.get('player_types_tested', []))}")
+    console.print(f"Games per Matchup: {data.get('num_games_per_matchup', 'Unknown')}")
+    console.print(f"Total Games: {data.get('total_games', 'Unknown')}")
+    console.print()
+    
+    # Create a mock tournament simulator to use print_results
+    tournament = TournamentSimulator()
+    
+    # Restore matchups
+    for matchup_str, stats in data.get("matchups", {}).items():
+        parts = matchup_str.split("_vs_")
+        if len(parts) == 2:
+            matchup_key = tuple(sorted([parts[0], parts[1]]))
+            tournament.matchups[matchup_key] = dict(stats)
+    
+    # Restore player type stats
+    for player_data in data.get("player_type_rankings", []):
+        player_type = player_data["player_type"]
+        tournament.player_type_stats[player_type] = {
+            "total_games": player_data.get("total_games", 0),
+            "wins": player_data.get("wins", 0),
+            "losses": player_data.get("losses", 0),
+            "ties": player_data.get("ties", 0),
+            "total_score": player_data.get("total_score", 0),
+            "total_score_against": player_data.get("total_score_against", 0),
+        }
+    
+    # Print results with table
+    print_results(tournament, show_table=True)
 
 
 def main() -> None:
@@ -831,16 +979,19 @@ def main() -> None:
         epilog="""
 Examples:
   # Run tournament with all available player types, 200 games per matchup
-  python scripts/ai_tournament.py
+  python scripts/tournaments/ai_tournament.py
 
   # Run tournament with checkpoint support (can resume if interrupted)
-  python scripts/ai_tournament.py --checkpoint tournament_checkpoint.json
+  python scripts/tournaments/ai_tournament.py --checkpoint tournament_checkpoint.json
 
   # Run tournament with specific player types and checkpoint
-  python scripts/ai_tournament.py --types heuristic ai random --num-games 200 --checkpoint checkpoint.json
+  python scripts/tournaments/ai_tournament.py --types heuristic ai random --num-games 200 --checkpoint checkpoint.json
 
   # Save results to file
-  python scripts/ai_tournament.py --num-games 200 --output tournament_results.json
+  python scripts/tournaments/ai_tournament.py --num-games 200 --output tournament_results.json
+
+  # Display existing tournament results
+  python scripts/tournaments/ai_tournament.py --display tournament_results_20251130_204647.json
         """,
     )
     parser.add_argument(
@@ -890,8 +1041,25 @@ Examples:
         default=10,
         help="Save checkpoint every N games (default: 10). Only used if --checkpoint is specified.",
     )
+    parser.add_argument(
+        "--display",
+        type=str,
+        default=None,
+        help="Display existing tournament results from a JSON file instead of running a tournament.",
+    )
+    parser.add_argument(
+        "--no-table",
+        action="store_true",
+        help="Don't display the matchup matrix table (only show rankings and details).",
+    )
 
     args = parser.parse_args()
+    
+    # If --display is specified, load and display results, then exit
+    if args.display:
+        results_file = Path(args.display)
+        load_and_display_results(results_file)
+        return
 
     # Get available player types
     requested_types = args.types if args.types else DEFAULT_PLAYER_TYPES
@@ -936,7 +1104,7 @@ Examples:
     )
 
     # Print results
-    print_results(tournament)
+    print_results(tournament, show_table=not args.no_table)
 
     # Save results
     summary = tournament.get_summary()
