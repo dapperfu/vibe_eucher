@@ -11,7 +11,7 @@ from eucher.cards import Card, Deck, Suit
 from eucher.players import Player
 # Import AIDecisionMaker from plugins (moved from eucher.players.computer.ai)
 try:
-    from plugins.ai import AIDecisionMaker
+    from plugins.weighted_heuristic import AIDecisionMaker
 except ImportError:
     # Fallback if plugins aren't available
     AIDecisionMaker = None  # type: ignore
@@ -29,7 +29,7 @@ except ImportError:
     MLPlayer = None  # type: ignore
 # Import player classes from plugins (moved from eucher.players.computer)
 try:
-    from plugins.ai import AIPlayer
+    from plugins.weighted_heuristic import AIPlayer
 except ImportError:
     AIPlayer = None  # type: ignore
 try:

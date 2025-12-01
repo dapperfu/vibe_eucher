@@ -7,7 +7,7 @@ from eucher.cards import Card, Rank, Suit
 from eucher.players.base import PlayerProfile
 # Import player classes from plugins (moved from eucher.players.computer)
 try:
-    from plugins.ai import AIPlayer
+    from plugins.weighted_heuristic import AIPlayer
 except ImportError:
     AIPlayer = None  # type: ignore
 try:
