@@ -33,9 +33,9 @@ eucher/players/computer/euchre_zero/
 └── config.py          # Configuration
 
 scripts/eucher_zero/   # Training scripts (matches pytorch_ai/, transformer_rl/ pattern)
-├── train_euchre_zero.py
-├── train_euchre_zero_cpu.sh
-└── train_euchre_zero_gpu.sh
+├── train_eucher_zero.py
+├── train_eucher_zero_cpu.sh
+└── train_eucher_zero_gpu.sh
 ```
 
 ### Training Workflow
@@ -75,13 +75,13 @@ scripts/eucher_zero/   # Training scripts (matches pytorch_ai/, transformer_rl/ 
 # In code: player_config = [("Player 1", "eucher_zero"), ...]
 
 # Training (matches scripts/pytorch_ai/ pattern)
-python scripts/eucher_zero/train_euchre_zero.py \
+python scripts/eucher_zero/train_eucher_zero.py \
     --config euchre_zero_config.yaml \
     --num_games 100 \
     --num_iterations 1000
 
 # Or use shell wrappers
-./scripts/eucher_zero/train_euchre_zero_gpu.sh
+./scripts/eucher_zero/train_eucher_zero_gpu.sh
 ```
 
 ### Reward Structure

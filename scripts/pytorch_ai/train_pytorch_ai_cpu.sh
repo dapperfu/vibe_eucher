@@ -1,5 +1,5 @@
 #!/bin/bash
-# CPU-specific training script for EuchreZero
+# CPU-specific training script for PyTorch AI player
 
 set -e
 
@@ -14,15 +14,10 @@ if [ -d "venv_vibe_eucher" ]; then
 fi
 
 # Force CPU device
-# Default to 1-minute training if no duration specified
-if [[ ! "$*" =~ --duration ]]; then
-    python scripts/training/train_eucher_zero.py \
-        --device cpu \
-        --duration 1m \
-        "$@"
-else
-python scripts/training/train_euchre_zero.py \
+# Optimized for 32GB RAM systems
+python scripts/training/train_pytorch_ai.py \
     --device cpu \
+    --batch-size 16 \
     "$@"
-fi
+
 

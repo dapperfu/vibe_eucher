@@ -23,10 +23,10 @@ All decisions use MCTS search:
 
 ```bash
 # Basic training
-python scripts/eucher_zero/train_euchre_zero.py --duration 1h
+python scripts/eucher_zero/train_eucher_zero.py --duration 1h
 
 # With custom parameters
-python scripts/eucher_zero/train_euchre_zero.py \
+python scripts/eucher_zero/train_eucher_zero.py \
     --duration 2h \
     --num-games 20 \
     --num-simulations 200 \

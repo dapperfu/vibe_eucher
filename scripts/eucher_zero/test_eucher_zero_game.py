@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""Test script to play a complete game with 2 EucherZero bots vs 2 baseline players."""
+"""Test script to play a complete game with 2 EuchreZero bots vs 2 baseline players."""
 
 import argparse
 from pathlib import Path
 
 from eucher.game import Game
-from eucher.players.computer.eucher_zero.config import EucherZeroConfig
-from eucher.players.computer.eucher_zero.networks.model import EucherZeroModel
+from eucher.players.computer.euchre_zero.config import EuchreZeroConfig
+from eucher.players.computer.euchre_zero.networks.model import EuchreZeroModel
 
 
 def main() -> None:
     """Main test function."""
-    parser = argparse.ArgumentParser(description="Test EucherZero with complete game")
+    parser = argparse.ArgumentParser(description="Test EuchreZero with complete game")
     parser.add_argument(
         "--checkpoint",
         type=str,
@@ -39,7 +39,7 @@ def main() -> None:
         device_str = args.device
 
     print("=" * 80)
-    print("EucherZero Test Game")
+    print("EuchreZero Test Game")
     print("=" * 80)
     print(f"Checkpoint: {args.checkpoint}")
     print(f"Device: {device_str}")
@@ -51,8 +51,8 @@ def main() -> None:
         print(f"Error: Checkpoint not found: {checkpoint_path}")
         return
 
-    config = EucherZeroConfig(device=device_str)
-    model = EucherZeroModel(config)
+    config = EuchreZeroConfig(device=device_str)
+    model = EuchreZeroModel(config)
     model.load_checkpoint(checkpoint_path)
     print("Model loaded successfully")
 

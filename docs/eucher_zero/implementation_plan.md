@@ -61,9 +61,9 @@ eucher/
 └── scripts/                               # Training scripts
     └── training/                          # All training scripts
         └── euchre_zero/                  # Matches pytorch_ai/, transformer_rl/ pattern
-        ├── train_euchre_zero.py          # Main training script
-        ├── train_euchre_zero_cpu.sh       # CPU training wrapper
-        └── train_euchre_zero_gpu.sh      # GPU training wrapper
+        ├── train_eucher_zero.py          # Main training script
+        ├── train_eucher_zero_cpu.sh       # CPU training wrapper
+        └── train_eucher_zero_gpu.sh      # GPU training wrapper
 ```
 
 ## Component Specifications
@@ -420,7 +420,7 @@ total_loss = (
 
 ## Training Scripts
 
-### Main Training Script (`scripts/eucher_zero/train_euchre_zero.py`)
+### Main Training Script (`scripts/eucher_zero/train_eucher_zero.py`)
 
 **Location**: Matches existing pattern (`scripts/pytorch_ai/`, `scripts/transformer_rl/`)
 

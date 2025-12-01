@@ -29,12 +29,12 @@ fi
 
 # Default to 1-minute training if no duration specified
 if [[ ! "$*" =~ --duration ]]; then
-    python scripts/training/train_euchre_zero.py \
+    python scripts/training/train_eucher_zero.py \
         --device "${DEVICE}" \
         --duration 1m \
         "$@"
 else
-    python scripts/training/train_euchre_zero.py \
+    python scripts/training/train_eucher_zero.py \
         --device "${DEVICE}" \
         "$@"
 fi

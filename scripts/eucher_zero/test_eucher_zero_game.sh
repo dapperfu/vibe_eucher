@@ -1,10 +1,10 @@
 #!/bin/bash
-# Test script to run a complete game with EucherZero bots
+# Test script to run a complete game with EuchreZero bots
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+PROJECT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
 cd "${PROJECT_DIR}"
 
@@ -31,7 +31,7 @@ if [ "$DEVICE" = "--device" ]; then
 fi
 
 # Run test script
-python scripts/eucher_zero/test_eucher_zero_game.py \
+python scripts/eucher_zero/test_euchre_zero_game.py \
     --checkpoint "${CHECKPOINT}" \
     --device "${DEVICE}" \
     "$@"

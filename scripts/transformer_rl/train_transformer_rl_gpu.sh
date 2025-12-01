@@ -1,5 +1,5 @@
 #!/bin/bash
-# GPU-specific training script for EuchreZero
+# GPU-specific training script for Transformer RL
 
 set -e
 
@@ -17,15 +17,7 @@ fi
 DEVICE="gpu"
 
 # Run training script
-# Default to 1-minute training if no duration specified
-if [[ ! "$*" =~ --duration ]]; then
-    python scripts/training/train_eucher_zero.py \
-        --device "${DEVICE}" \
-        --duration 1m \
-        "$@"
-else
-python scripts/training/train_euchre_zero.py \
+python scripts/training/train_transformer_rl.py \
     --device "${DEVICE}" \
     "$@"
-fi
 

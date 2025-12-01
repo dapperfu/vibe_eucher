@@ -67,7 +67,7 @@ train-pytorch-ai-self-play-tune: ${VENV}
 	${PYTHON} scripts/training/train_pytorch_ai_self_play.py --tune-batch
 
 train-euchre-zero: ${VENV}
-	${PYTHON} scripts/training/train_euchre_zero.py
+	${PYTHON} scripts/training/train_eucher_zero.py
 
 train-perceiver-muzero: ${VENV}
 	${PYTHON} scripts/training/train_perceiver_muzero.py

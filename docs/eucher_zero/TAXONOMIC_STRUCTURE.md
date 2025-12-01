@@ -49,9 +49,9 @@ eucher/players/computer/euchre_zero/
 ### Training Scripts
 ```
 scripts/eucher_zero/       # Matches scripts/pytorch_ai/ pattern
-├── train_euchre_zero.py
-├── train_euchre_zero_cpu.sh
-└── train_euchre_zero_gpu.sh
+├── train_eucher_zero.py
+├── train_eucher_zero_cpu.sh
+└── train_eucher_zero_gpu.sh
 ```
 
 ## Integration Points
@@ -68,7 +68,7 @@ scripts/eucher_zero/       # Matches scripts/pytorch_ai/ pattern
 - Player: `from eucher.players.computer.eucher_zero.player import EucherZeroPlayer`
 - Networks: `from eucher.players.computer.euchre_zero.networks.representation import RepresentationNetwork`
 - Training modules: `from eucher.players.computer.euchre_zero.training.self_play import generate_self_play_game`
-- Training scripts: `scripts/eucher_zero/train_euchre_zero.py` (executable script)
+- Training scripts: `scripts/eucher_zero/train_eucher_zero.py` (executable script)
 
 ## Key Differences from Original Plan
 

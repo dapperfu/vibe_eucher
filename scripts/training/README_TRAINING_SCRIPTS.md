@@ -6,7 +6,7 @@ This document describes the consistent naming and organization of all training s
 
 All main training scripts are located in `scripts/` root directory and follow the pattern `train_<architecture>.sh`:
 
-- **`train_euchre_zero.sh`** - Main wrapper for EucherZero training (auto-detects device)
+- **`train_eucher_zero.sh`** - Main wrapper for EucherZero training (auto-detects device)
 - **`train_transformer_rl.sh`** - Main wrapper for Transformer RL training (auto-detects device)
 - **`train_pytorch_ai.sh`** - Main wrapper for PyTorch AI training (auto-detects device)
 
@@ -21,9 +21,9 @@ All main wrappers:
 All Python training scripts are located in `scripts/training/`. Each architecture has CPU/GPU wrapper variants in their respective subdirectories:
 
 ### EucherZero
-- **Python script**: `scripts/training/train_euchre_zero.py`
-- **CPU variant**: `scripts/eucher_zero/train_euchre_zero_cpu.sh`
-- **GPU variant**: `scripts/eucher_zero/train_euchre_zero_gpu.sh`
+- **Python script**: `scripts/training/train_eucher_zero.py`
+- **CPU variant**: `scripts/eucher_zero/train_eucher_zero_cpu.sh`
+- **GPU variant**: `scripts/eucher_zero/train_eucher_zero_gpu.sh`
 - **Player name**: `eucher_zero` (use this in player configs)
 
 ### Transformer RL
@@ -72,12 +72,12 @@ Additional workflow scripts for specialized training scenarios:
 
 ```bash
 # Auto-detect device and train
-./scripts/train_euchre_zero.sh --duration 1h
+./scripts/train_eucher_zero.sh --duration 1h
 ./scripts/train_transformer_rl.sh --num-hands 20000
 ./scripts/train_pytorch_ai.sh --epochs 10
 
 # Force specific device
-./scripts/train_euchre_zero.sh --device cpu --duration 30m
+./scripts/train_eucher_zero.sh --device cpu --duration 30m
 ./scripts/train_transformer_rl.sh --device gpu --num-hands 50000
 ```
 
@@ -99,7 +99,7 @@ Additional workflow scripts for specialized training scenarios:
 
 ```bash
 # Direct Python script invocation (all training scripts are in scripts/training/)
-python scripts/training/train_euchre_zero.py --device auto --duration 1h
+python scripts/training/train_eucher_zero.py --device auto --duration 1h
 python scripts/training/train_transformer_rl.py --device gpu --num-hands 20000
 python scripts/training/train_pytorch_ai.py --device cpu --epochs 10
 python scripts/training/train_perceiver_muzero.py --device gpu --max-games 1000
