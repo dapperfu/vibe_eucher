@@ -47,8 +47,13 @@ class HeuristicPlayer2(ComputerPlayer):
         self.GOING_ALONE_BASE_THRESHOLD: float = 250.0
 
         # Risk adjustment factors
-        self.THRESHOLD_REDUCTION_MAX: float = 0.30  # Max 30% reduction at risk=1.0
+        self.THRESHOLD_REDUCTION_MAX: float = 0.20  # Max 20% reduction at risk=1.0 (reduced from 0.30)
         self.GOING_ALONE_BONUS_MAX: float = 0.40  # Max 40% bonus at risk=1.0
+
+        # Leading strategy weights (context-aware multipliers)
+        self.LEAD_TRUMP_PREFERENCE: float = 1.2  # 20% bonus for trump cards when leading
+        self.LEAD_OFFSUIT_ACE: float = 1.1  # 10% bonus for off-suit Aces when leading
+        self.LEAD_OFFSUIT_KING: float = 1.05  # 5% bonus for off-suit Kings when leading
 
     def decide_order_up(
         self, player: "Player", turned_card: Card, dealer_id: int, trump_suit: Optional[Suit]
@@ -245,7 +250,7 @@ class HeuristicPlayer2(ComputerPlayer):
         # With higher risk, might be slightly more selective about what to discard
         return min(
             player.hand,
-            key=lambda c: self._calculate_card_power(c, trump_suit),
+            key=lambda c: self._calculate_card_power(c, trump_suit, context="general"),
         )
 
     def play_card(
@@ -430,7 +435,7 @@ class HeuristicPlayer2(ComputerPlayer):
         has_bower = False
 
         for card in hand:
-            power = self._calculate_card_power(card, trump_suit)
+            power = self._calculate_card_power(card, trump_suit, context="general")
             total_power += power
 
             if card.rank == Rank.JACK:
@@ -457,7 +462,9 @@ class HeuristicPlayer2(ComputerPlayer):
 
         return total_power
 
-    def _calculate_card_power(self, card: Card, trump_suit: Optional[Suit]) -> float:
+    def _calculate_card_power(
+        self, card: Card, trump_suit: Optional[Suit], context: str = "general"
+    ) -> float:
         """
         Calculate the power/weight of a card.
 
@@ -467,6 +474,9 @@ class HeuristicPlayer2(ComputerPlayer):
             The card to evaluate.
         trump_suit : Optional[Suit]
             The current trump suit, if any.
+        context : str
+            Context of evaluation: "general", "leading", "following".
+            When "leading", applies multipliers for trump and strong off-suit cards.
 
         Returns
         -------
@@ -509,6 +519,15 @@ class HeuristicPlayer2(ComputerPlayer):
                 Rank.NINE: 10.0,
             }
             power = rank_power_map.get(card.rank, 0.0)
+
+        # Apply context-based adjustments for leading
+        if context == "leading":
+            if card.suit == trump_suit or is_right_bower or is_left_bower:
+                power *= self.LEAD_TRUMP_PREFERENCE
+            elif card.rank == Rank.ACE:
+                power *= self.LEAD_OFFSUIT_ACE
+            elif card.rank == Rank.KING:
+                power *= self.LEAD_OFFSUIT_KING
 
         return power
 
@@ -589,9 +608,10 @@ class HeuristicPlayer2(ComputerPlayer):
         Card
             The card to lead with.
         """
-        # Calculate power for each card
+        # Calculate power for each card in leading context (applies multipliers)
         card_powers = [
-            (card, self._calculate_card_power(card, trump_suit)) for card in valid_cards
+            (card, self._calculate_card_power(card, trump_suit, context="leading"))
+            for card in valid_cards
         ]
 
         # Count trump cards in hand
@@ -661,7 +681,7 @@ class HeuristicPlayer2(ComputerPlayer):
             # No winner yet (shouldn't happen, but fallback)
             return max(
                 valid_cards,
-                key=lambda c: self._calculate_card_power(c, trump_suit),
+                key=lambda c: self._calculate_card_power(c, trump_suit, context="general"),
             )
 
         # Check if teammate is winning
@@ -675,7 +695,7 @@ class HeuristicPlayer2(ComputerPlayer):
                 winning_cards = []
                 for card in valid_cards:
                     if self._can_win_trick(card, trick_cards, led_suit, trump_suit):
-                        power = self._calculate_card_power(card, trump_suit)
+                        power = self._calculate_card_power(card, trump_suit, context="general")
                         # Only try to win if card is very strong
                         if power > 70.0:  # Strong trump or off-suit Ace
                             winning_cards.append((card, power))
@@ -686,7 +706,7 @@ class HeuristicPlayer2(ComputerPlayer):
             # Default: duck (play lowest card)
             return min(
                 valid_cards,
-                key=lambda c: self._calculate_card_power(c, trump_suit),
+                key=lambda c: self._calculate_card_power(c, trump_suit, context="general"),
             )
         else:
             # Opponent is winning: try to win with lowest winning card
@@ -699,13 +719,13 @@ class HeuristicPlayer2(ComputerPlayer):
                 # Win with lowest power winning card
                 return min(
                     winning_cards,
-                    key=lambda c: self._calculate_card_power(c, trump_suit),
+                    key=lambda c: self._calculate_card_power(c, trump_suit, context="general"),
                 )
             else:
                 # Can't win: play lowest card to preserve high cards
                 return min(
                     valid_cards,
-                    key=lambda c: self._calculate_card_power(c, trump_suit),
+                    key=lambda c: self._calculate_card_power(c, trump_suit, context="general"),
                 )
 
     def _decide_last_play(
@@ -752,7 +772,7 @@ class HeuristicPlayer2(ComputerPlayer):
             # No winner yet (shouldn't happen, but fallback)
             return max(
                 valid_cards,
-                key=lambda c: self._calculate_card_power(c, trump_suit),
+                key=lambda c: self._calculate_card_power(c, trump_suit, context="general"),
             )
 
         # Check if teammate is winning
@@ -766,7 +786,7 @@ class HeuristicPlayer2(ComputerPlayer):
                 winning_cards = []
                 for card in valid_cards:
                     if self._can_win_trick(card, trick_cards, led_suit, trump_suit):
-                        power = self._calculate_card_power(card, trump_suit)
+                        power = self._calculate_card_power(card, trump_suit, context="general")
                         # Only try to win if card is very strong
                         if power > 70.0:  # Strong trump or off-suit Ace
                             winning_cards.append((card, power))
@@ -777,7 +797,7 @@ class HeuristicPlayer2(ComputerPlayer):
             # Default: duck (play lowest card)
             return min(
                 valid_cards,
-                key=lambda c: self._calculate_card_power(c, trump_suit),
+                key=lambda c: self._calculate_card_power(c, trump_suit, context="general"),
             )
         else:
             # Opponent is winning: win if possible with minimal card
@@ -790,13 +810,13 @@ class HeuristicPlayer2(ComputerPlayer):
                 # Win with lowest power winning card
                 return min(
                     winning_cards,
-                    key=lambda c: self._calculate_card_power(c, trump_suit),
+                    key=lambda c: self._calculate_card_power(c, trump_suit, context="general"),
                 )
             else:
                 # Can't win: play lowest card
                 return min(
                     valid_cards,
-                    key=lambda c: self._calculate_card_power(c, trump_suit),
+                    key=lambda c: self._calculate_card_power(c, trump_suit, context="general"),
                 )
 
     def _count_off_suit_aces(self, hand: List[Card], trump_suit: Optional[Suit]) -> int:
