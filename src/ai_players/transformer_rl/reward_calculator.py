@@ -6,6 +6,8 @@ This module implements a reward system with:
 - Trick play rewards (winning tricks, strategic losses, drawing trump, wasting trump)
 - Trick outcome rewards
 - Hand outcome rewards
+- Individual player trick tracking
+- Decision-based penalties for trump maker
 - Risk-based reward scaling
 - Auxiliary intuition shaping rewards
 - Total hand rewards capped to fixed range
@@ -49,6 +51,19 @@ class RewardCalculator:
         self.trick_outcome_reward_weight = 1.0
         self.hand_outcome_reward_weight = 2.0
         self.auxiliary_reward_weight = 0.3
+
+        # Individual player trick rewards
+        self.trick_won_reward = 0.2  # Reward per trick won by this player
+
+        # Decision-based penalties (only for trump maker, context-aware)
+        self.bad_call_penalty = -1.5  # Penalty for ordering up/selecting trump but getting euchred
+        self.poor_call_penalty = -0.8  # Penalty for ordering up but winning 0-1 tricks (partner bailed out)
+        self.poor_trump_selection_penalty = -0.6  # Penalty for selecting trump but winning 0-1 tricks
+
+        # Context-aware penalty weights
+        self.screw_dealer_penalty_weight = 0.5  # Lower penalty for screw the dealer (dealer had to choose)
+        self.going_alone_penalty_weight = 2.0  # Higher penalty for going alone failures (harder, should be penalized more)
+        self.normal_call_penalty_weight = 1.0  # Standard penalty weight
 
     def calculate_bidding_reward(
         self,
@@ -266,35 +281,51 @@ class RewardCalculator:
         return reward * self.trick_play_reward_weight
 
     def calculate_trick_outcome_reward(
-        self, tricks_won: int, tricks_lost: int, target_tricks: int = 3
+        self,
+        tricks_won: int,
+        tricks_lost: int,
+        target_tricks: int = 3,
+        # Enhanced parameters (optional for backward compatibility)
+        player_id: Optional[int] = None,
+        tricks_won_per_player: Optional[Dict[int, int]] = None,
     ) -> float:
-        """Calculate reward based on trick outcomes.
+        """Calculate reward based on trick outcomes with individual player tracking.
 
         Parameters
         ----------
         tricks_won : int
-            Number of tricks won.
+            Number of tricks won (team total).
         tricks_lost : int
-            Number of tricks lost.
+            Number of tricks lost (team total).
         target_tricks : int
             Target number of tricks (default 3 for maker).
+        player_id : Optional[int]
+            ID of the player (0-3) for individual tracking.
+        tricks_won_per_player : Optional[Dict[int, int]]
+            Dictionary mapping player_id to tricks won by that player.
 
         Returns
         -------
         float
-            Trick outcome reward.
+            Trick outcome reward with individual performance adjustments.
         """
         reward = 0.0
 
-        # Reward per trick won
+        # Reward per trick won (team total)
         reward += tricks_won * 0.5
 
-        # Penalty per trick lost
+        # Penalty per trick lost (team total)
         reward -= tricks_lost * 0.3
 
         # Bonus for meeting target
         if tricks_won >= target_tricks:
             reward += 2.0
+
+        # Add individual player performance rewards (if available)
+        if player_id is not None and tricks_won_per_player is not None:
+            player_tricks = tricks_won_per_player.get(player_id, 0)
+            # Reward for individual trick performance
+            reward += player_tricks * self.trick_won_reward
 
         return reward * self.trick_outcome_reward_weight
 
@@ -306,8 +337,17 @@ class RewardCalculator:
         was_euchred: bool,
         team_score: int,
         opponent_score: int,
+        # Enhanced parameters (optional for backward compatibility)
+        player_id: Optional[int] = None,
+        tricks_won_per_player: Optional[Dict[int, int]] = None,
+        trump_maker_id: Optional[int] = None,
+        calling_team: Optional[int] = None,
+        player_team: Optional[int] = None,
+        tricks_won: Optional[int] = None,
+        was_alone: bool = False,
+        screw_the_dealer: bool = False,
     ) -> float:
-        """Calculate reward based on hand outcome.
+        """Calculate reward based on hand outcome with enhanced individual player tracking.
 
         Parameters
         ----------
@@ -323,14 +363,31 @@ class RewardCalculator:
             Team's current score.
         opponent_score : int
             Opponent's current score.
+        player_id : Optional[int]
+            ID of the player (0-3) for individual tracking.
+        tricks_won_per_player : Optional[Dict[int, int]]
+            Dictionary mapping player_id to tricks won by that player.
+        trump_maker_id : Optional[int]
+            ID of the player who made trump (ordered up or selected).
+        calling_team : Optional[int]
+            Team that called trump (0 or 1).
+        player_team : Optional[int]
+            Team of the player (0 or 1).
+        tricks_won : Optional[int]
+            Tricks won by calling team (0-5).
+        was_alone : bool
+            Whether the calling team went alone.
+        screw_the_dealer : bool
+            Whether this was a "screw the dealer" situation.
 
         Returns
         -------
         float
-            Hand outcome reward.
+            Hand outcome reward with individual performance adjustments.
         """
         reward = 0.0
 
+        # Base hand outcome rewards
         if hand_won:
             reward += 5.0  # Base win reward
             if was_sweep:
@@ -346,7 +403,50 @@ class RewardCalculator:
         score_diff = team_score - opponent_score
         reward += score_diff * 0.1
 
-        return reward * self.hand_outcome_reward_weight
+        # Add individual player performance rewards (if available)
+        individual_reward = 0.0
+        if player_id is not None and tricks_won_per_player is not None:
+            player_tricks = tricks_won_per_player.get(player_id, 0)
+            # Reward for individual trick performance (everyone gets this)
+            individual_reward += player_tricks * self.trick_won_reward
+
+        # Decision-based penalties (ONLY for trump maker, not partners)
+        decision_penalty = 0.0
+        if (
+            player_id is not None
+            and trump_maker_id is not None
+            and player_id == trump_maker_id
+            and calling_team is not None
+            and player_team is not None
+            and tricks_won is not None
+        ):
+            # This player made the trump decision - they get penalties for bad calls
+            is_caller = calling_team == player_team
+            penalty_weight = self.normal_call_penalty_weight
+
+            # Adjust penalty weight based on context
+            if screw_the_dealer:
+                penalty_weight = self.screw_dealer_penalty_weight
+            elif was_alone:
+                penalty_weight = self.going_alone_penalty_weight
+
+            if is_caller:
+                if was_euchred or (tricks_won is not None and tricks_won < 3):
+                    # Got euchred - penalty
+                    decision_penalty = self.bad_call_penalty * penalty_weight
+                elif hand_won and tricks_won_per_player:
+                    # Additional penalty for poor individual performance despite team win
+                    if tricks_won_per_player.get(player_id, 0) == 0:
+                        # Ordered up/selected trump but won 0 tricks (partner bailed out)
+                        decision_penalty = self.poor_call_penalty * penalty_weight
+                    elif tricks_won_per_player.get(player_id, 0) <= 1:
+                        # Ordered up/selected trump but won very few tricks
+                        decision_penalty = self.poor_trump_selection_penalty * penalty_weight * 0.5
+
+        # Combine all rewards
+        total_reward = reward + individual_reward + decision_penalty
+
+        return total_reward * self.hand_outcome_reward_weight
 
     def calculate_auxiliary_reward(
         self,
@@ -504,6 +604,8 @@ class RewardCalculator:
                 tricks_won=action_data.get("tricks_won", 0),
                 tricks_lost=action_data.get("tricks_lost", 0),
                 target_tricks=action_data.get("target_tricks", 3),
+                player_id=action_data.get("player_id"),
+                tricks_won_per_player=action_data.get("tricks_won_per_player"),
             )
 
         elif action_type == "hand_outcome":
@@ -514,6 +616,14 @@ class RewardCalculator:
                 was_euchred=action_data.get("was_euchred", False),
                 team_score=action_data.get("team_score", 0),
                 opponent_score=action_data.get("opponent_score", 0),
+                player_id=action_data.get("player_id"),
+                tricks_won_per_player=action_data.get("tricks_won_per_player"),
+                trump_maker_id=action_data.get("trump_maker_id"),
+                calling_team=action_data.get("calling_team"),
+                player_team=action_data.get("player_team"),
+                tricks_won=action_data.get("tricks_won"),
+                was_alone=action_data.get("was_alone", False),
+                screw_the_dealer=action_data.get("screw_the_dealer", False),
             )
 
         elif action_type == "auxiliary":

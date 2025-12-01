@@ -26,6 +26,7 @@ class TrumpSelector:
         self.dealer_id: int = 0
         self.tui = tui
         self.trump_maker_name: Optional[str] = None
+        self.trump_maker_id: Optional[int] = None  # Player ID of trump maker
         # Decision history for post-hand inspection / logging
         self.order_up_decisions: List[tuple[str, bool]] = []
         self.call_trump_decisions: List[tuple[str, Optional[Suit]]] = []
@@ -118,6 +119,7 @@ class TrumpSelector:
             if decision:
                 # Ordered up - dealer picks up and discards
                 self.trump_maker_name = player.name
+                self.trump_maker_id = player_idx
                 dealer = self.players[self.dealer_id]
                 dealer.receive_card(self.turned_card)
                 # Pass who ordered up so the message can be correct
@@ -164,6 +166,7 @@ class TrumpSelector:
             
             if decision is not None and decision != forbidden_suit:
                 self.trump_maker_name = player.name
+                self.trump_maker_id = player_idx
                 return decision
 
         # All passed before dealer - "screw the dealer" rule
@@ -188,6 +191,7 @@ class TrumpSelector:
         
         if decision is not None and decision != forbidden_suit:
             self.trump_maker_name = dealer.name
+            self.trump_maker_id = self.dealer_id
             return decision
 
         # Fallback: dealer must choose something, even if it's the only option

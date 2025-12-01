@@ -16,12 +16,12 @@ fi
 # Force CPU device
 # Default to 1-minute training if no duration specified
 if [[ ! "$*" =~ --duration ]]; then
-    python scripts/training/train_eucher_zero.py \
+    python scripts/eucher_zero/train_eucher_zero.py \
         --device cpu \
         --duration 1m \
         "$@"
 else
-python scripts/training/train_euchre_zero.py \
+python scripts/eucher_zero/train_eucher_zero.py \
     --device cpu \
     "$@"
 fi

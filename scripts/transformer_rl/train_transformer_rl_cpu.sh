@@ -14,7 +14,7 @@ if [ -d "venv_vibe_eucher" ]; then
 fi
 
 # Force CPU device
-python scripts/training/train_transformer_rl.py \
+python scripts/transformer_rl/train_transformer_rl.py \
     --device cpu \
     "$@"
 

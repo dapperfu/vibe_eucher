@@ -12,5 +12,5 @@ if [ -d "${PROJECT_ROOT}/venv_vibe_eucher" ]; then
 fi
 
 # Force CPU device
-python "${PROJECT_ROOT}/scripts/training/train_euchergo.py" --device cpu "$@"
+python "${SCRIPT_DIR}/train_euchergo.py" --device cpu "$@"
 

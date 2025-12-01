@@ -1,4 +1,4 @@
-"""Self-play game generation for EucherZero training."""
+"""Self-play game generation for EucherGo training."""
 
 from typing import Dict, List, Optional
 
@@ -6,12 +6,11 @@ import numpy as np
 import torch
 
 from eucher.game import Game
-from eucher.players.computer.eucher_zero.action_space import ActionEncoder, ACTION_SPACE_SIZE
-from eucher.players.computer.eucher_zero.config import EucherZeroConfig
-from eucher.players.computer.eucher_zero.mcts.search import MCTSSearch
-from eucher.players.computer.eucher_zero.networks.model import EucherZeroModel
-from eucher.players.computer.eucher_zero.rewards.reward_calculator import RewardCalculator
-from eucher.players.computer.eucher_zero.state_encoder import StateEncoder
+from eucher.players.computer.euchergo.action_space import ActionEncoder
+from eucher.players.computer.euchergo.config import EucherGoConfig
+from eucher.players.computer.euchergo.mcts.search import EucherGoMCTSSearch
+from eucher.players.computer.euchergo.networks.model import EucherGoModel
+from eucher.players.computer.euchergo.state_encoder import EucherGoStateEncoder
 
 
 class GameStep:
@@ -22,7 +21,6 @@ class GameStep:
         state: torch.Tensor,
         policy: np.ndarray,
         value: float,
-        reward: float,
         player_id: int,
     ) -> None:
         """
@@ -36,21 +34,18 @@ class GameStep:
             Improved policy from MCTS.
         value : float
             Final value (hand outcome).
-        reward : float
-            Immediate reward.
         player_id : int
             Player ID.
         """
         self.state = state
         self.policy = policy
         self.value = value
-        self.reward = reward
         self.player_id = player_id
 
 
 def generate_self_play_game(
-    model: EucherZeroModel,
-    config: EucherZeroConfig,
+    model: EucherGoModel,
+    config: EucherGoConfig,
     game: Optional[Game] = None,
     risk_factor: float = 0.0,
 ) -> List[GameStep]:
@@ -59,9 +54,9 @@ def generate_self_play_game(
 
     Parameters
     ----------
-    model : EucherZeroModel
-        EucherZero model.
-    config : EucherZeroConfig
+    model : EucherGoModel
+        EucherGo model.
+    config : EucherGoConfig
         Configuration.
     game : Optional[Game]
         Game instance (if None, creates new game).
@@ -74,27 +69,32 @@ def generate_self_play_game(
         List of training examples.
     """
     # Create state encoder and MCTS
-    state_encoder = StateEncoder()
-    mcts = MCTSSearch(model, config)
-    reward_calc = RewardCalculator()
+    state_encoder = EucherGoStateEncoder()
+    mcts = EucherGoMCTSSearch(model, config.num_simulations, config.exploration_constant, config.device)
 
     training_examples: List[GameStep] = []
 
     try:
         # Use provided game or create new one
         if game is None:
+            from eucher.players.computer.euchergo.player import EucherGoPlayer
+
             player_config = [
-                ("EucherZero_0", "eucher_zero"),
-                ("EucherZero_1", "eucher_zero"),
-                ("EucherZero_2", "eucher_zero"),
-                ("EucherZero_3", "eucher_zero"),
+                ("EucherGo_0", "euchergo"),
+                ("EucherGo_1", "euchergo"),
+                ("EucherGo_2", "euchergo"),
+                ("EucherGo_3", "euchergo"),
             ]
             game = Game(player_config)
 
-            # Set game reference for all EucherZero players
+            # Set game reference and model for all EucherGo players
             for player in game.players:
                 if hasattr(player.profile, "set_game"):
                     player.profile.set_game(game)
+                if isinstance(player.profile, EucherGoPlayer):
+                    player.profile.model = model
+                    player.profile.mcts = mcts
+                    player.profile.state_encoder = state_encoder
 
             # Play one hand
             game.play_hand()
@@ -102,10 +102,6 @@ def generate_self_play_game(
         # Collect training examples from the hand
         # Get tricks won from game state
         tricks_won = getattr(game, "_current_tricks_won", [0, 0])
-        
-        # Get renege information
-        renege_occurred = getattr(game, "_renege_occurred", False)
-        renege_team = getattr(game, "_renege_team", None)
 
         # Find which team called trump
         calling_team = 0
@@ -139,42 +135,65 @@ def generate_self_play_game(
                         trump_maker_id = i
                         break
 
-        # Get screw the dealer flag
-        screw_the_dealer = getattr(game.trump_selector, "screw_the_dealer_occurred", False) if game.trump_selector else False
+        # Calculate hand outcome value
+        # Simple value: +1 if calling team won (3+ tricks), -1 if euchred (< 3 tricks)
+        calling_team_tricks = tricks_won[calling_team] if calling_team < len(tricks_won) else 0
+        
+        # Base hand value
+        if calling_team_tricks >= 3:
+            hand_value = 1.0
+        else:
+            hand_value = -1.0
+
+        # Heavily penalize going alone failures
+        if is_alone:
+            if calling_team_tricks < 3:
+                # Got euchred when going alone - severe penalty (2x normal euchre penalty)
+                hand_value = -2.0
+            elif calling_team_tricks < 5:
+                # Failed to sweep when going alone - significant penalty
+                # Still won but didn't get the bonus, so penalize relative to expectation
+                hand_value = 0.0  # Neutral/negative outcome since going alone was risky
+            elif calling_team_tricks == 5:
+                # Successful sweep when going alone - bonus
+                hand_value = 2.0
 
         for player_id in range(4):
             player = game.players[player_id]
             team = player.team
 
             # Encode final state
-            state_dict = state_encoder.encode_full_state(game, player_id)
-            state_dict["risk_factor"] = torch.tensor([risk_factor])
-            state_tensor = state_encoder.encode_state_dict_to_tensor(state_dict)
+            # Need to get current game state for encoding
+            state_tensor = state_encoder.encode_state(
+                player_hand=player.hand,
+                trump_suit=game.trump_suit,
+                dealer_id=game.dealer_id if hasattr(game, "dealer_id") else 0,
+                leader_id=0,  # Simplified
+                current_trick_cards=[],
+                trick_history=[],
+                belief_map={},  # Simplified - would need belief tracker
+                can_follow_suit=False,
+                must_call_trump=False,
+                can_go_alone=False,
+                player_id=player_id,
+            )
 
             # Run MCTS to get improved policy
-            policy = mcts.search(state_tensor, risk_factor)
+            action_mask = None  # Would need proper action mask
+            policy = mcts.search(state_tensor, action_mask)
 
-            # Calculate hand reward with enhanced individual tracking
-            hand_reward = reward_calc.calculate_hand_reward(
-                tricks_won[calling_team] if calling_team < len(tricks_won) else 0,
-                calling_team,
-                team,
-                risk_factor,
-                renege_occurred=renege_occurred,
-                renege_team=renege_team,
-                player_id=player_id,
-                tricks_won_per_player=tricks_won_per_player,
-                trump_maker_id=trump_maker_id,
-                is_alone=is_alone,
-                screw_the_dealer=screw_the_dealer,
-            )
+            # Adjust value based on team
+            # If player is on calling team, use hand_value; otherwise negate
+            if team == calling_team:
+                player_value = hand_value
+            else:
+                player_value = -hand_value
 
             # Create training example
             step = GameStep(
                 state=state_tensor,
                 policy=policy,
-                value=hand_reward,
-                reward=0.0,  # Immediate rewards would be tracked during play
+                value=player_value,
                 player_id=player_id,
             )
             training_examples.append(step)

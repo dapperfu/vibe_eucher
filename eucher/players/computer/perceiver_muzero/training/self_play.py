@@ -1,6 +1,6 @@
 """Self-play game generation for EucherPerceiverMuZero training."""
 
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -128,6 +128,29 @@ def generate_self_play_game(
         elif game.trump_selector and hasattr(game.trump_selector, "trump_maker_id"):
             calling_team = game.players[game.trump_selector.trump_maker_id].team
 
+        # Get individual player tricks won from game statistics
+        tricks_won_per_player: Dict[int, int] = {}
+        if hasattr(game, "stats") and hasattr(game.stats, "tricks_won_per_player"):
+            tricks_won_per_player = game.stats.tricks_won_per_player.copy()
+        else:
+            # Fallback: initialize with zeros
+            tricks_won_per_player = {i: 0 for i in range(4)}
+
+        # Get trump maker ID
+        trump_maker_id: Optional[int] = None
+        if game.trump_selector:
+            if hasattr(game.trump_selector, "trump_maker_id"):
+                trump_maker_id = game.trump_selector.trump_maker_id
+            elif hasattr(game.trump_selector, "trump_maker_name"):
+                # Find player ID by name
+                for i, player in enumerate(game.players):
+                    if player.name == game.trump_selector.trump_maker_name:
+                        trump_maker_id = i
+                        break
+
+        # Get screw the dealer flag
+        screw_the_dealer = getattr(game.trump_selector, "screw_the_dealer_occurred", False) if game.trump_selector else False
+
         # Collect examples for each player
         for player_id in range(4):
             player = game.players[player_id]
@@ -139,7 +162,7 @@ def generate_self_play_game(
             # Run MCTS to get improved policy
             policy = mcts.search(input_tokens, risk_factor)
 
-            # Calculate hand reward
+            # Calculate hand reward with enhanced individual tracking
             hand_reward = reward_calc.calculate_hand_reward(
                 tricks_won[calling_team] if calling_team < len(tricks_won) else 0,
                 calling_team,
@@ -148,6 +171,10 @@ def generate_self_play_game(
                 renege_occurred=renege_occurred,
                 renege_team=renege_team,
                 renege_successful=renege_successful,
+                player_id=player_id,
+                tricks_won_per_player=tricks_won_per_player,
+                trump_maker_id=trump_maker_id,
+                screw_the_dealer=screw_the_dealer,
             )
 
             # Sample action from policy for training

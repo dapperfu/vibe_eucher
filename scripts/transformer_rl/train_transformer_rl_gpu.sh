@@ -17,7 +17,7 @@ fi
 DEVICE="gpu"
 
 # Run training script
-python scripts/training/train_transformer_rl.py \
+python scripts/transformer_rl/train_transformer_rl.py \
     --device "${DEVICE}" \
     "$@"
 

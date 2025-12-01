@@ -58,25 +58,25 @@ clean:
 
 # AI Bot Training Targets
 train-pytorch-ai: ${VENV}
-	${PYTHON} scripts/training/train_pytorch_ai.py
+	${PYTHON} scripts/pytorch_ai/train_pytorch_ai.py
 
 train-pytorch-ai-self-play: ${VENV}
-	${PYTHON} scripts/training/train_pytorch_ai_self_play.py
+	${PYTHON} scripts/pytorch_ai/train_pytorch_ai_self_play.py
 
 train-pytorch-ai-self-play-tune: ${VENV}
-	${PYTHON} scripts/training/train_pytorch_ai_self_play.py --tune-batch
+	${PYTHON} scripts/pytorch_ai/train_pytorch_ai_self_play.py --tune-batch
 
 train-euchre-zero: ${VENV}
-	${PYTHON} scripts/training/train_eucher_zero.py
+	${PYTHON} scripts/eucher_zero/train_eucher_zero.py
 
 train-perceiver-muzero: ${VENV}
-	${PYTHON} scripts/training/train_perceiver_muzero.py
+	${PYTHON} scripts/perceiver_muzero/train_perceiver_muzero.py
 
 train-transformer-rl: ${VENV}
-	${PYTHON} scripts/training/train_transformer_rl.py
+	${PYTHON} scripts/transformer_rl/train_transformer_rl.py
 
 train-euchergo: ${VENV}
-	${PYTHON} scripts/training/train_euchergo.py
+	${PYTHON} scripts/euchergo/train_euchergo.py
 
 train-ml-supervised: ${VENV}
 	${PYTHON} scripts/training/train_models.py --mode train

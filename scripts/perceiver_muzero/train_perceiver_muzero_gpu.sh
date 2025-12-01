@@ -19,12 +19,12 @@ DEVICE="gpu"
 # Run training script
 # Default to 1-minute training if no duration specified
 if [[ ! "$*" =~ --duration ]]; then
-    python scripts/training/train_perceiver_muzero.py \
+    python scripts/perceiver_muzero/train_perceiver_muzero.py \
         --device "${DEVICE}" \
         --duration 1m \
         "$@"
 else
-python scripts/training/train_perceiver_muzero.py \
+python scripts/perceiver_muzero/train_perceiver_muzero.py \
     --device "${DEVICE}" \
     "$@"
 fi

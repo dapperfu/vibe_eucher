@@ -15,5 +15,5 @@ fi
 DEVICE="${DEVICE:-auto}"
 
 # Run training script with all arguments passed through
-python "${PROJECT_ROOT}/scripts/training/train_euchergo.py" --device "${DEVICE}" "$@"
+python "${SCRIPT_DIR}/train_euchergo.py" --device "${DEVICE}" "$@"
 

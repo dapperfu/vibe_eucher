@@ -1,7 +1,7 @@
 """Train RL agents for Euchre decision making."""
 
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import numpy as np
 import torch
@@ -22,14 +22,21 @@ def calculate_reward(
     game_won: bool,
     euchred: bool,
     trick_number: int,
+    # Enhanced parameters (optional for backward compatibility)
+    player_id: Optional[int] = None,
+    tricks_won_per_player: Optional[Dict[int, int]] = None,
+    trump_maker_id: Optional[int] = None,
+    calling_team: Optional[int] = None,
+    player_team: Optional[int] = None,
+    screw_the_dealer: bool = False,
 ) -> float:
     """
-    Calculate reward for an action.
+    Calculate reward for an action with enhanced individual player tracking.
 
     Parameters
     ----------
     tricks_won : int
-        Number of tricks won in current hand.
+        Number of tricks won in current hand (team total).
     hand_won : bool
         Whether the hand was won.
     game_won : bool
@@ -38,15 +45,28 @@ def calculate_reward(
         Whether the team was euchred (lost hand they called trump).
     trick_number : int
         Current trick number (0-4).
+    player_id : Optional[int]
+        ID of the player (0-3) for individual tracking.
+    tricks_won_per_player : Optional[Dict[int, int]]
+        Dictionary mapping player_id to tricks won by that player.
+    trump_maker_id : Optional[int]
+        ID of the player who made trump (ordered up or selected).
+    calling_team : Optional[int]
+        Team that called trump (0 or 1).
+    player_team : Optional[int]
+        Team of the player (0 or 1).
+    screw_the_dealer : bool
+        Whether this was a "screw the dealer" situation.
 
     Returns
     -------
     float
-        Reward value.
+        Reward value with individual performance adjustments.
     """
     reward = 0.0
 
-    # Trick wins: +1 per trick
+    # Base rewards
+    # Trick wins: +1 per trick (team total)
     reward += tricks_won * 1.0
 
     # Hand wins: +5
@@ -64,7 +84,55 @@ def calculate_reward(
     # Small reward for making progress (later tricks worth slightly more)
     reward += trick_number * 0.1
 
-    return reward
+    # Add individual player performance rewards (if available)
+    TRICK_WON_REWARD = 0.2  # Reward per trick won by this player
+    individual_reward = 0.0
+    if player_id is not None and tricks_won_per_player is not None:
+        player_tricks = tricks_won_per_player.get(player_id, 0)
+        # Reward for individual trick performance
+        individual_reward += player_tricks * TRICK_WON_REWARD
+
+    # Decision-based penalties (ONLY for trump maker, if available)
+    BAD_CALL_PENALTY = -1.5
+    POOR_CALL_PENALTY = -0.8
+    POOR_TRUMP_SELECTION_PENALTY = -0.6
+    SCREW_DEALER_PENALTY_WEIGHT = 0.5
+    GOING_ALONE_PENALTY_WEIGHT = 2.0
+    NORMAL_CALL_PENALTY_WEIGHT = 1.0
+
+    decision_penalty = 0.0
+    if (
+        player_id is not None
+        and trump_maker_id is not None
+        and player_id == trump_maker_id
+        and calling_team is not None
+        and player_team is not None
+    ):
+        # This player made the trump decision
+        is_caller = calling_team == player_team
+        penalty_weight = NORMAL_CALL_PENALTY_WEIGHT
+
+        # Adjust penalty weight based on context
+        if screw_the_dealer:
+            penalty_weight = SCREW_DEALER_PENALTY_WEIGHT
+
+        if is_caller:
+            if euchred:
+                # Got euchred - penalty
+                decision_penalty = BAD_CALL_PENALTY * penalty_weight
+            elif hand_won and tricks_won_per_player:
+                # Additional penalty for poor individual performance despite team win
+                if tricks_won_per_player.get(player_id, 0) == 0:
+                    # Ordered up/selected trump but won 0 tricks (partner bailed out)
+                    decision_penalty = POOR_CALL_PENALTY * penalty_weight
+                elif tricks_won_per_player.get(player_id, 0) <= 1:
+                    # Ordered up/selected trump but won very few tricks
+                    decision_penalty = POOR_TRUMP_SELECTION_PENALTY * penalty_weight * 0.5
+
+    # Combine all rewards
+    total_reward = reward + individual_reward + decision_penalty
+
+    return total_reward
 
 
 def train_rl_agent(

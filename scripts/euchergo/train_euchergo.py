@@ -11,13 +11,17 @@ import signal
 import sys
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional
 
 import torch
 
+from eucher.game import Game
 from eucher.players.computer.euchergo.config import EucherGoConfig
 from eucher.players.computer.euchergo.networks.model import EucherGoModel
 from eucher.players.computer.euchergo.training.dashboard import EucherGoDashboard
+from eucher.players.computer.euchergo.training.replay_buffer import ReplayBuffer
+from eucher.players.computer.euchergo.training.self_play import generate_self_play_game
+from eucher.players.computer.euchergo.training.trainer import EucherGoTrainer
 
 
 class TrainingInterrupt(Exception):
@@ -196,6 +200,7 @@ def main() -> None:
     # Add batch_size and learning_rate to config for dashboard display
     config.batch_size = args.batch_size
     config.learning_rate = args.learning_rate
+    config.going_alone_threshold = 0.75  # Use conservative threshold
 
     # Initialize model
     model = EucherGoModel(
@@ -236,6 +241,10 @@ def main() -> None:
 
     signal.signal(signal.SIGINT, signal_handler)
 
+    # Create replay buffer and trainer
+    replay_buffer = ReplayBuffer(max_size=10000)
+    trainer = EucherGoTrainer(model, config, replay_buffer)
+
     # Create dashboard
     dashboard = EucherGoDashboard(
         num_iterations=args.num_iterations,
@@ -252,7 +261,6 @@ def main() -> None:
     # Track metrics for dashboard
     iteration_times = []
     game_times = []
-    mcts_times = []
 
     print("\nStarting training...")
 
@@ -273,33 +281,71 @@ def main() -> None:
 
                 iteration_start_time = time.time()
 
-                # TODO: Implement self-play generation
-                # TODO: Implement training on replay buffer
-                # TODO: Implement evaluation
-                
-                # Placeholder: simulate some work for demonstration
-                # In real implementation, this would be:
-                # - Generate self-play games
-                # - Train on replay buffer
-                # - Calculate losses
-                # - Evaluate model
-                time.sleep(0.1)  # Placeholder delay
+                # Generate self-play games
+                for game_num in range(args.num_games):
+                    try:
+                        game_start_time = time.time()
 
-                # Update games played (placeholder - will be actual count in real implementation)
-                games_played += args.num_games
+                        # Create game with 4 EucherGo players
+                        player_config = [
+                            ("EucherGo_0", "euchergo"),
+                            ("EucherGo_1", "euchergo"),
+                            ("EucherGo_2", "euchergo"),
+                            ("EucherGo_3", "euchergo"),
+                        ]
+
+                        game = Game(player_config)
+
+                        # Set game reference and model for all EucherGo players
+                        from eucher.players.computer.euchergo.player import EucherGoPlayer
+                        from eucher.players.computer.euchergo.mcts.search import EucherGoMCTSSearch
+                        from eucher.players.computer.euchergo.state_encoder import EucherGoStateEncoder
+
+                        state_encoder = EucherGoStateEncoder()
+                        mcts = EucherGoMCTSSearch(model, config.num_simulations, config.exploration_constant, config.device)
+
+                        for player in game.players:
+                            if hasattr(player.profile, "set_game"):
+                                player.profile.set_game(game)
+                            if isinstance(player.profile, EucherGoPlayer):
+                                player.profile.model = model
+                                player.profile.mcts = mcts
+                                player.profile.state_encoder = state_encoder
+
+                        # Play hand
+                        continue_game = game.play_hand()
+
+                        # Collect training examples from self-play
+                        examples = generate_self_play_game(model, config, game=game, risk_factor=0.0)
+
+                        # Add to replay buffer
+                        for example in examples:
+                            replay_buffer.add(
+                                example.state,
+                                example.policy,
+                                example.value,
+                            )
+
+                        games_played += 1
+                        game_time = time.time() - game_start_time
+                        game_times.append(game_time)
+
+                    except Exception as e:
+                        print(f"Error in self-play game: {e}")
+                        import traceback
+                        traceback.print_exc()
+                        continue
+
+                # Train on replay buffer
+                losses: Dict[str, float] = {}
+                if len(replay_buffer) >= args.batch_size:
+                    losses = trainer.train_step()
 
                 # Calculate iteration time
                 iteration_time = time.time() - iteration_start_time
                 iteration_times.append(iteration_time)
                 avg_iteration_time = sum(iteration_times) / len(iteration_times) if iteration_times else None
-
-                # Placeholder metrics (will be actual values in real implementation)
-                policy_loss = None  # TODO: Calculate from training
-                value_loss = None  # TODO: Calculate from training
-                total_loss = None  # TODO: Calculate from training
-                avg_mcts_time = None  # TODO: Track MCTS time
-                avg_simulations_per_move = args.num_simulations  # From config
-                avg_game_time = None  # TODO: Track game time
+                avg_game_time = sum(game_times) / len(game_times) if game_times else None
 
                 # Save checkpoint periodically
                 checkpoint_path = None
@@ -313,11 +359,11 @@ def main() -> None:
                 dashboard.update(
                     iteration=iteration,
                     games_played=games_played,
-                    policy_loss=policy_loss,
-                    value_loss=value_loss,
-                    total_loss=total_loss,
-                    avg_mcts_time=avg_mcts_time,
-                    avg_simulations_per_move=avg_simulations_per_move,
+                    policy_loss=losses.get("policy"),
+                    value_loss=losses.get("value"),
+                    total_loss=losses.get("total"),
+                    avg_mcts_time=None,  # Could track this if needed
+                    avg_simulations_per_move=args.num_simulations,
                     avg_game_time=avg_game_time,
                     avg_iteration_time=avg_iteration_time,
                     checkpoint_iteration=last_checkpoint_iteration,

@@ -1,0 +1,1595 @@
+{
+  "timestamp": "2025-11-30T20:07:38.209200",
+  "num_games": 100,
+  "seed": null,
+  "euchergo_model_path": null,
+  "eucher_zero_model_path": null,
+  "euchergo_num_simulations": null,
+  "eucher_zero_num_simulations": null,
+  "euchergo_risk_factor": 0.0,
+  "eucher_zero_risk_factor": 0.0,
+  "total_games": 100,
+  "euchergo": {
+    "games_won": 2,
+    "games_lost": 98,
+    "total_score": 221,
+    "total_tricks_won": 1138,
+    "total_hands_played": 687,
+    "hands_won": 0,
+    "hands_lost": 0,
+    "trump_makes": 624,
+    "going_alone_attempts": 624,
+    "going_alone_successes": 7,
+    "win_rate": 0.02,
+    "avg_score": 2.21,
+    "avg_tricks_per_game": 11.38,
+    "going_alone_success_rate": 0.011217948717948718
+  },
+  "eucher_zero": {
+    "games_won": 98,
+    "games_lost": 2,
+    "total_score": 1006,
+    "total_tricks_won": 2297,
+    "total_hands_played": 687,
+    "hands_won": 0,
+    "hands_lost": 0,
+    "trump_makes": 63,
+    "going_alone_attempts": 2,
+    "going_alone_successes": 0,
+    "win_rate": 0.98,
+    "avg_score": 10.06,
+    "avg_tricks_per_game": 22.97,
+    "going_alone_success_rate": 0.0
+  },
+  "avg_hands_per_game": 6.87,
+  "player_stats": {
+    "euchergo": {
+      "0": {
+        "tricks_won": 267,
+        "trump_makes": 143,
+        "points_contributed": 20,
+        "going_alone_attempts": 143,
+        "going_alone_successes": 1
+      },
+      "2": {
+        "tricks_won": 264,
+        "trump_makes": 158,
+        "points_contributed": 20,
+        "going_alone_attempts": 158,
+        "going_alone_successes": 1
+      },
+      "1": {
+        "tricks_won": 293,
+        "trump_makes": 157,
+        "points_contributed": 24,
+        "going_alone_attempts": 157,
+        "going_alone_successes": 2
+      },
+      "3": {
+        "tricks_won": 314,
+        "trump_makes": 166,
+        "points_contributed": 24,
+        "going_alone_attempts": 166,
+        "going_alone_successes": 3
+      }
+    },
+    "eucher_zero": {
+      "1": {
+        "tricks_won": 529,
+        "trump_makes": 21,
+        "points_contributed": 246,
+        "going_alone_attempts": 0,
+        "going_alone_successes": 0
+      },
+      "3": {
+        "tricks_won": 600,
+        "trump_makes": 10,
+        "points_contributed": 246,
+        "going_alone_attempts": 1,
+        "going_alone_successes": 0
+      },
+      "0": {
+        "tricks_won": 613,
+        "trump_makes": 15,
+        "points_contributed": 243,
+        "going_alone_attempts": 0,
+        "going_alone_successes": 0
+      },
+      "2": {
+        "tricks_won": 555,
+        "trump_makes": 17,
+        "points_contributed": 243,
+        "going_alone_attempts": 1,
+        "going_alone_successes": 0
+      }
+    }
+  },
+  "detailed_statistics": {
+    "games": [
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          1,
+          10
+        ],
+        "hands_played": 6,
+        "euchergo_tricks": 9,
+        "eucher_zero_tricks": 21,
+        "euchergo_score": 1,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T19:59:39.809634"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          0
+        ],
+        "hands_played": 5,
+        "euchergo_tricks": 3,
+        "eucher_zero_tricks": 22,
+        "euchergo_score": 0,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T19:59:42.966382"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          0,
+          10
+        ],
+        "hands_played": 5,
+        "euchergo_tricks": 7,
+        "eucher_zero_tricks": 18,
+        "euchergo_score": 0,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T19:59:46.110626"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          2
+        ],
+        "hands_played": 7,
+        "euchergo_tricks": 7,
+        "eucher_zero_tricks": 28,
+        "euchergo_score": 2,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T19:59:50.555862"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          0,
+          11
+        ],
+        "hands_played": 6,
+        "euchergo_tricks": 7,
+        "eucher_zero_tricks": 23,
+        "euchergo_score": 0,
+        "eucher_zero_score": 11,
+        "timestamp": "2025-11-30T19:59:54.471400"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          2
+        ],
+        "hands_played": 7,
+        "euchergo_tricks": 11,
+        "eucher_zero_tricks": 24,
+        "euchergo_score": 2,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T19:59:58.857736"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          8,
+          10
+        ],
+        "hands_played": 10,
+        "euchergo_tricks": 20,
+        "eucher_zero_tricks": 30,
+        "euchergo_score": 8,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:00:06.559898"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          11,
+          3
+        ],
+        "hands_played": 8,
+        "euchergo_tricks": 10,
+        "eucher_zero_tricks": 30,
+        "euchergo_score": 3,
+        "eucher_zero_score": 11,
+        "timestamp": "2025-11-30T20:00:12.214444"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          0,
+          10
+        ],
+        "hands_played": 5,
+        "euchergo_tricks": 6,
+        "eucher_zero_tricks": 19,
+        "euchergo_score": 0,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:00:15.413346"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          0
+        ],
+        "hands_played": 5,
+        "euchergo_tricks": 7,
+        "eucher_zero_tricks": 18,
+        "euchergo_score": 0,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:00:18.661081"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          1,
+          10
+        ],
+        "hands_played": 6,
+        "euchergo_tricks": 11,
+        "eucher_zero_tricks": 19,
+        "euchergo_score": 1,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:00:22.410583"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 1,
+        "scores": [
+          6,
+          10
+        ],
+        "hands_played": 8,
+        "euchergo_tricks": 21,
+        "eucher_zero_tricks": 19,
+        "euchergo_score": 10,
+        "eucher_zero_score": 6,
+        "timestamp": "2025-11-30T20:00:28.552595"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          1,
+          10
+        ],
+        "hands_played": 6,
+        "euchergo_tricks": 6,
+        "eucher_zero_tricks": 24,
+        "euchergo_score": 1,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:00:32.400758"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          1
+        ],
+        "hands_played": 6,
+        "euchergo_tricks": 9,
+        "eucher_zero_tricks": 21,
+        "euchergo_score": 1,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:00:36.397024"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          0,
+          10
+        ],
+        "hands_played": 5,
+        "euchergo_tricks": 7,
+        "eucher_zero_tricks": 18,
+        "euchergo_score": 0,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:00:39.660142"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          1
+        ],
+        "hands_played": 6,
+        "euchergo_tricks": 9,
+        "eucher_zero_tricks": 21,
+        "euchergo_score": 1,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:00:43.244891"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          2,
+          10
+        ],
+        "hands_played": 7,
+        "euchergo_tricks": 13,
+        "eucher_zero_tricks": 22,
+        "euchergo_score": 2,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:00:47.784824"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          1
+        ],
+        "hands_played": 6,
+        "euchergo_tricks": 10,
+        "eucher_zero_tricks": 20,
+        "euchergo_score": 1,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:00:51.531614"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          4,
+          10
+        ],
+        "hands_played": 9,
+        "euchergo_tricks": 14,
+        "eucher_zero_tricks": 31,
+        "euchergo_score": 4,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:00:58.871228"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          2
+        ],
+        "hands_played": 7,
+        "euchergo_tricks": 10,
+        "eucher_zero_tricks": 25,
+        "euchergo_score": 2,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:01:03.261718"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          2,
+          10
+        ],
+        "hands_played": 7,
+        "euchergo_tricks": 11,
+        "eucher_zero_tricks": 24,
+        "euchergo_score": 2,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:01:07.663840"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          0
+        ],
+        "hands_played": 5,
+        "euchergo_tricks": 3,
+        "eucher_zero_tricks": 22,
+        "euchergo_score": 0,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:01:10.782878"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          4,
+          10
+        ],
+        "hands_played": 8,
+        "euchergo_tricks": 16,
+        "eucher_zero_tricks": 24,
+        "euchergo_score": 4,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:01:16.755972"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          1
+        ],
+        "hands_played": 6,
+        "euchergo_tricks": 8,
+        "eucher_zero_tricks": 22,
+        "euchergo_score": 1,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:01:20.575759"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          0,
+          10
+        ],
+        "hands_played": 5,
+        "euchergo_tricks": 3,
+        "eucher_zero_tricks": 22,
+        "euchergo_score": 0,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:01:23.801692"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          2
+        ],
+        "hands_played": 7,
+        "euchergo_tricks": 14,
+        "eucher_zero_tricks": 21,
+        "euchergo_score": 2,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:01:28.316772"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          0,
+          11
+        ],
+        "hands_played": 6,
+        "euchergo_tricks": 8,
+        "eucher_zero_tricks": 22,
+        "euchergo_score": 0,
+        "eucher_zero_score": 11,
+        "timestamp": "2025-11-30T20:01:32.507070"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          0
+        ],
+        "hands_played": 5,
+        "euchergo_tricks": 9,
+        "eucher_zero_tricks": 16,
+        "euchergo_score": 0,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:01:35.572283"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          1,
+          10
+        ],
+        "hands_played": 6,
+        "euchergo_tricks": 12,
+        "eucher_zero_tricks": 18,
+        "euchergo_score": 1,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:01:39.251525"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          0
+        ],
+        "hands_played": 5,
+        "euchergo_tricks": 5,
+        "eucher_zero_tricks": 20,
+        "euchergo_score": 0,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:01:42.374592"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          7,
+          10
+        ],
+        "hands_played": 12,
+        "euchergo_tricks": 29,
+        "eucher_zero_tricks": 31,
+        "euchergo_score": 7,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:01:50.123596"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          4
+        ],
+        "hands_played": 10,
+        "euchergo_tricks": 18,
+        "eucher_zero_tricks": 32,
+        "euchergo_score": 4,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:01:57.993118"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          2,
+          10
+        ],
+        "hands_played": 6,
+        "euchergo_tricks": 9,
+        "eucher_zero_tricks": 21,
+        "euchergo_score": 2,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:02:02.400557"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          0
+        ],
+        "hands_played": 5,
+        "euchergo_tricks": 6,
+        "eucher_zero_tricks": 19,
+        "euchergo_score": 0,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:02:05.740670"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          3,
+          10
+        ],
+        "hands_played": 7,
+        "euchergo_tricks": 10,
+        "eucher_zero_tricks": 25,
+        "euchergo_score": 3,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:02:11.062502"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          3
+        ],
+        "hands_played": 8,
+        "euchergo_tricks": 17,
+        "eucher_zero_tricks": 23,
+        "euchergo_score": 3,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:02:16.520264"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          2,
+          10
+        ],
+        "hands_played": 7,
+        "euchergo_tricks": 16,
+        "eucher_zero_tricks": 19,
+        "euchergo_score": 2,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:02:21.189924"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          3
+        ],
+        "hands_played": 8,
+        "euchergo_tricks": 15,
+        "eucher_zero_tricks": 25,
+        "euchergo_score": 3,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:02:26.319278"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          5,
+          10
+        ],
+        "hands_played": 7,
+        "euchergo_tricks": 15,
+        "eucher_zero_tricks": 20,
+        "euchergo_score": 5,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:02:31.157576"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          8
+        ],
+        "hands_played": 10,
+        "euchergo_tricks": 24,
+        "eucher_zero_tricks": 26,
+        "euchergo_score": 8,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:02:37.945631"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          0,
+          10
+        ],
+        "hands_played": 5,
+        "euchergo_tricks": 9,
+        "eucher_zero_tricks": 16,
+        "euchergo_score": 0,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:02:41.507263"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          5
+        ],
+        "hands_played": 7,
+        "euchergo_tricks": 15,
+        "eucher_zero_tricks": 20,
+        "euchergo_score": 5,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:02:46.186219"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          2,
+          10
+        ],
+        "hands_played": 7,
+        "euchergo_tricks": 9,
+        "eucher_zero_tricks": 26,
+        "euchergo_score": 2,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:02:50.733100"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          4
+        ],
+        "hands_played": 8,
+        "euchergo_tricks": 16,
+        "eucher_zero_tricks": 24,
+        "euchergo_score": 4,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:02:56.726841"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          1,
+          10
+        ],
+        "hands_played": 6,
+        "euchergo_tricks": 7,
+        "eucher_zero_tricks": 23,
+        "euchergo_score": 1,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:03:00.882621"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          5
+        ],
+        "hands_played": 10,
+        "euchergo_tricks": 24,
+        "eucher_zero_tricks": 26,
+        "euchergo_score": 5,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:03:07.702833"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          3,
+          10
+        ],
+        "hands_played": 7,
+        "euchergo_tricks": 11,
+        "eucher_zero_tricks": 24,
+        "euchergo_score": 3,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:03:13.128571"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          11,
+          6
+        ],
+        "hands_played": 11,
+        "euchergo_tricks": 26,
+        "eucher_zero_tricks": 29,
+        "euchergo_score": 6,
+        "eucher_zero_score": 11,
+        "timestamp": "2025-11-30T20:03:22.392727"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          3,
+          10
+        ],
+        "hands_played": 8,
+        "euchergo_tricks": 13,
+        "eucher_zero_tricks": 27,
+        "euchergo_score": 3,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:03:27.892329"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          2
+        ],
+        "hands_played": 7,
+        "euchergo_tricks": 10,
+        "eucher_zero_tricks": 25,
+        "euchergo_score": 2,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:03:32.540101"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          0,
+          10
+        ],
+        "hands_played": 5,
+        "euchergo_tricks": 2,
+        "eucher_zero_tricks": 23,
+        "euchergo_score": 0,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:03:35.872994"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          2
+        ],
+        "hands_played": 7,
+        "euchergo_tricks": 13,
+        "eucher_zero_tricks": 22,
+        "euchergo_score": 2,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:03:40.535649"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 0,
+        "scores": [
+          11,
+          9
+        ],
+        "hands_played": 10,
+        "euchergo_tricks": 22,
+        "eucher_zero_tricks": 28,
+        "euchergo_score": 11,
+        "eucher_zero_score": 9,
+        "timestamp": "2025-11-30T20:03:49.129440"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          0
+        ],
+        "hands_played": 5,
+        "euchergo_tricks": 7,
+        "eucher_zero_tricks": 18,
+        "euchergo_score": 0,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:03:52.272736"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          1,
+          10
+        ],
+        "hands_played": 6,
+        "euchergo_tricks": 9,
+        "eucher_zero_tricks": 21,
+        "euchergo_score": 1,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:03:56.274256"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          0
+        ],
+        "hands_played": 5,
+        "euchergo_tricks": 4,
+        "eucher_zero_tricks": 21,
+        "euchergo_score": 0,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:03:59.692302"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          1,
+          10
+        ],
+        "hands_played": 6,
+        "euchergo_tricks": 10,
+        "eucher_zero_tricks": 20,
+        "euchergo_score": 1,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:04:03.694704"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          4
+        ],
+        "hands_played": 6,
+        "euchergo_tricks": 10,
+        "eucher_zero_tricks": 20,
+        "euchergo_score": 4,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:04:07.801048"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          1,
+          10
+        ],
+        "hands_played": 6,
+        "euchergo_tricks": 8,
+        "eucher_zero_tricks": 22,
+        "euchergo_score": 1,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:04:11.652026"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          11,
+          4
+        ],
+        "hands_played": 7,
+        "euchergo_tricks": 14,
+        "eucher_zero_tricks": 21,
+        "euchergo_score": 4,
+        "eucher_zero_score": 11,
+        "timestamp": "2025-11-30T20:04:16.859708"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          0,
+          10
+        ],
+        "hands_played": 5,
+        "euchergo_tricks": 5,
+        "eucher_zero_tricks": 20,
+        "euchergo_score": 0,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:04:20.600724"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          11,
+          4
+        ],
+        "hands_played": 9,
+        "euchergo_tricks": 15,
+        "eucher_zero_tricks": 30,
+        "euchergo_score": 4,
+        "eucher_zero_score": 11,
+        "timestamp": "2025-11-30T20:04:27.358379"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          3,
+          10
+        ],
+        "hands_played": 8,
+        "euchergo_tricks": 17,
+        "eucher_zero_tricks": 23,
+        "euchergo_score": 3,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:04:32.849113"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          11,
+          2
+        ],
+        "hands_played": 8,
+        "euchergo_tricks": 14,
+        "eucher_zero_tricks": 26,
+        "euchergo_score": 2,
+        "eucher_zero_score": 11,
+        "timestamp": "2025-11-30T20:04:38.719089"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          4,
+          10
+        ],
+        "hands_played": 9,
+        "euchergo_tricks": 19,
+        "eucher_zero_tricks": 26,
+        "euchergo_score": 4,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:04:46.239102"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          3
+        ],
+        "hands_played": 7,
+        "euchergo_tricks": 16,
+        "eucher_zero_tricks": 19,
+        "euchergo_score": 3,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:04:51.679935"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          0,
+          11
+        ],
+        "hands_played": 6,
+        "euchergo_tricks": 5,
+        "eucher_zero_tricks": 25,
+        "euchergo_score": 0,
+        "eucher_zero_score": 11,
+        "timestamp": "2025-11-30T20:04:56.744669"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          2
+        ],
+        "hands_played": 7,
+        "euchergo_tricks": 14,
+        "eucher_zero_tricks": 21,
+        "euchergo_score": 2,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:05:01.454725"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          1,
+          10
+        ],
+        "hands_played": 6,
+        "euchergo_tricks": 7,
+        "eucher_zero_tricks": 23,
+        "euchergo_score": 1,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:05:05.679340"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          0
+        ],
+        "hands_played": 5,
+        "euchergo_tricks": 5,
+        "eucher_zero_tricks": 20,
+        "euchergo_score": 0,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:05:08.993681"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          3,
+          10
+        ],
+        "hands_played": 7,
+        "euchergo_tricks": 9,
+        "eucher_zero_tricks": 26,
+        "euchergo_score": 3,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:05:13.965180"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          3
+        ],
+        "hands_played": 7,
+        "euchergo_tricks": 12,
+        "eucher_zero_tricks": 23,
+        "euchergo_score": 3,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:05:18.886741"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          0,
+          10
+        ],
+        "hands_played": 5,
+        "euchergo_tricks": 4,
+        "eucher_zero_tricks": 21,
+        "euchergo_score": 0,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:05:22.170582"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          2
+        ],
+        "hands_played": 7,
+        "euchergo_tricks": 11,
+        "eucher_zero_tricks": 24,
+        "euchergo_score": 2,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:05:27.106431"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          0,
+          10
+        ],
+        "hands_played": 6,
+        "euchergo_tricks": 7,
+        "eucher_zero_tricks": 23,
+        "euchergo_score": 0,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:05:32.257699"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          11,
+          3
+        ],
+        "hands_played": 9,
+        "euchergo_tricks": 15,
+        "eucher_zero_tricks": 30,
+        "euchergo_score": 3,
+        "eucher_zero_score": 11,
+        "timestamp": "2025-11-30T20:05:38.718507"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          2,
+          10
+        ],
+        "hands_played": 6,
+        "euchergo_tricks": 11,
+        "eucher_zero_tricks": 19,
+        "euchergo_score": 2,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:05:43.310637"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          0
+        ],
+        "hands_played": 5,
+        "euchergo_tricks": 8,
+        "eucher_zero_tricks": 17,
+        "euchergo_score": 0,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:05:46.980364"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          1,
+          10
+        ],
+        "hands_played": 6,
+        "euchergo_tricks": 11,
+        "eucher_zero_tricks": 19,
+        "euchergo_score": 1,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:05:50.937213"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          2
+        ],
+        "hands_played": 8,
+        "euchergo_tricks": 10,
+        "eucher_zero_tricks": 30,
+        "euchergo_score": 2,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:05:56.987993"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          3,
+          10
+        ],
+        "hands_played": 8,
+        "euchergo_tricks": 16,
+        "eucher_zero_tricks": 24,
+        "euchergo_score": 3,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:06:02.096198"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          2
+        ],
+        "hands_played": 7,
+        "euchergo_tricks": 10,
+        "eucher_zero_tricks": 25,
+        "euchergo_score": 2,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:06:06.597753"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          2,
+          10
+        ],
+        "hands_played": 7,
+        "euchergo_tricks": 12,
+        "eucher_zero_tricks": 23,
+        "euchergo_score": 2,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:06:11.096824"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          2
+        ],
+        "hands_played": 7,
+        "euchergo_tricks": 10,
+        "eucher_zero_tricks": 25,
+        "euchergo_score": 2,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:06:15.767954"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          0,
+          11
+        ],
+        "hands_played": 6,
+        "euchergo_tricks": 7,
+        "eucher_zero_tricks": 23,
+        "euchergo_score": 0,
+        "eucher_zero_score": 11,
+        "timestamp": "2025-11-30T20:06:20.356255"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          3
+        ],
+        "hands_played": 8,
+        "euchergo_tricks": 12,
+        "eucher_zero_tricks": 28,
+        "euchergo_score": 3,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:06:26.009535"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          0,
+          10
+        ],
+        "hands_played": 5,
+        "euchergo_tricks": 4,
+        "eucher_zero_tricks": 21,
+        "euchergo_score": 0,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:06:29.517849"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          8
+        ],
+        "hands_played": 10,
+        "euchergo_tricks": 24,
+        "eucher_zero_tricks": 26,
+        "euchergo_score": 8,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:06:37.376899"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          3,
+          10
+        ],
+        "hands_played": 8,
+        "euchergo_tricks": 16,
+        "eucher_zero_tricks": 24,
+        "euchergo_score": 3,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:06:42.937580"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          4
+        ],
+        "hands_played": 9,
+        "euchergo_tricks": 17,
+        "eucher_zero_tricks": 28,
+        "euchergo_score": 4,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:06:48.977047"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          0,
+          10
+        ],
+        "hands_played": 5,
+        "euchergo_tricks": 5,
+        "eucher_zero_tricks": 20,
+        "euchergo_score": 0,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:06:52.472194"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          11,
+          2
+        ],
+        "hands_played": 9,
+        "euchergo_tricks": 16,
+        "eucher_zero_tricks": 29,
+        "euchergo_score": 2,
+        "eucher_zero_score": 11,
+        "timestamp": "2025-11-30T20:07:00.108893"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          4,
+          10
+        ],
+        "hands_played": 9,
+        "euchergo_tricks": 18,
+        "eucher_zero_tricks": 27,
+        "euchergo_score": 4,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:07:06.299341"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          2
+        ],
+        "hands_played": 8,
+        "euchergo_tricks": 17,
+        "eucher_zero_tricks": 23,
+        "euchergo_score": 2,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:07:12.661713"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          5,
+          10
+        ],
+        "hands_played": 8,
+        "euchergo_tricks": 16,
+        "eucher_zero_tricks": 24,
+        "euchergo_score": 5,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:07:18.762304"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          0
+        ],
+        "hands_played": 5,
+        "euchergo_tricks": 4,
+        "eucher_zero_tricks": 21,
+        "euchergo_score": 0,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:07:22.056606"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          0,
+          10
+        ],
+        "hands_played": 5,
+        "euchergo_tricks": 8,
+        "eucher_zero_tricks": 17,
+        "euchergo_score": 0,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:07:25.360639"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          4
+        ],
+        "hands_played": 7,
+        "euchergo_tricks": 15,
+        "eucher_zero_tricks": 20,
+        "euchergo_score": 4,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:07:30.525884"
+      },
+      {
+        "winner": 1,
+        "euchergo_team": 0,
+        "scores": [
+          0,
+          10
+        ],
+        "hands_played": 5,
+        "euchergo_tricks": 5,
+        "eucher_zero_tricks": 20,
+        "euchergo_score": 0,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:07:34.021047"
+      },
+      {
+        "winner": 0,
+        "euchergo_team": 1,
+        "scores": [
+          10,
+          1
+        ],
+        "hands_played": 6,
+        "euchergo_tricks": 7,
+        "eucher_zero_tricks": 23,
+        "euchergo_score": 1,
+        "eucher_zero_score": 10,
+        "timestamp": "2025-11-30T20:07:38.208789"
+      }
+    ],
+    "euchergo_team_stats": {
+      "games_won": 2,
+      "games_lost": 98,
+      "total_score": 221,
+      "total_tricks_won": 1138,
+      "total_hands_played": 687,
+      "hands_won": 0,
+      "hands_lost": 0,
+      "trump_makes": 624,
+      "going_alone_attempts": 624,
+      "going_alone_successes": 7
+    },
+    "eucher_zero_team_stats": {
+      "games_won": 98,
+      "games_lost": 2,
+      "total_score": 1006,
+      "total_tricks_won": 2297,
+      "total_hands_played": 687,
+      "hands_won": 0,
+      "hands_lost": 0,
+      "trump_makes": 63,
+      "going_alone_attempts": 2,
+      "going_alone_successes": 0
+    },
+    "euchergo_player_stats": {
+      "0": {
+        "tricks_won": 267,
+        "trump_makes": 143,
+        "points_contributed": 20,
+        "going_alone_attempts": 143,
+        "going_alone_successes": 1
+      },
+      "2": {
+        "tricks_won": 264,
+        "trump_makes": 158,
+        "points_contributed": 20,
+        "going_alone_attempts": 158,
+        "going_alone_successes": 1
+      },
+      "1": {
+        "tricks_won": 293,
+        "trump_makes": 157,
+        "points_contributed": 24,
+        "going_alone_attempts": 157,
+        "going_alone_successes": 2
+      },
+      "3": {
+        "tricks_won": 314,
+        "trump_makes": 166,
+        "points_contributed": 24,
+        "going_alone_attempts": 166,
+        "going_alone_successes": 3
+      }
+    },
+    "eucher_zero_player_stats": {
+      "1": {
+        "tricks_won": 529,
+        "trump_makes": 21,
+        "points_contributed": 246,
+        "going_alone_attempts": 0,
+        "going_alone_successes": 0
+      },
+      "3": {
+        "tricks_won": 600,
+        "trump_makes": 10,
+        "points_contributed": 246,
+        "going_alone_attempts": 1,
+        "going_alone_successes": 0
+      },
+      "0": {
+        "tricks_won": 613,
+        "trump_makes": 15,
+        "points_contributed": 243,
+        "going_alone_attempts": 0,
+        "going_alone_successes": 0
+      },
+      "2": {
+        "tricks_won": 555,
+        "trump_makes": 17,
+        "points_contributed": 243,
+        "going_alone_attempts": 1,
+        "going_alone_successes": 0
+      }
+    }
+  }
+}
