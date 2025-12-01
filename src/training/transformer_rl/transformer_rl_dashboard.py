@@ -152,6 +152,37 @@ class TransformerRLDashboard:
 
         return table
 
+    def _format_time(self, seconds: float) -> str:
+        """
+        Format time in seconds to human-readable h:m:s format.
+
+        Parameters
+        ----------
+        seconds : float
+            Time in seconds.
+
+        Returns
+        -------
+        str
+            Formatted time string (e.g., "4h 51m 20s" or "51m 20s" or "20s").
+        """
+        if seconds < 0:
+            return "0s"
+        
+        hours = int(seconds // 3600)
+        minutes = int((seconds % 3600) // 60)
+        secs = int(seconds % 60)
+        
+        parts = []
+        if hours > 0:
+            parts.append(f"{hours}h")
+        if minutes > 0:
+            parts.append(f"{minutes}m")
+        if secs > 0 or not parts:
+            parts.append(f"{secs}s")
+        
+        return " ".join(parts)
+
     def start_live_display(self) -> Live:
         """
         Start live updating display.
