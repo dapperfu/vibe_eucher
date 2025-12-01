@@ -6,6 +6,7 @@ Supports cumulative training, multi-device support, and checkpoint management.
 """
 
 import argparse
+import os
 import re
 import signal
 import sys
@@ -13,13 +14,17 @@ import time
 from pathlib import Path
 from typing import Dict, Optional
 
+import torch
+
 from eucher.game import Game
-from eucher.players.computer.euchre_zero.config import EuchreZeroConfig
-from eucher.players.computer.euchre_zero.networks.model import EuchreZeroModel
-from eucher.players.computer.euchre_zero.training.dashboard import EuchreZeroDashboard
-from eucher.players.computer.euchre_zero.training.replay_buffer import ReplayBuffer
-from eucher.players.computer.euchre_zero.training.self_play import generate_self_play_game
-from eucher.players.computer.euchre_zero.training.trainer import EuchreZeroTrainer
+from eucher.plugins import get_registry
+from eucher.plugins.discovery import discover_builtin_plugins
+from eucher.players.computer.eucher_zero.config import EucherZeroConfig
+from eucher.players.computer.eucher_zero.networks.model import EucherZeroModel
+from eucher.players.computer.eucher_zero.training.dashboard import EuchreZeroDashboard
+from eucher.players.computer.eucher_zero.training.replay_buffer import ReplayBuffer
+from eucher.players.computer.eucher_zero.training.self_play import generate_self_play_game
+from eucher.players.computer.eucher_zero.training.trainer import EucherZeroTrainer
 
 
 class TrainingInterrupt(Exception):
@@ -57,6 +62,29 @@ def parse_duration(duration_str: str) -> Optional[float]:
             return value * 86400.0
 
     return None
+
+
+def list_available_plugins() -> None:
+    """
+    List all available player plugins.
+    """
+    registry = get_registry()
+    discover_builtin_plugins()
+    plugins = registry.list_plugins()
+    
+    print("Available player plugins:")
+    print("=" * 80)
+    for plugin in sorted(plugins):
+        metadata = registry.get(plugin)
+        if metadata:
+            desc = metadata.description or "No description"
+            print(f"  {plugin:20s} - {desc}")
+        else:
+            print(f"  {plugin:20s}")
+    print("=" * 80)
+    print(f"\nTotal: {len(plugins)} plugins")
+    print("\nUse --opponent <plugin_name> to train against a specific opponent.")
+    print("Example: --opponent heuristic")
 
 
 def find_latest_checkpoint(checkpoint_dir: Path) -> Optional[Path]:
@@ -147,8 +175,37 @@ def main() -> None:
         default=10,
         help="Number of MCTS simulations per decision (default: 10)",
     )
+    parser.add_argument(
+        "--opponent",
+        type=str,
+        default=None,
+        help="Opponent plugin to train against. Use 'list' to enumerate available plugins. "
+             "If not specified, trains against itself (self-play).",
+    )
 
     args = parser.parse_args()
+    
+    # Configure CPU threading for optimal performance
+    # Set PyTorch to use all available CPU threads
+    num_threads = os.cpu_count() or 16
+    torch.set_num_threads(num_threads)
+    torch.set_num_interop_threads(num_threads)
+    
+    # Set environment variables for BLAS/MKL libraries
+    os.environ.setdefault("OMP_NUM_THREADS", str(num_threads))
+    os.environ.setdefault("MKL_NUM_THREADS", str(num_threads))
+    os.environ.setdefault("NUMEXPR_NUM_THREADS", str(num_threads))
+    os.environ.setdefault("OPENBLAS_NUM_THREADS", str(num_threads))
+    
+    print(f"CPU Threading Configuration:")
+    print(f"  Available CPU cores: {num_threads}")
+    print(f"  PyTorch threads: {torch.get_num_threads()}")
+    print(f"  PyTorch interop threads: {torch.get_num_interop_threads()}")
+    
+    # Handle --opponent list
+    if args.opponent == "list":
+        list_available_plugins()
+        sys.exit(0)
 
     # Parse duration
     max_duration_seconds = parse_duration(args.duration)
@@ -165,12 +222,14 @@ def main() -> None:
     print(f"Batch size: {args.batch_size}")
     print(f"Games per iteration: {args.num_games}")
     print(f"MCTS simulations: {args.num_simulations}")
+    if args.opponent:
+        print(f"Opponent: {args.opponent}")
+    else:
+        print("Opponent: self-play (EucherZero vs EucherZero)")
     print("=" * 80)
 
     # Setup device
     if args.device == "auto":
-        import torch
-
         device_str = "cuda" if torch.cuda.is_available() else "cpu"
     elif args.device == "gpu":
         device_str = "cuda"
@@ -178,7 +237,7 @@ def main() -> None:
         device_str = args.device
 
     # Create config
-    config = EuchreZeroConfig(
+    config = EucherZeroConfig(
         batch_size=args.batch_size,
         learning_rate=args.learning_rate,
         num_games=args.num_games,
@@ -188,7 +247,7 @@ def main() -> None:
     )
 
     # Initialize model
-    model = EuchreZeroModel(config)
+    model = EucherZeroModel(config)
 
     # Load checkpoint if exists
     checkpoint_dir = Path(args.checkpoint_dir)
@@ -209,7 +268,7 @@ def main() -> None:
 
     # Initialize replay buffer and trainer
     replay_buffer = ReplayBuffer(max_size=1000)
-    trainer = EuchreZeroTrainer(model, config, replay_buffer)
+    trainer = EucherZeroTrainer(model, config, replay_buffer)
 
     # Initialize dashboard
     dashboard = EuchreZeroDashboard(num_games=None, refresh_rate=2.0)
@@ -240,12 +299,25 @@ def main() -> None:
                     try:
                         game_start_time = time.time()
 
-                        # Create game with 4 EucherZero players
+                        # Create game configuration
+                        # Team 0 (players 0, 2): EucherZero (training player)
+                        # Team 1 (players 1, 3): Opponent or EucherZero (self-play)
+                        opponent_type = args.opponent if args.opponent else "eucher_zero"
+                        
+                        # Validate opponent plugin exists
+                        if args.opponent:
+                            registry = get_registry()
+                            discover_builtin_plugins()
+                            if not registry.has(args.opponent):
+                                print(f"Error: Opponent plugin '{args.opponent}' not found.")
+                                print("Use --opponent list to see available plugins.")
+                                sys.exit(1)
+                        
                         player_config = [
                             ("EucherZero_0", "eucher_zero"),
-                            ("EucherZero_1", "eucher_zero"),
+                            (f"Opponent_1", opponent_type),
                             ("EucherZero_2", "eucher_zero"),
-                            ("EucherZero_3", "eucher_zero"),
+                            (f"Opponent_3", opponent_type),
                         ]
 
                         game = Game(player_config)
