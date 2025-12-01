@@ -33,5 +33,6 @@ register_plugin(
     description="Makes all decisions randomly",
     requires_game=False,
     supports_kwargs=False,
+    model_name=None,
 )
 

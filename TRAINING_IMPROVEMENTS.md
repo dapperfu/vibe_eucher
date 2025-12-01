@@ -29,12 +29,12 @@
 
 1. **Try Even Lower Learning Rate**
    ```bash
-   python scripts/training/pytorch_ai/train_pytorch_ai.py --learning-rate 1e-5
+   python scripts/pytorch_ai/train_pytorch_ai.py --learning-rate 1e-5
    ```
 
 2. **Use ReduceLROnPlateau Scheduler**
    ```bash
-   python scripts/training/pytorch_ai/train_pytorch_ai.py --scheduler-type reduce_on_plateau
+   python scripts/pytorch_ai/train_pytorch_ai.py --scheduler-type reduce_on_plateau
    ```
    This will automatically reduce LR when loss plateaus.
 
@@ -46,7 +46,7 @@
 
 4. **Start Fresh (if needed)**
    ```bash
-   python scripts/training/pytorch_ai/train_pytorch_ai.py --no-resume --learning-rate 1e-5
+   python scripts/pytorch_ai/train_pytorch_ai.py --no-resume --learning-rate 1e-5
    ```
 
 5. **Monitor Training**

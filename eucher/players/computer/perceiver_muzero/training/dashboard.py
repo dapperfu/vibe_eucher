@@ -186,10 +186,41 @@ class PerceiverMuZeroDashboard:
             avg_time_per_game = elapsed / self.games_completed
             remaining_games = max(0, self.num_games - self.current_game)
             estimated_remaining = avg_time_per_game * remaining_games
-            table.add_row("Est. Remaining", f"{estimated_remaining:.1f}s")
+            table.add_row("Est. Remaining", self._format_time(estimated_remaining))
             table.add_row("Avg Time/Game", f"{avg_time_per_game:.2f}s")
 
         return table
+
+    def _format_time(self, seconds: float) -> str:
+        """
+        Format time in seconds to human-readable h:m:s format.
+
+        Parameters
+        ----------
+        seconds : float
+            Time in seconds.
+
+        Returns
+        -------
+        str
+            Formatted time string (e.g., "4h 51m 20s" or "51m 20s" or "20s").
+        """
+        if seconds < 0:
+            return "0s"
+        
+        hours = int(seconds // 3600)
+        minutes = int((seconds % 3600) // 60)
+        secs = int(seconds % 60)
+        
+        parts = []
+        if hours > 0:
+            parts.append(f"{hours}h")
+        if minutes > 0:
+            parts.append(f"{minutes}m")
+        if secs > 0 or not parts:
+            parts.append(f"{secs}s")
+        
+        return " ".join(parts)
 
     def _create_config_table(self, config) -> Table:
         """

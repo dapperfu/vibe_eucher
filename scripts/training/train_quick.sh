@@ -33,7 +33,7 @@ echo "Step 1: Collecting training data (1 minute)..."
 echo ""
 
 # Step 1: Collect training data for 1 minute
-python scripts/train_models.py --mode self_play --duration 1m
+python scripts/training/train_models.py --mode self_play --duration 1m
 
 echo ""
 echo "Step 2: Initializing PyTorch models with correct feature size..."

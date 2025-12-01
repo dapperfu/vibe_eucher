@@ -442,3 +442,66 @@ class TransformerRLPlayer(PlayerProfile):
         if self.use_deduction and self.deduction_engine:
             self.deduction_engine.record_deal(player_id, cards)
 
+    def decide_going_alone(self, player: "Player", trump_suit: Suit) -> bool:
+        """
+        Decide whether to go alone after making trump.
+
+        Parameters
+        ----------
+        player : Player
+            The player making the decision (must be the trump maker).
+        trump_suit : Suit
+            The trump suit that was selected.
+
+        Returns
+        -------
+        bool
+            True to go alone, False to play with partner.
+        """
+        # Encode game state
+        state = self.feature_encoder.encode_full_state_with_deduction(
+            hand=player.hand,
+            trick_history=self.trick_history,
+            tracker=self.tracker,
+            deduction_engine=self.deduction_engine if self.use_deduction else None,
+            trick_number=0,
+            team_score=self.team_scores[player.team],
+            opponent_score=self.team_scores[1 - player.team],
+            player_position=player.player_id,
+            dealer_id=self.dealer_id,
+            trump_suit=trump_suit,
+            turned_card=None,
+            risk_factor=self.risk_factor,
+        )
+
+        # Get model prediction for going alone decision
+        action, _, _ = self.agent.select_action(
+            state=state,
+            action_type="go_alone",
+            valid_actions=[0, 1],  # 0 = play with partner, 1 = go alone
+            training=False,
+        )
+
+        return action == 1
+
+    def decide_trade_in(self, player: "Player", eligible_cards: List[Card]) -> bool:
+        """
+        Decide whether to trade-in eligible cards for kitty cards.
+
+        Parameters
+        ----------
+        player : Player
+            The player making the decision.
+        eligible_cards : List[Card]
+            The three cards that are eligible for trade-in.
+
+        Returns
+        -------
+        bool
+            True to trade-in, False to pass.
+        """
+        # For now, use simple heuristic: don't trade-in by default
+        # This can be improved with ML model prediction later
+        # The transformer RL model would need to be extended to support trade-in decisions
+        return False
+

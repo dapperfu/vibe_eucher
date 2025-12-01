@@ -16,9 +16,9 @@ The codebase follows these patterns:
 ### Training Scripts
 - **Location**: `scripts/training/{player_type}/`
 - **Examples**:
-  - `scripts/training/pytorch_ai/` - PyTorch AI training scripts
-  - `scripts/training/transformer_rl/` - Transformer RL training scripts
-  - `scripts/training/euchre_zero/` - EuchreZero training scripts (already exists)
+  - `scripts/pytorch_ai/` - PyTorch AI training scripts
+  - `scripts/transformer_rl/` - Transformer RL training scripts
+  - `scripts/eucher_zero/` - EuchreZero training scripts (already exists)
 
 ### General Training Utilities
 - **Location**: `eucher/training/` (flat structure)
@@ -48,7 +48,7 @@ eucher/players/computer/euchre_zero/
 
 ### Training Scripts
 ```
-scripts/training/euchre_zero/       # Matches scripts/training/pytorch_ai/ pattern
+scripts/eucher_zero/       # Matches scripts/pytorch_ai/ pattern
 ├── train_euchre_zero.py
 ├── train_euchre_zero_cpu.sh
 └── train_euchre_zero_gpu.sh
@@ -59,21 +59,21 @@ scripts/training/euchre_zero/       # Matches scripts/training/pytorch_ai/ patte
 ### Game Integration
 - Add to `eucher/game.py` in `_create_profile()` method:
   ```python
-  elif profile_type == "euchre_zero":
-      from eucher.players.computer.euchre_zero.player import EuchreZeroPlayer
+  elif profile_type == "eucher_zero":
+      from eucher.players.computer.eucher_zero.player import EucherZeroPlayer
       return EuchreZeroPlayer(...)
   ```
 
 ### Import Paths
-- Player: `from eucher.players.computer.euchre_zero.player import EuchreZeroPlayer`
+- Player: `from eucher.players.computer.eucher_zero.player import EucherZeroPlayer`
 - Networks: `from eucher.players.computer.euchre_zero.networks.representation import RepresentationNetwork`
 - Training modules: `from eucher.players.computer.euchre_zero.training.self_play import generate_self_play_game`
-- Training scripts: `scripts/training/euchre_zero/train_euchre_zero.py` (executable script)
+- Training scripts: `scripts/eucher_zero/train_euchre_zero.py` (executable script)
 
 ## Key Differences from Original Plan
 
-1. **Training Scripts**: Located in `scripts/training/euchre_zero/` (not `eucher/training/euchre_zero/`)
-   - Matches existing pattern: `scripts/training/pytorch_ai/`, `scripts/training/transformer_rl/`
+1. **Training Scripts**: Located in `scripts/eucher_zero/` (not `eucher/training/euchre_zero/`)
+   - Matches existing pattern: `scripts/pytorch_ai/`, `scripts/transformer_rl/`
    
 2. **Training Modules**: Located in `eucher/players/computer/euchre_zero/training/`
    - Matches existing pattern: `eucher/players/computer/ml/pytorch/training/`
@@ -85,7 +85,7 @@ scripts/training/euchre_zero/       # Matches scripts/training/pytorch_ai/ patte
 
 This structure ensures:
 - ✅ Consistent with `ml/` and `pytorch/` player patterns
-- ✅ Consistent with `scripts/training/pytorch_ai/` and `scripts/training/transformer_rl/` script patterns
+- ✅ Consistent with `scripts/pytorch_ai/` and `scripts/transformer_rl/` script patterns
 - ✅ Clear separation between player implementation and training scripts
 - ✅ Easy to find and maintain
 - ✅ Follows existing import conventions

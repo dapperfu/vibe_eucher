@@ -23,10 +23,10 @@ EuchrePerceiverMuZero uses a Perceiver architecture combined with MuZero-style M
 
 ```bash
 # Basic training
-python scripts/training/perceiver_muzero/train_perceiver_muzero.py --duration 1h
+python scripts/training/train_perceiver_muzero.py --duration 1h
 
 # With custom parameters
-python scripts/training/perceiver_muzero/train_perceiver_muzero.py \
+python scripts/training/train_perceiver_muzero.py \
     --duration 2h \
     --num-games 20 \
     --num-simulations 200

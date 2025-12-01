@@ -154,6 +154,7 @@ register_plugin(
     description="ML-based player using sklearn models",
     requires_game=True,
     supports_kwargs=True,
+    model_name="RandomForest",
 )
 
 register_plugin(
@@ -165,6 +166,7 @@ register_plugin(
     description="ML-based player using reinforcement learning",
     requires_game=True,
     supports_kwargs=True,
+    model_name="RLModel",
 )
 
 register_plugin(
@@ -176,6 +178,7 @@ register_plugin(
     description="ML-based player using GAN models",
     requires_game=True,
     supports_kwargs=True,
+    model_name="GANModel",
 )
 
 register_plugin(
@@ -185,6 +188,7 @@ register_plugin(
     description="ML-based player using PyTorch models",
     requires_game=True,
     supports_kwargs=True,
+    model_name="EucherMLModel",
 )
 
 register_plugin(
@@ -194,6 +198,7 @@ register_plugin(
     description="PyTorch-based strategic AI player",
     requires_game=False,
     supports_kwargs=True,
+    model_name="HybridNetwork",
 )
 
 register_plugin(
@@ -203,5 +208,6 @@ register_plugin(
     description="PyTorch-based strategic player",
     requires_game=False,
     supports_kwargs=True,
+    model_name="HybridNetwork",
 )
 

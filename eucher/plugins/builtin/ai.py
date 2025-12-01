@@ -51,5 +51,6 @@ register_plugin(
     description="AI-based player using weighted heuristics",
     requires_game=False,
     supports_kwargs=False,
+    model_name=None,
 )
 

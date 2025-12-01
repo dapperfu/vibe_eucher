@@ -8,10 +8,10 @@ This guide explains how to train the Transformer RL agent for Euchre.
 
 ```bash
 # Train with default settings (10,000 hands, curriculum enabled)
-python3 scripts/training/transformer_rl/train_transformer_rl.py
+python3 scripts/transformer_rl/train_transformer_rl.py
 
 # Train with custom parameters
-python3 scripts/training/transformer_rl/train_transformer_rl.py \
+python3 scripts/transformer_rl/train_transformer_rl.py \
     --num-hands 20000 \
     --batch-size 128 \
     --learning-rate 0.0003 \
@@ -19,20 +19,20 @@ python3 scripts/training/transformer_rl/train_transformer_rl.py \
     --use-curriculum
 
 # Train with duration (e.g., 10 minutes)
-python3 scripts/training/transformer_rl/train_transformer_rl.py --duration 10m
+python3 scripts/transformer_rl/train_transformer_rl.py --duration 10m
 
 # Train with epochs
-python3 scripts/training/transformer_rl/train_transformer_rl.py --epochs 10
+python3 scripts/transformer_rl/train_transformer_rl.py --epochs 10
 ```
 
 ### Using the Shell Scripts
 
 ```bash
 # GPU training
-./scripts/training/transformer_rl/train_transformer_rl_gpu.sh
+./scripts/transformer_rl/train_transformer_rl_gpu.sh
 
 # CPU training
-./scripts/training/transformer_rl/train_transformer_rl_cpu.sh
+./scripts/transformer_rl/train_transformer_rl_cpu.sh
 
 # Using the wrapper script (auto-detects device)
 ./scripts/train_transformer_rl.sh
@@ -97,7 +97,7 @@ The curriculum training progresses through 7 stages:
 
 ### Train with GPU
 ```bash
-python3 scripts/training/transformer_rl/train_transformer_rl.py --device gpu --num-hands 50000
+python3 scripts/transformer_rl/train_transformer_rl.py --device gpu --num-hands 50000
 # Or use the shell script
 ./scripts/training/transformer_rl/train_transformer_rl_gpu.sh --num-hands 50000
 ```
@@ -105,26 +105,26 @@ python3 scripts/training/transformer_rl/train_transformer_rl.py --device gpu --n
 ### Train with duration (cumulative training)
 ```bash
 # Train for 10 minutes (will resume from latest checkpoint)
-python3 scripts/training/transformer_rl/train_transformer_rl.py --duration 10m
+python3 scripts/transformer_rl/train_transformer_rl.py --duration 10m
 
 # Train for 1 hour
-python3 scripts/training/transformer_rl/train_transformer_rl.py --duration 1h
+python3 scripts/transformer_rl/train_transformer_rl.py --duration 1h
 ```
 
 ### Continue training from checkpoint (cumulative)
 ```bash
 # Automatically resumes from latest checkpoint (default behavior)
-python3 scripts/training/transformer_rl/train_transformer_rl.py --num-hands 20000
+python3 scripts/transformer_rl/train_transformer_rl.py --num-hands 20000
 
 # Or specify a specific checkpoint UUID
-python3 scripts/training/transformer_rl/train_transformer_rl.py \
+python3 scripts/transformer_rl/train_transformer_rl.py \
     --model-path <checkpoint-uuid> \
     --num-hands 20000
 ```
 
 ### Train with convergence tracking
 ```bash
-python3 scripts/training/transformer_rl/train_transformer_rl.py \
+python3 scripts/transformer_rl/train_transformer_rl.py \
     --use-orchestrator \
     --target-win-rate 0.65 \
     --max-games 50000
@@ -132,7 +132,7 @@ python3 scripts/training/transformer_rl/train_transformer_rl.py \
 
 ### Train without curriculum (direct to full RL)
 ```bash
-python3 scripts/training/transformer_rl/train_transformer_rl.py --num-hands 20000
+python3 scripts/transformer_rl/train_transformer_rl.py --num-hands 20000
 ```
 
 ## Output

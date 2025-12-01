@@ -38,10 +38,10 @@ The PyTorch AI training infrastructure has been completely redesigned to use **s
 ### Basic Training
 ```bash
 # Train with default settings (all PyTorch players, 50 games per training)
-python scripts/training/pytorch_ai/train_pytorch_ai_self_play.py
+python scripts/pytorch_ai/train_pytorch_ai_self_play.py
 
 # Train with specific configuration
-python scripts/training/pytorch_ai/train_pytorch_ai_self_play.py \
+python scripts/pytorch_ai/train_pytorch_ai_self_play.py \
   --games-per-training 100 \
   --epsilon 0.15 \
   --player-config pytorch_vs_heuristic \
@@ -51,17 +51,17 @@ python scripts/training/pytorch_ai/train_pytorch_ai_self_play.py \
 ### Advanced Options
 ```bash
 # Limit training cycles
-python scripts/training/pytorch_ai/train_pytorch_ai_self_play.py --max-cycles 100
+python scripts/pytorch_ai/train_pytorch_ai_self_play.py --max-cycles 100
 
 # Custom player configuration
-python scripts/training/pytorch_ai/train_pytorch_ai_self_play.py \
+python scripts/pytorch_ai/train_pytorch_ai_self_play.py \
   --player-config "pytorch,heuristic,pytorch,random"
 
 # Start fresh (no resume)
-python scripts/training/pytorch_ai/train_pytorch_ai_self_play.py --no-resume
+python scripts/pytorch_ai/train_pytorch_ai_self_play.py --no-resume
 
 # Custom learning rate
-python scripts/training/pytorch_ai/train_pytorch_ai_self_play.py --learning-rate 1e-5
+python scripts/pytorch_ai/train_pytorch_ai_self_play.py --learning-rate 1e-5
 ```
 
 ## Command Line Arguments
@@ -96,7 +96,7 @@ python scripts/training/pytorch_ai/train_pytorch_ai_self_play.py --learning-rate
 ## Files Created/Modified
 
 ### New Files
-- `scripts/training/pytorch_ai/train_pytorch_ai_self_play.py` - Main self-play training script
+- `scripts/pytorch_ai/train_pytorch_ai_self_play.py` - Main self-play training script
 - `eucher/players/computer/ml/pytorch/training/self_play_trainer.py` - Self-play trainer class
 - `eucher/players/computer/ml/pytorch/training/batch_tuner.py` - Batch size tuning utility
 
@@ -118,7 +118,7 @@ python scripts/training/pytorch_ai/train_pytorch_ai_self_play.py --learning-rate
 
 ```bash
 # Start training (will auto-resume if interrupted)
-python scripts/training/pytorch_ai/train_pytorch_ai_self_play.py --tune-batch
+python scripts/pytorch_ai/train_pytorch_ai_self_play.py --tune-batch
 
 # Training runs continuously:
 # Cycle 1: Play 50 games → Train → Save checkpoint

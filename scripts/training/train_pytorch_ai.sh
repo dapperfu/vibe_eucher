@@ -4,7 +4,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+PROJECT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 cd "${PROJECT_DIR}"
 
@@ -49,6 +49,6 @@ if [ "$DEVICE" = "gpu" ] || [ "$DEVICE" = "cuda" ] || [ "$DEVICE" = "auto" ]; th
 fi
 
 # Run training script
-python scripts/training/pytorch_ai/train_pytorch_ai.py --device "${DEVICE}" ${BATCH_SIZE_ARGS} "$@"
+python scripts/training/train_pytorch_ai.py --device "${DEVICE}" ${BATCH_SIZE_ARGS} "$@"
 
 

@@ -37,14 +37,14 @@ echo "  - Window size: ${WINDOW_SIZE} games"
 echo "  - Risk factors: Default (0.5/0.5)"
 echo ""
 echo "Command to run:"
-echo "  python scripts/train_models.py --mode train_rl --until-converged \\"
+echo "  python scripts/training/train_models.py --mode train_rl --until-converged \\"
 echo "    --target-win-rate ${TARGET_WIN_RATE} --window-size ${WINDOW_SIZE}"
 echo ""
 echo "Starting training (will stop when win rate >= ${TARGET_WIN_RATE%%.*}%)..."
 echo ""
 
 # Run the training command
-python scripts/train_models.py --mode train_rl --until-converged \
+python scripts/training/train_models.py --mode train_rl --until-converged \
     --target-win-rate "${TARGET_WIN_RATE}" --window-size "${WINDOW_SIZE}"
 
 echo ""

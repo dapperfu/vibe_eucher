@@ -53,6 +53,7 @@ register_plugin(
     description="Rule-based player using heuristics",
     requires_game=False,
     supports_kwargs=False,
+    model_name=None,
 )
 
 register_plugin(
@@ -62,5 +63,6 @@ register_plugin(
     description="Alternative rule-based player using heuristics",
     requires_game=False,
     supports_kwargs=False,
+    model_name=None,
 )
 

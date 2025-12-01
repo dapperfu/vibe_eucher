@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Monte Carlo simulation comparing EucherGo vs euchre_zero.
+"""Monte Carlo simulation comparing EucherGo vs eucher_zero.
 
-This script runs many games between EucherGo and euchre_zero players,
+This script runs many games between EucherGo and eucher_zero players,
 with each bot type on a team (2v2). It tracks comprehensive statistics
 including tricks won, games won, hands played, and other metrics.
 """
@@ -28,7 +28,7 @@ from eucher.training.profiling import Profiler, TimingStats, get_timing_stats
 
 
 class ComparisonStatistics:
-    """Collects statistics from EucherGo vs euchre_zero comparison games."""
+    """Collects statistics from EucherGo vs eucher_zero comparison games."""
 
     def __init__(self) -> None:
         """Initialize the comparison collector."""
@@ -49,7 +49,7 @@ class ComparisonStatistics:
             "going_alone_successes": 0,
         }
         
-        self.euchre_zero_team_stats: Dict[str, any] = {
+        self.eucher_zero_team_stats: Dict[str, any] = {
             "games_won": 0,
             "games_lost": 0,
             "total_score": 0,
@@ -73,7 +73,7 @@ class ComparisonStatistics:
             }
         )
         
-        self.euchre_zero_player_stats: Dict[int, Dict[str, any]] = defaultdict(
+        self.eucher_zero_player_stats: Dict[int, Dict[str, any]] = defaultdict(
             lambda: {
                 "tricks_won": 0,
                 "trump_makes": 0,
@@ -110,31 +110,31 @@ class ComparisonStatistics:
         euchergo_team : int
             Team ID (0 or 1) that EucherGo is on.
         """
-        euchre_zero_team = 1 - euchergo_team
+        eucher_zero_team = 1 - euchergo_team
         
         # Determine which team won
         if winner == euchergo_team:
             self.euchergo_team_stats["games_won"] += 1
-            self.euchre_zero_team_stats["games_lost"] += 1
-        elif winner == euchre_zero_team:
-            self.euchre_zero_team_stats["games_won"] += 1
+            self.eucher_zero_team_stats["games_lost"] += 1
+        elif winner == eucher_zero_team:
+            self.eucher_zero_team_stats["games_won"] += 1
             self.euchergo_team_stats["games_lost"] += 1
         
         # Record scores
         self.euchergo_team_stats["total_score"] += scores[euchergo_team]
-        self.euchre_zero_team_stats["total_score"] += scores[euchre_zero_team]
+        self.eucher_zero_team_stats["total_score"] += scores[eucher_zero_team]
         
         # Record tricks won per team
         euchergo_tricks = game_stats.tricks_won_per_team.get(euchergo_team, 0)
-        euchre_zero_tricks = game_stats.tricks_won_per_team.get(euchre_zero_team, 0)
+        eucher_zero_tricks = game_stats.tricks_won_per_team.get(eucher_zero_team, 0)
         
         self.euchergo_team_stats["total_tricks_won"] += euchergo_tricks
-        self.euchre_zero_team_stats["total_tricks_won"] += euchre_zero_tricks
+        self.eucher_zero_team_stats["total_tricks_won"] += eucher_zero_tricks
         
         # Record hands played
         hands_played = game_stats.hands_played
         self.euchergo_team_stats["total_hands_played"] += hands_played
-        self.euchre_zero_team_stats["total_hands_played"] += hands_played
+        self.eucher_zero_team_stats["total_hands_played"] += hands_played
         
         # Record per-player statistics
         for player in players:
@@ -144,7 +144,7 @@ class ComparisonStatistics:
             if player_team == euchergo_team:
                 stats_dict = self.euchergo_player_stats[player_id]
             else:
-                stats_dict = self.euchre_zero_player_stats[player_id]
+                stats_dict = self.eucher_zero_player_stats[player_id]
             
             stats_dict["tricks_won"] += game_stats.tricks_won_per_player.get(player_id, 0)
             stats_dict["trump_makes"] += game_stats.trump_makers.get(player_id, 0)
@@ -158,7 +158,7 @@ class ComparisonStatistics:
             if player_team == euchergo_team:
                 self.euchergo_team_stats["trump_makes"] += count
             else:
-                self.euchre_zero_team_stats["trump_makes"] += count
+                self.eucher_zero_team_stats["trump_makes"] += count
         
         # Record going alone stats per team
         for player_id, attempts in game_stats.going_alone_attempts.items():
@@ -168,8 +168,8 @@ class ComparisonStatistics:
                 self.euchergo_team_stats["going_alone_attempts"] += attempts
                 self.euchergo_team_stats["going_alone_successes"] += successes
             else:
-                self.euchre_zero_team_stats["going_alone_attempts"] += attempts
-                self.euchre_zero_team_stats["going_alone_successes"] += successes
+                self.eucher_zero_team_stats["going_alone_attempts"] += attempts
+                self.eucher_zero_team_stats["going_alone_successes"] += successes
         
         # Store game data
         game_data = {
@@ -178,9 +178,9 @@ class ComparisonStatistics:
             "scores": scores,
             "hands_played": hands_played,
             "euchergo_tricks": euchergo_tricks,
-            "euchre_zero_tricks": euchre_zero_tricks,
+            "eucher_zero_tricks": eucher_zero_tricks,
             "euchergo_score": scores[euchergo_team],
-            "euchre_zero_score": scores[euchre_zero_team],
+            "eucher_zero_score": scores[eucher_zero_team],
             "timestamp": datetime.now().isoformat(),
         }
         self.games.append(game_data)
@@ -202,8 +202,8 @@ class ComparisonStatistics:
             if total_games > 0
             else 0.0
         )
-        euchre_zero_win_rate = (
-            self.euchre_zero_team_stats["games_won"] / total_games
+        eucher_zero_win_rate = (
+            self.eucher_zero_team_stats["games_won"] / total_games
             if total_games > 0
             else 0.0
         )
@@ -214,8 +214,8 @@ class ComparisonStatistics:
             if total_games > 0
             else 0.0
         )
-        euchre_zero_avg_score = (
-            self.euchre_zero_team_stats["total_score"] / total_games
+        eucher_zero_avg_score = (
+            self.eucher_zero_team_stats["total_score"] / total_games
             if total_games > 0
             else 0.0
         )
@@ -226,8 +226,8 @@ class ComparisonStatistics:
             if total_games > 0
             else 0.0
         )
-        euchre_zero_avg_tricks = (
-            self.euchre_zero_team_stats["total_tricks_won"] / total_games
+        eucher_zero_avg_tricks = (
+            self.eucher_zero_team_stats["total_tricks_won"] / total_games
             if total_games > 0
             else 0.0
         )
@@ -246,10 +246,10 @@ class ComparisonStatistics:
             if self.euchergo_team_stats["going_alone_attempts"] > 0
             else 0.0
         )
-        euchre_zero_alone_success_rate = (
-            self.euchre_zero_team_stats["going_alone_successes"]
-            / self.euchre_zero_team_stats["going_alone_attempts"]
-            if self.euchre_zero_team_stats["going_alone_attempts"] > 0
+        eucher_zero_alone_success_rate = (
+            self.eucher_zero_team_stats["going_alone_successes"]
+            / self.eucher_zero_team_stats["going_alone_attempts"]
+            if self.eucher_zero_team_stats["going_alone_attempts"] > 0
             else 0.0
         )
         
@@ -262,17 +262,17 @@ class ComparisonStatistics:
                 "avg_tricks_per_game": euchergo_avg_tricks,
                 "going_alone_success_rate": euchergo_alone_success_rate,
             },
-            "euchre_zero": {
-                **self.euchre_zero_team_stats,
-                "win_rate": euchre_zero_win_rate,
-                "avg_score": euchre_zero_avg_score,
-                "avg_tricks_per_game": euchre_zero_avg_tricks,
-                "going_alone_success_rate": euchre_zero_alone_success_rate,
+            "eucher_zero": {
+                **self.eucher_zero_team_stats,
+                "win_rate": eucher_zero_win_rate,
+                "avg_score": eucher_zero_avg_score,
+                "avg_tricks_per_game": eucher_zero_avg_tricks,
+                "going_alone_success_rate": eucher_zero_alone_success_rate,
             },
             "avg_hands_per_game": avg_hands_per_game,
             "player_stats": {
                 "euchergo": dict(self.euchergo_player_stats),
-                "euchre_zero": dict(self.euchre_zero_player_stats),
+                "eucher_zero": dict(self.eucher_zero_player_stats),
             },
         }
 
@@ -288,9 +288,9 @@ class ComparisonStatistics:
         return {
             "games": self.games,
             "euchergo_team_stats": self.euchergo_team_stats,
-            "euchre_zero_team_stats": self.euchre_zero_team_stats,
+            "eucher_zero_team_stats": self.eucher_zero_team_stats,
             "euchergo_player_stats": dict(self.euchergo_player_stats),
-            "euchre_zero_player_stats": dict(self.euchre_zero_player_stats),
+            "eucher_zero_player_stats": dict(self.eucher_zero_player_stats),
         }
 
     @classmethod
@@ -311,7 +311,7 @@ class ComparisonStatistics:
         stats = cls()
         stats.games = data.get("games", [])
         stats.euchergo_team_stats = data.get("euchergo_team_stats", stats.euchergo_team_stats)
-        stats.euchre_zero_team_stats = data.get("euchre_zero_team_stats", stats.euchre_zero_team_stats)
+        stats.eucher_zero_team_stats = data.get("eucher_zero_team_stats", stats.eucher_zero_team_stats)
         stats.euchergo_player_stats = defaultdict(
             lambda: {
                 "tricks_won": 0,
@@ -322,7 +322,7 @@ class ComparisonStatistics:
             },
             data.get("euchergo_player_stats", {}),
         )
-        stats.euchre_zero_player_stats = defaultdict(
+        stats.eucher_zero_player_stats = defaultdict(
             lambda: {
                 "tricks_won": 0,
                 "trump_makes": 0,
@@ -330,7 +330,7 @@ class ComparisonStatistics:
                 "going_alone_attempts": 0,
                 "going_alone_successes": 0,
             },
-            data.get("euchre_zero_player_stats", {}),
+            data.get("eucher_zero_player_stats", {}),
         )
         return stats
 
@@ -339,13 +339,13 @@ def run_single_game(
     seed: int,
     euchergo_team: int = 0,
     euchergo_model_path: Optional[str] = None,
-    euchre_zero_model_path: Optional[str] = None,
+    eucher_zero_model_path: Optional[str] = None,
     euchergo_num_simulations: Optional[int] = None,
-    euchre_zero_num_simulations: Optional[int] = None,
+    eucher_zero_num_simulations: Optional[int] = None,
     timing_stats: Optional[TimingStats] = None,
 ) -> Tuple[Optional[int], Tuple[int, int], GameStatistics, List]:
     """
-    Run a single game between EucherGo and euchre_zero.
+    Run a single game between EucherGo and eucher_zero.
 
     Parameters
     ----------
@@ -355,19 +355,19 @@ def run_single_game(
         Team ID (0 or 1) for EucherGo players.
     euchergo_model_path : Optional[str]
         Path to EucherGo model checkpoint.
-    euchre_zero_model_path : Optional[str]
-        Path to euchre_zero model checkpoint.
+    eucher_zero_model_path : Optional[str]
+        Path to eucher_zero model checkpoint.
     euchergo_num_simulations : Optional[int]
         Number of MCTS simulations for EucherGo.
-    euchre_zero_num_simulations : Optional[int]
-        Number of MCTS simulations for euchre_zero.
+    eucher_zero_num_simulations : Optional[int]
+        Number of MCTS simulations for eucher_zero.
 
     Returns
     -------
     Tuple[Optional[int], Tuple[int, int], GameStatistics, List]
         (winner, scores, game_stats, players)
     """
-    euchre_zero_team = 1 - euchergo_team
+    eucher_zero_team = 1 - euchergo_team
     
     # Create player configuration
     # Team 0: players 0 and 2
@@ -375,15 +375,15 @@ def run_single_game(
     if euchergo_team == 0:
         player_config = [
             ("EucherGo_0", "euchergo"),
-            ("EuchreZero_1", "euchre_zero"),
+            ("EucherZero_1", "eucher_zero"),
             ("EucherGo_2", "euchergo"),
-            ("EuchreZero_3", "euchre_zero"),
+            ("EucherZero_3", "eucher_zero"),
         ]
     else:
         player_config = [
-            ("EuchreZero_0", "euchre_zero"),
+            ("EucherZero_0", "eucher_zero"),
             ("EucherGo_1", "euchergo"),
-            ("EuchreZero_2", "euchre_zero"),
+            ("EucherZero_2", "eucher_zero"),
             ("EucherGo_3", "euchergo"),
         ]
     
@@ -435,16 +435,16 @@ def run_monte_carlo_simulation(
     num_games: int,
     seed: Optional[int] = None,
     euchergo_model_path: Optional[str] = None,
-    euchre_zero_model_path: Optional[str] = None,
+    eucher_zero_model_path: Optional[str] = None,
     euchergo_num_simulations: Optional[int] = None,
-    euchre_zero_num_simulations: Optional[int] = None,
+    eucher_zero_num_simulations: Optional[int] = None,
     checkpoint_file: Optional[Path] = None,
     checkpoint_interval: int = 100,
     profile: bool = False,
     profile_output: Optional[Path] = None,
 ) -> ComparisonStatistics:
     """
-    Run Monte Carlo simulation comparing EucherGo vs euchre_zero.
+    Run Monte Carlo simulation comparing EucherGo vs eucher_zero.
 
     Parameters
     ----------
@@ -454,12 +454,12 @@ def run_monte_carlo_simulation(
         Base random seed for reproducibility.
     euchergo_model_path : Optional[str]
         Path to EucherGo model checkpoint.
-    euchre_zero_model_path : Optional[str]
-        Path to euchre_zero model checkpoint.
+    eucher_zero_model_path : Optional[str]
+        Path to eucher_zero model checkpoint.
     euchergo_num_simulations : Optional[int]
         Number of MCTS simulations for EucherGo.
-    euchre_zero_num_simulations : Optional[int]
-        Number of MCTS simulations for euchre_zero.
+    eucher_zero_num_simulations : Optional[int]
+        Number of MCTS simulations for eucher_zero.
     checkpoint_file : Optional[Path]
         Path to checkpoint file for saving/loading progress.
     checkpoint_interval : int
@@ -509,9 +509,9 @@ def run_monte_carlo_simulation(
                     seed=(seed or 0) + game_num,
                     euchergo_team=euchergo_team,
                     euchergo_model_path=euchergo_model_path,
-                    euchre_zero_model_path=euchre_zero_model_path,
+                    eucher_zero_model_path=eucher_zero_model_path,
                     euchergo_num_simulations=euchergo_num_simulations,
-                    euchre_zero_num_simulations=euchre_zero_num_simulations,
+                    eucher_zero_num_simulations=eucher_zero_num_simulations,
                     timing_stats=timing_stats,
                 )
                 game_time = time.perf_counter() - game_start
@@ -576,7 +576,7 @@ def print_results(stats: ComparisonStatistics) -> None:
     summary = stats.get_summary()
     
     print("\n" + "=" * 80)
-    print("EucherGo vs euchre_zero COMPARISON RESULTS")
+    print("EucherGo vs eucher_zero COMPARISON RESULTS")
     print("=" * 80)
     print()
     
@@ -601,19 +601,19 @@ def print_results(stats: ComparisonStatistics) -> None:
     print()
     
     print("-" * 80)
-    print("euchre_zero Team Statistics")
+    print("eucher_zero Team Statistics")
     print("-" * 80)
-    euchre_zero = summary["euchre_zero"]
-    print(f"Games Won: {euchre_zero['games_won']} ({euchre_zero['win_rate']:.1%})")
-    print(f"Games Lost: {euchre_zero['games_lost']}")
-    print(f"Total Score: {euchre_zero['total_score']}")
-    print(f"Average Score per Game: {euchre_zero['avg_score']:.2f}")
-    print(f"Total Tricks Won: {euchre_zero['total_tricks_won']}")
-    print(f"Average Tricks per Game: {euchre_zero['avg_tricks_per_game']:.2f}")
-    print(f"Trump Makes: {euchre_zero['trump_makes']}")
-    print(f"Going Alone: {euchre_zero['going_alone_attempts']} attempts, "
-          f"{euchre_zero['going_alone_successes']} successes "
-          f"({euchre_zero['going_alone_success_rate']:.1%})")
+    eucher_zero = summary["eucher_zero"]
+    print(f"Games Won: {eucher_zero['games_won']} ({eucher_zero['win_rate']:.1%})")
+    print(f"Games Lost: {eucher_zero['games_lost']}")
+    print(f"Total Score: {eucher_zero['total_score']}")
+    print(f"Average Score per Game: {eucher_zero['avg_score']:.2f}")
+    print(f"Total Tricks Won: {eucher_zero['total_tricks_won']}")
+    print(f"Average Tricks per Game: {eucher_zero['avg_tricks_per_game']:.2f}")
+    print(f"Trump Makes: {eucher_zero['trump_makes']}")
+    print(f"Going Alone: {eucher_zero['going_alone_attempts']} attempts, "
+          f"{eucher_zero['going_alone_successes']} successes "
+          f"({eucher_zero['going_alone_success_rate']:.1%})")
     print()
     
     print("=" * 80)
@@ -622,20 +622,20 @@ def print_results(stats: ComparisonStatistics) -> None:
 def main() -> None:
     """Main entry point."""
     parser = argparse.ArgumentParser(
-        description="Monte Carlo comparison of EucherGo vs euchre_zero",
+        description="Monte Carlo comparison of EucherGo vs eucher_zero",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   # Run 1000 games
-  python scripts/monte_carlo/euchergo_vs_euchre_zero.py --num-games 1000
+  python scripts/monte_carlo/euchergo_vs_eucher_zero.py --num-games 1000
 
   # Run with custom model paths
-  python scripts/monte_carlo/euchergo_vs_euchre_zero.py --num-games 500 \\
+  python scripts/monte_carlo/euchergo_vs_eucher_zero.py --num-games 500 \\
       --euchergo-model path/to/euchergo/model.pt \\
-      --euchre-zero-model path/to/euchre_zero/model.pt
+      --euchre-zero-model path/to/eucher_zero/model.pt
 
   # Run with checkpointing
-  python scripts/monte_carlo/euchergo_vs_euchre_zero.py --num-games 1000 \\
+  python scripts/monte_carlo/euchergo_vs_eucher_zero.py --num-games 1000 \\
       --checkpoint results.checkpoint.json
         """,
     )
@@ -661,7 +661,7 @@ Examples:
         "--euchre-zero-model",
         type=str,
         default=None,
-        help="Path to euchre_zero model checkpoint",
+        help="Path to eucher_zero model checkpoint",
     )
     parser.add_argument(
         "--euchergo-simulations",
@@ -673,7 +673,7 @@ Examples:
         "--euchre-zero-simulations",
         type=int,
         default=None,
-        help="Number of MCTS simulations for euchre_zero",
+        help="Number of MCTS simulations for eucher_zero",
     )
     parser.add_argument(
         "--output",
@@ -708,7 +708,7 @@ Examples:
     args = parser.parse_args()
     
     print("=" * 80)
-    print("EucherGo vs euchre_zero Monte Carlo Comparison")
+    print("EucherGo vs eucher_zero Monte Carlo Comparison")
     print("=" * 80)
     print(f"Timestamp: {datetime.now().isoformat()}")
     print(f"Number of games: {args.num_games}")
@@ -738,9 +738,9 @@ Examples:
         num_games=args.num_games,
         seed=args.seed,
         euchergo_model_path=args.euchergo_model,
-        euchre_zero_model_path=args.euchre_zero_model,
+        eucher_zero_model_path=args.eucher_zero_model,
         euchergo_num_simulations=args.euchergo_simulations,
-        euchre_zero_num_simulations=args.euchre_zero_simulations,
+        eucher_zero_num_simulations=args.eucher_zero_simulations,
         checkpoint_file=checkpoint_file,
         checkpoint_interval=args.checkpoint_interval,
         profile=args.profile,
@@ -756,7 +756,7 @@ Examples:
     else:
         # Auto-generate output file name
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_path = Path("stats") / f"euchergo_vs_euchre_zero_{timestamp}.json"
+        output_path = Path("stats") / f"euchergo_vs_eucher_zero_{timestamp}.json"
         output_path.parent.mkdir(exist_ok=True)
     
     summary = stats.get_summary()
@@ -765,9 +765,9 @@ Examples:
         "num_games": args.num_games,
         "seed": args.seed,
         "euchergo_model_path": args.euchergo_model,
-        "euchre_zero_model_path": args.euchre_zero_model,
+        "eucher_zero_model_path": args.eucher_zero_model,
         "euchergo_num_simulations": args.euchergo_simulations,
-        "euchre_zero_num_simulations": args.euchre_zero_simulations,
+        "eucher_zero_num_simulations": args.eucher_zero_simulations,
         **summary,
         "detailed_statistics": stats.to_dict(),
     }

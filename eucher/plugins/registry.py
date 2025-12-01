@@ -119,6 +119,7 @@ def register_plugin(
     description: str = "",
     requires_game: bool = False,
     supports_kwargs: bool = False,
+    model_name: Optional[str] = None,
 ) -> None:
     """
     Register a plugin with the global registry.
@@ -139,6 +140,8 @@ def register_plugin(
         Whether the factory requires a game instance.
     supports_kwargs : bool
         Whether the plugin accepts additional kwargs.
+    model_name : Optional[str]
+        Name of the model class used by this plugin. None for non-ML bots.
 
     Raises
     ------
@@ -154,6 +157,7 @@ def register_plugin(
         factory=factory,
         requires_game=requires_game,
         supports_kwargs=supports_kwargs,
+        model_name=model_name,
     )
     _registry.register(metadata)
 

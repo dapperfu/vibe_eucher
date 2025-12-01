@@ -131,10 +131,10 @@ player = EucherGoPlayer(
 
 ```bash
 # Basic training
-python scripts/training/euchergo/train_euchergo.py --duration 1h
+python scripts/euchergo/train_euchergo.py --duration 1h
 
 # With custom parameters
-python scripts/training/euchergo/train_euchergo.py \
+python scripts/euchergo/train_euchergo.py \
     --duration 2h \
     --num-games 20 \
     --num-simulations 200 \
@@ -142,7 +142,7 @@ python scripts/training/euchergo/train_euchergo.py \
     --checkpoint-interval 10
 
 # Resume from checkpoint
-python scripts/training/euchergo/train_euchergo.py \
+python scripts/euchergo/train_euchergo.py \
     --checkpoint models/checkpoints/euchergo/euchergo_iter_100.pt \
     --duration 1h
 ```

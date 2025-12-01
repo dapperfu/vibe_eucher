@@ -148,7 +148,7 @@ class TransformerRLDashboard:
             avg_time_per_hand = elapsed / self.hands_played
             remaining_hands = self.num_hands - self.current_hand - 1
             estimated_remaining = avg_time_per_hand * remaining_hands
-            table.add_row("Est. Remaining", f"{estimated_remaining:.1f}s")
+            table.add_row("Est. Remaining", self._format_time(estimated_remaining))
 
         return table
 

@@ -38,14 +38,14 @@ The PyTorch Strategic Bot is the most advanced bot, combining deep neural networ
 
 ### Self-Play Training
 ```bash
-python scripts/training/pytorch_ai/train_pytorch_ai_self_play.py \
+python scripts/pytorch_ai/train_pytorch_ai_self_play.py \
     --games-per-training 100 \
     --epsilon 0.1
 ```
 
 ### With Custom Configuration
 ```bash
-python scripts/training/pytorch_ai/train_pytorch_ai_self_play.py \
+python scripts/pytorch_ai/train_pytorch_ai_self_play.py \
     --games-per-training 200 \
     --epsilon 0.15 \
     --player-config pytorch_vs_heuristic \

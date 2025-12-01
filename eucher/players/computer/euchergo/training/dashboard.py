@@ -206,13 +206,44 @@ class EucherGoDashboard:
                 remaining_iterations = max(0, self.num_iterations - self.current_iteration)
                 remaining_games = remaining_iterations * self.num_games_per_iteration
                 estimated_remaining = avg_time_per_game * remaining_games
-                table.add_row("Est. Remaining", f"{estimated_remaining:.1f}s")
+                table.add_row("Est. Remaining", self._format_time(estimated_remaining))
 
         # Checkpoint info
         if self.last_checkpoint_iteration is not None:
             table.add_row("Last Checkpoint", f"Iter {self.last_checkpoint_iteration}")
 
         return table
+
+    def _format_time(self, seconds: float) -> str:
+        """
+        Format time in seconds to human-readable h:m:s format.
+
+        Parameters
+        ----------
+        seconds : float
+            Time in seconds.
+
+        Returns
+        -------
+        str
+            Formatted time string (e.g., "4h 51m 20s" or "51m 20s" or "20s").
+        """
+        if seconds < 0:
+            return "0s"
+        
+        hours = int(seconds // 3600)
+        minutes = int((seconds % 3600) // 60)
+        secs = int(seconds % 60)
+        
+        parts = []
+        if hours > 0:
+            parts.append(f"{hours}h")
+        if minutes > 0:
+            parts.append(f"{minutes}m")
+        if secs > 0 or not parts:
+            parts.append(f"{secs}s")
+        
+        return " ".join(parts)
 
     def _create_config_table(self, config) -> Table:
         """

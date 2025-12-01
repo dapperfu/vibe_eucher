@@ -420,9 +420,9 @@ total_loss = (
 
 ## Training Scripts
 
-### Main Training Script (`scripts/training/euchre_zero/train_euchre_zero.py`)
+### Main Training Script (`scripts/eucher_zero/train_euchre_zero.py`)
 
-**Location**: Matches existing pattern (`scripts/training/pytorch_ai/`, `scripts/training/transformer_rl/`)
+**Location**: Matches existing pattern (`scripts/pytorch_ai/`, `scripts/transformer_rl/`)
 
 **Features**:
 - Load or initialize model
@@ -462,18 +462,18 @@ total_loss = (
 ## Integration with Existing System
 
 ### Game Integration
-- Add `"euchre_zero"` profile type to `Game._create_profile()`
+- Add `"eucher_zero"` profile type to `Game._create_profile()`
 - EuchreZero player uses MCTS for all decisions
 - Supports risk factor configuration
 - Compatible with existing TUI
 
 ### CLI Integration
-- Add `"euchre_zero"` profile type to `Game._create_profile()` in `eucher/game.py`
-- Import: `from eucher.players.computer.euchre_zero.player import EuchreZeroPlayer`
+- Add `"eucher_zero"` profile type to `Game._create_profile()` in `eucher/game.py`
+- Import: `from eucher.players.computer.eucher_zero.player import EucherZeroPlayer`
 - Support checkpoint loading via model path
 - Configurable MCTS parameters
 - Risk factor configuration
-- Training scripts in `scripts/training/euchre_zero/` (matches existing pattern)
+- Training scripts in `scripts/eucher_zero/` (matches existing pattern)
 
 ### Training Data Integration
 - Can use existing training data for supervised pretraining (optional)

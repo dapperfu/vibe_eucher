@@ -27,6 +27,9 @@ class PluginMetadata:
         Whether the factory function requires a game instance.
     supports_kwargs : bool
         Whether the plugin accepts additional keyword arguments.
+    model_name : Optional[str]
+        Name of the model class used by this plugin (e.g., "EucherGoModel", "HybridNetwork").
+        None for non-ML bots.
     """
 
     name: str
@@ -35,6 +38,7 @@ class PluginMetadata:
     factory: Callable[..., "PlayerProfile"]
     requires_game: bool = False
     supports_kwargs: bool = False
+    model_name: Optional[str] = None
 
     def __post_init__(self) -> None:
         """Validate plugin metadata after initialization."""

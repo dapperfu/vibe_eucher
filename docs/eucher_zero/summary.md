@@ -32,7 +32,7 @@ eucher/players/computer/euchre_zero/
 ├── player.py          # EuchreZero player profile
 └── config.py          # Configuration
 
-scripts/training/euchre_zero/   # Training scripts (matches pytorch_ai/, transformer_rl/ pattern)
+scripts/eucher_zero/   # Training scripts (matches pytorch_ai/, transformer_rl/ pattern)
 ├── train_euchre_zero.py
 ├── train_euchre_zero_cpu.sh
 └── train_euchre_zero_gpu.sh
@@ -65,23 +65,23 @@ scripts/training/euchre_zero/   # Training scripts (matches pytorch_ai/, transfo
 ### Integration Points
 
 **Game Integration**:
-- Add `"euchre_zero"` profile type to `Game._create_profile()`
+- Add `"eucher_zero"` profile type to `Game._create_profile()`
 - EuchreZero player implements `PlayerProfile` interface
 - Compatible with existing game flow and TUI
 
 **CLI Integration**:
 ```bash
 # Play with EuchreZero players (via Game player_config)
-# In code: player_config = [("Player 1", "euchre_zero"), ...]
+# In code: player_config = [("Player 1", "eucher_zero"), ...]
 
 # Training (matches scripts/pytorch_ai/ pattern)
-python scripts/training/euchre_zero/train_euchre_zero.py \
+python scripts/eucher_zero/train_euchre_zero.py \
     --config euchre_zero_config.yaml \
     --num_games 100 \
     --num_iterations 1000
 
 # Or use shell wrappers
-./scripts/training/euchre_zero/train_euchre_zero_gpu.sh
+./scripts/eucher_zero/train_euchre_zero_gpu.sh
 ```
 
 ### Reward Structure

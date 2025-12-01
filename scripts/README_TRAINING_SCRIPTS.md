@@ -18,22 +18,33 @@ All main wrappers:
 
 ## Architecture-Specific Scripts
 
-Each architecture has its Python training script and CPU/GPU variants in subdirectories:
+All Python training scripts are located in `scripts/training/`. Each architecture has CPU/GPU wrapper variants in their respective subdirectories:
 
 ### EucherZero
-- **Python script**: `scripts/eucher_zero/train_eucher_zero.py`
+- **Python script**: `scripts/training/train_eucher_zero.py`
 - **CPU variant**: `scripts/eucher_zero/train_eucher_zero_cpu.sh`
 - **GPU variant**: `scripts/eucher_zero/train_eucher_zero_gpu.sh`
 
 ### Transformer RL
-- **Python script**: `scripts/transformer_rl/train_transformer_rl.py`
+- **Python script**: `scripts/training/train_transformer_rl.py`
 - **CPU variant**: `scripts/transformer_rl/train_transformer_rl_cpu.sh`
 - **GPU variant**: `scripts/transformer_rl/train_transformer_rl_gpu.sh`
 
 ### PyTorch AI
-- **Python script**: `scripts/pytorch_ai/train_pytorch_ai.py`
+- **Python script**: `scripts/training/train_pytorch_ai.py`
 - **CPU variant**: `scripts/pytorch_ai/train_pytorch_ai_cpu.sh`
 - **GPU variant**: `scripts/pytorch_ai/train_pytorch_ai_gpu.sh`
+
+### PerceiverMuZero
+- **Python script**: `scripts/training/train_perceiver_muzero.py`
+- **CPU variant**: `scripts/perceiver_muzero/train_perceiver_muzero_cpu.sh`
+- **GPU variant**: `scripts/perceiver_muzero/train_perceiver_muzero_gpu.sh`
+
+### EucherGo
+- **Python script**: `scripts/training/train_euchergo.py`
+
+### ReinforcementEucher
+- **Python script**: `scripts/training/train_reinforcement_eucher.py`
 
 ## Workflow Scripts
 
@@ -85,18 +96,23 @@ Additional workflow scripts for specialized training scenarios:
 ### Using Python Scripts Directly
 
 ```bash
-# Direct Python script invocation
-python scripts/eucher_zero/train_eucher_zero.py --device auto --duration 1h
-python scripts/transformer_rl/train_transformer_rl.py --device gpu --num-hands 20000
-python scripts/pytorch_ai/train_pytorch_ai.py --device cpu --epochs 10
+# Direct Python script invocation (all training scripts are in scripts/training/)
+python scripts/training/train_eucher_zero.py --device auto --duration 1h
+python scripts/training/train_transformer_rl.py --device gpu --num-hands 20000
+python scripts/training/train_pytorch_ai.py --device cpu --epochs 10
+python scripts/training/train_perceiver_muzero.py --device gpu --max-games 1000
 ```
 
 ## Naming Convention Summary
 
 - **Main wrappers**: `train_<architecture>.sh` (in `scripts/`)
-- **Python scripts**: `train_<architecture>.py` (in `scripts/<architecture>/`)
+- **Python scripts**: `train_<architecture>.py` (in `scripts/training/`)
 - **CPU variants**: `train_<architecture>_cpu.sh` (in `scripts/<architecture>/`)
 - **GPU variants**: `train_<architecture>_gpu.sh` (in `scripts/<architecture>/`)
+
+## Directory Organization
+
+All training Python scripts (`train_*.py`) are consolidated in `scripts/training/` for clarity and easy discovery. Model-specific subdirectories (`scripts/<architecture>/`) contain wrapper shell scripts and other model-specific utilities.
 
 All scripts follow this consistent pattern for easy discovery and usage.
 

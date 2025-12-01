@@ -92,25 +92,7 @@ def _create_ml_gan_player(game=None, **kwargs):
     )
 
 
-register_plugin(
-    name="ml_sklearn",
-    factory=_create_ml_sklearn_player,
-    requires_game=True,
-    description="ML player using sklearn supervised learning models",
-)
-
-register_plugin(
-    name="ml_rl",
-    factory=_create_ml_rl_player,
-    requires_game=True,
-    description="ML player using reinforcement learning",
-)
-
-register_plugin(
-    name="ml_gan",
-    factory=_create_ml_gan_player,
-    requires_game=True,
-    description="ML player using Generative Adversarial Networks",
-)
+# Note: Plugin registration is handled by eucher.plugins.builtin.ml module.
+# This module only provides the factory functions for backward compatibility.
 
 

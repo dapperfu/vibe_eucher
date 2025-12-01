@@ -807,7 +807,7 @@ class RewardCalculator:
 ## Training Loop Structure
 
 ```python
-# scripts/training/euchre_zero/train_euchre_zero.py (simplified)
+# scripts/eucher_zero/train_euchre_zero.py (simplified)
 
 def train_iteration(
     model: EuchreZeroModel,

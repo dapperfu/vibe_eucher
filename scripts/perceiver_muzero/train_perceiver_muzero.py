@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Training script for EucherPerceiverMuZero player.
+"""Training script for EuchrePerceiverMuZero player.
 
-EucherPerceiverMuZero is a MuZero-style planning architecture with Perceiver-IO encoder.
+EuchrePerceiverMuZero is a MuZero-style planning architecture with Perceiver-IO encoder.
 Supports cumulative training, multi-device support, and checkpoint management.
 """
 
@@ -99,7 +99,7 @@ def find_latest_checkpoint(checkpoint_dir: Path) -> Optional[Path]:
 
 def main() -> None:
     """Main training function."""
-    parser = argparse.ArgumentParser(description="Train EucherPerceiverMuZero player")
+    parser = argparse.ArgumentParser(description="Train EuchrePerceiverMuZero player")
     parser.add_argument(
         "--device",
         type=str,
@@ -110,8 +110,14 @@ def main() -> None:
     parser.add_argument(
         "--duration",
         type=str,
-        default="1m",
-        help="Training duration in format like '10s', '1m', '10m', '1h', '2h', '1d' (default: 1m)",
+        default=None,
+        help="Training duration in format like '10s', '1m', '10m', '1h', '2h', '1d'. If not specified, uses --max-games instead.",
+    )
+    parser.add_argument(
+        "--max-games",
+        type=int,
+        default=None,
+        help="Maximum number of games to play (default: None, uses duration if specified, otherwise defaults to 1m duration)",
     )
     parser.add_argument(
         "--checkpoint-interval",
@@ -162,16 +168,31 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    # Parse duration
-    max_duration_seconds = parse_duration(args.duration)
-    if max_duration_seconds is None:
-        print(f"Warning: Invalid duration format '{args.duration}', using 60 seconds")
-        max_duration_seconds = 60.0
+    # Determine training mode: duration-based or game-count-based
+    max_duration_seconds = None
+    max_games = None
+    
+    if args.duration:
+        max_duration_seconds = parse_duration(args.duration)
+        if max_duration_seconds is None:
+            print(f"Warning: Invalid duration format '{args.duration}', using game count instead")
+            max_duration_seconds = None
+    
+    if args.max_games:
+        max_games = args.max_games
+    
+    # Default to duration-based (1m) if neither specified
+    if max_duration_seconds is None and max_games is None:
+        max_duration_seconds = 60.0  # Default to 1 minute
+        print("Warning: Neither --duration nor --max-games specified, defaulting to 1m duration")
 
     print("=" * 80)
-    print("EucherPerceiverMuZero Training Script")
+    print("EuchrePerceiverMuZero Training Script")
     print("=" * 80)
-    print(f"Duration: {args.duration} ({max_duration_seconds:.0f} seconds)")
+    if max_duration_seconds is not None:
+        print(f"Duration: {args.duration if args.duration else '1m (default)'} ({max_duration_seconds:.0f} seconds)")
+    if max_games is not None:
+        print(f"Max games: {max_games}")
     print(f"Device: {args.device}")
     print(f"Checkpoint directory: {args.checkpoint_dir}")
     print(f"Batch size: {args.batch_size}")
@@ -224,8 +245,13 @@ def main() -> None:
     trainer = PerceiverMuZeroTrainer(model, config, replay_buffer)
 
     # Initialize Rich dashboard
-    # Estimate total games for duration-based training
-    estimated_games = int(max_duration_seconds / 2.0) if max_duration_seconds else config.num_games * 100
+    # Estimate total games for dashboard
+    if max_games is not None:
+        estimated_games = max_games
+    elif max_duration_seconds is not None:
+        estimated_games = int(max_duration_seconds / 2.0)  # Rough estimate: 2 seconds per game
+    else:
+        estimated_games = config.num_games * 100
     dashboard = PerceiverMuZeroDashboard(num_games=estimated_games, refresh_rate=2.0)
     live_display = dashboard.start_live_display(config=config)
 
@@ -242,7 +268,10 @@ def main() -> None:
                 iteration += 1
                 elapsed = time.time() - start_time
 
-                if elapsed >= max_duration_seconds:
+                # Check stopping conditions
+                if max_duration_seconds is not None and elapsed >= max_duration_seconds:
+                    break
+                if max_games is not None and game_count >= max_games:
                     break
 
                 # Generate self-play games
@@ -250,7 +279,11 @@ def main() -> None:
                 iteration_examples = 0
 
                 for game_num in range(config.num_games):
-                    if time.time() - start_time >= max_duration_seconds:
+                    # Check stopping conditions inside game loop
+                    if max_duration_seconds is not None:
+                        if time.time() - start_time >= max_duration_seconds:
+                            break
+                    if max_games is not None and game_count >= max_games:
                         break
 
                     try:

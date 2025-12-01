@@ -1,13 +1,6 @@
 """Built-in player plugins for Euchre game."""
 
-# Import all builtin plugins to trigger registration
-# Each plugin module registers itself when imported
-from eucher.plugins.builtin import ai, heuristic, ml, random  # noqa: F401
-
-# Also import complex plugins
-try:
-    from eucher.plugins.builtin import eucher_zero, perceiver_muzero  # noqa: F401
-except ImportError:
-    # These may not be available if dependencies are missing
-    pass
+# Note: Builtin plugins are now auto-discovered by scanning this directory.
+# Each plugin module registers itself when imported via the discovery mechanism.
+# No manual imports needed - plugins are discovered programmatically.
 

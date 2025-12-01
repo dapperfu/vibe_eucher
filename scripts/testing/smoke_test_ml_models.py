@@ -191,7 +191,7 @@ def test_rl_models() -> bool:
         return False
 
 
-def test_euchre_zero() -> bool:
+def test_eucher_zero() -> bool:
     """Test EuchreZero model."""
     print("\n" + "=" * 60)
     print("Testing EuchreZero Model")
@@ -200,7 +200,7 @@ def test_euchre_zero() -> bool:
     try:
         # Check if EuchreZero is available
         try:
-            from eucher.players.computer.euchre_zero.player import EuchreZeroPlayer
+            from eucher.players.computer.eucher_zero.player import EucherZeroPlayer
         except ImportError:
             print("   ⚠ EuchreZero not available, skipping test")
             return True  # Not a failure, just missing dependency
@@ -209,10 +209,10 @@ def test_euchre_zero() -> bool:
         print("\n1. Testing EuchreZero player creation...")
         try:
             player_config = [
-                ("Zero1", "euchre_zero"),
-                ("Zero2", "euchre_zero"),
-                ("Zero3", "euchre_zero"),
-                ("Zero4", "euchre_zero"),
+                ("Zero1", "eucher_zero"),
+                ("Zero2", "eucher_zero"),
+                ("Zero3", "eucher_zero"),
+                ("Zero4", "eucher_zero"),
             ]
             game = Game(player_config)
             print("   ✓ Created EuchreZero players")
@@ -259,7 +259,7 @@ def main() -> None:
     results["rl"] = test_rl_models()
     
     # Test EuchreZero
-    results["euchre_zero"] = test_euchre_zero()
+    results["eucher_zero"] = test_eucher_zero()
     
     # Print summary
     print("\n" + "=" * 60)

@@ -1,7 +1,7 @@
 """PyTorch-based AI player implementation."""
 
 from eucher.players.computer.ml.pytorch.pytorch_player import PyTorchStrategicPlayer
-from eucher.plugins import register_plugin
+from eucher.plugins import get_registry, register_plugin
 
 __all__ = ["PyTorchStrategicPlayer"]
 
@@ -16,24 +16,30 @@ def _create_pytorch_player(game=None, **kwargs):
     )
 
 
-register_plugin(
-    name="pytorch_ai",
-    factory=_create_pytorch_player,
-    requires_game=False,
-    description="PyTorch-based strategic AI player with deep neural networks",
-)
+# Only register plugins if they haven't been registered already (e.g., by builtin plugins)
+_registry = get_registry()
 
-register_plugin(
-    name="pytorch_strategic",
-    factory=_create_pytorch_player,
-    requires_game=False,
-    description="PyTorch-based strategic AI player (alias for pytorch_ai)",
-)
+if not _registry.has("pytorch_ai"):
+    register_plugin(
+        name="pytorch_ai",
+        factory=_create_pytorch_player,
+        requires_game=False,
+        description="PyTorch-based strategic AI player with deep neural networks",
+    )
 
-register_plugin(
-    name="ml_pytorch",
-    factory=_create_pytorch_player,
-    requires_game=False,
-    description="PyTorch-based ML player (alias for pytorch_ai)",
-)
+if not _registry.has("pytorch_strategic"):
+    register_plugin(
+        name="pytorch_strategic",
+        factory=_create_pytorch_player,
+        requires_game=False,
+        description="PyTorch-based strategic AI player (alias for pytorch_ai)",
+    )
+
+if not _registry.has("ml_pytorch"):
+    register_plugin(
+        name="ml_pytorch",
+        factory=_create_pytorch_player,
+        requires_game=False,
+        description="PyTorch-based ML player (alias for pytorch_ai)",
+    )
 

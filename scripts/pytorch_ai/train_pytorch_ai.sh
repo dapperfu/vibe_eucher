@@ -49,7 +49,7 @@ if [ "$DEVICE" = "gpu" ] || [ "$DEVICE" = "cuda" ] || [ "$DEVICE" = "auto" ]; th
 fi
 
 # Run training script
-python scripts/pytorch_ai/train_pytorch_ai.py --device "${DEVICE}" ${BATCH_SIZE_ARGS} "$@"
+python scripts/training/train_pytorch_ai.py --device "${DEVICE}" ${BATCH_SIZE_ARGS} "$@"
 
 
 

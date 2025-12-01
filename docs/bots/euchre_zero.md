@@ -23,10 +23,10 @@ All decisions use MCTS search:
 
 ```bash
 # Basic training
-python scripts/training/euchre_zero/train_euchre_zero.py --duration 1h
+python scripts/eucher_zero/train_euchre_zero.py --duration 1h
 
 # With custom parameters
-python scripts/training/euchre_zero/train_euchre_zero.py \
+python scripts/eucher_zero/train_euchre_zero.py \
     --duration 2h \
     --num-games 20 \
     --num-simulations 200 \
@@ -45,10 +45,10 @@ python scripts/training/euchre_zero/train_euchre_zero.py \
 from eucher.game import Game
 
 player_config = [
-    ("EuchreZero1", "euchre_zero"),
-    ("EuchreZero2", "euchre_zero"),
-    ("EuchreZero3", "euchre_zero"),
-    ("EuchreZero4", "euchre_zero"),
+    ("EuchreZero1", "eucher_zero"),
+    ("EuchreZero2", "eucher_zero"),
+    ("EuchreZero3", "eucher_zero"),
+    ("EuchreZero4", "eucher_zero"),
 ]
 
 game = Game(player_config)

@@ -93,6 +93,7 @@ register_plugin(
     description="PerceiverMuZero MCTS-based player",
     requires_game=True,
     supports_kwargs=True,
+    model_name="PerceiverMuZeroModel",
 )
 
 # Register variants with specific simulation counts
@@ -104,5 +105,6 @@ for sim_count in [1, 16, 64, 128]:
         description=f"PerceiverMuZero player with {sim_count} simulations",
         requires_game=True,
         supports_kwargs=True,
+        model_name="PerceiverMuZeroModel",
     )
 

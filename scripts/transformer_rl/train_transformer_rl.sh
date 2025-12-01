@@ -4,7 +4,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+PROJECT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 cd "${PROJECT_DIR}"
 
@@ -64,7 +64,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Build command
-CMD="python3 scripts/transformer_rl/train_transformer_rl.py"
+CMD="python3 scripts/training/train_transformer_rl.py"
 CMD="$CMD --device $DEVICE"
 CMD="$CMD --num-hands $NUM_HANDS"
 CMD="$CMD --batch-size $BATCH_SIZE"

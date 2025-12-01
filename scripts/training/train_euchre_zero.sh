@@ -4,7 +4,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+PROJECT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 cd "${PROJECT_DIR}"
 
@@ -29,12 +29,12 @@ fi
 
 # Default to 1-minute training if no duration specified
 if [[ ! "$*" =~ --duration ]]; then
-    python scripts/training/euchre_zero/train_euchre_zero.py \
+    python scripts/training/train_euchre_zero.py \
         --device "${DEVICE}" \
         --duration 1m \
         "$@"
 else
-    python scripts/training/euchre_zero/train_euchre_zero.py \
+    python scripts/training/train_euchre_zero.py \
         --device "${DEVICE}" \
         "$@"
 fi

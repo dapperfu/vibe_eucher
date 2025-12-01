@@ -29,6 +29,5 @@ if [[ -d "${PROJECT_ROOT}/venv_vibe_eucher" ]]; then
 fi
 
 # Run training script
-python "${SCRIPT_DIR}/train_reinforcement_eucher.py" --device "${DEVICE}" "$@"
-
+python "${PROJECT_ROOT}/scripts/training/train_reinforcement_eucher.py" --device "${DEVICE}" "$@"
 

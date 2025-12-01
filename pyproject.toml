@@ -35,6 +35,26 @@ ai = [
 [project.scripts]
 eucher = "eucher.cli:main"
 
+[project.entry-points."eucher.plugins"]
+random = "eucher.plugins.builtin.random"
+heuristic = "eucher.plugins.builtin.heuristic"
+heuristic2 = "eucher.plugins.builtin.heuristic"
+ai = "eucher.plugins.builtin.ai"
+ml_sklearn = "eucher.plugins.builtin.ml"
+ml_rl = "eucher.plugins.builtin.ml"
+ml_gan = "eucher.plugins.builtin.ml"
+ml_pytorch = "eucher.plugins.builtin.ml"
+pytorch_ai = "eucher.plugins.builtin.ml"
+pytorch_strategic = "eucher.plugins.builtin.ml"
+eucher_zero = "eucher.plugins.builtin.eucher_zero"
+euchergo = "eucher.plugins.builtin.euchergo"
+reinforcement_eucher = "eucher.plugins.builtin.reinforcement_eucher"
+perceiver_muzero = "eucher.plugins.builtin.perceiver_muzero"
+perceiver_muzero_1 = "eucher.plugins.builtin.perceiver_muzero"
+perceiver_muzero_16 = "eucher.plugins.builtin.perceiver_muzero"
+perceiver_muzero_64 = "eucher.plugins.builtin.perceiver_muzero"
+perceiver_muzero_128 = "eucher.plugins.builtin.perceiver_muzero"
+
 [tool.setuptools]
 packages = ["eucher"]
 

@@ -50,5 +50,6 @@ register_plugin(
     description="EucherZero MCTS-based player",
     requires_game=True,
     supports_kwargs=True,
+    model_name="EucherZeroModel",
 )
 
