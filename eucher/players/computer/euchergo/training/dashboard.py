@@ -295,10 +295,16 @@ class EucherGoDashboard:
         layout = Layout()
 
         if config:
+            # Create a horizontal layout for the two tables
+            tables_layout = Layout()
+            tables_layout.split_row(
+                Layout(self._create_metrics_table()),
+                Layout(self._create_config_table(config)),
+            )
+            # Stack progress bar on top of the side-by-side tables
             layout.split_column(
                 Layout(self.progress, size=3),
-                Layout(self._create_metrics_table()),
-                Layout(self._create_config_table(config), size=8),
+                tables_layout,
             )
         else:
             layout.split_column(
@@ -322,10 +328,16 @@ class EucherGoDashboard:
         layout = Layout()
 
         if config:
+            # Create a horizontal layout for the two tables
+            tables_layout = Layout()
+            tables_layout.split_row(
+                Layout(self._create_metrics_table()),
+                Layout(self._create_config_table(config)),
+            )
+            # Stack progress bar on top of the side-by-side tables
             layout.split_column(
                 Layout(self.progress, size=3),
-                Layout(self._create_metrics_table()),
-                Layout(self._create_config_table(config), size=8),
+                tables_layout,
             )
         else:
             layout.split_column(
