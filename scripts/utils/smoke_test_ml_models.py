@@ -12,7 +12,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from eucher.game import Game
-from eucher.players.computer.ml.ml_config import MLConfig
+from plugins.ml.ml_config import MLConfig
 from eucher.training.self_play import SelfPlayTrainer
 from eucher.training.train_gan import train_gan_for_decision_type
 from eucher.training.train_rl import train_rl_through_self_play
@@ -46,7 +46,7 @@ def test_supervised_models() -> bool:
         
         # Test that models can be used
         print("\n3. Testing model usage...")
-        from eucher.players.computer.ml.player import MLPlayer
+        from plugins.ml.player import MLPlayer
         
         player = MLPlayer(backend="supervised", model_type="random_forest")
         print("   ✓ Created MLPlayer with supervised backend")
@@ -113,7 +113,7 @@ def test_gan_models() -> bool:
         
         # Test that model can be used
         print("\n3. Testing model usage...")
-        from eucher.players.computer.ml.player import MLPlayer
+        from plugins.ml.player import MLPlayer
         
         player = MLPlayer(backend="gan")
         print("   ✓ Created MLPlayer with GAN backend")
@@ -166,7 +166,7 @@ def test_rl_models() -> bool:
         
         # Test that agent can be used
         print("\n2. Testing agent usage...")
-        from eucher.players.computer.ml.player import MLPlayer
+        from plugins.ml.player import MLPlayer
         
         player = MLPlayer(backend="rl")
         print("   ✓ Created MLPlayer with RL backend")
@@ -200,7 +200,7 @@ def test_eucher_zero() -> bool:
     try:
         # Check if EucherZero is available
         try:
-            from eucher.players.computer.eucher_zero.player import EucherZeroPlayer
+            from plugins.eucher_zero.player import EucherZeroPlayer
         except ImportError:
             print("   ⚠ EucherZero not available, skipping test")
             return True  # Not a failure, just missing dependency

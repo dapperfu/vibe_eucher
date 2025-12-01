@@ -6,6 +6,7 @@ Supports cumulative training, multi-device support, and checkpoint management.
 """
 
 import argparse
+import os
 import re
 import signal
 import sys
@@ -13,21 +14,24 @@ import time
 from pathlib import Path
 from typing import Optional
 
+import torch
+
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from eucher.game import Game
+from eucher.plugins import get_registry
 
-from eucher.players.computer.perceiver_muzero.config import PerceiverMuZeroConfig
-from eucher.players.computer.perceiver_muzero.networks.model import PerceiverMuZeroModel
-from eucher.players.computer.perceiver_muzero.training.dashboard import (
+from plugins.perceiver_muzero.config import PerceiverMuZeroConfig
+from plugins.perceiver_muzero.networks.model import PerceiverMuZeroModel
+from plugins.perceiver_muzero.training.dashboard import (
     PerceiverMuZeroDashboard,
 )
-from eucher.players.computer.perceiver_muzero.training.replay_buffer import ReplayBuffer
-from eucher.players.computer.perceiver_muzero.training.self_play import (
+from plugins.perceiver_muzero.training.replay_buffer import ReplayBuffer
+from plugins.perceiver_muzero.training.self_play import (
     generate_self_play_game,
 )
-from eucher.players.computer.perceiver_muzero.training.trainer import (
+from plugins.perceiver_muzero.training.trainer import (
     PerceiverMuZeroTrainer,
 )
 
@@ -69,6 +73,29 @@ def parse_duration(duration_str: str) -> Optional[float]:
             return value * 86400.0
 
     return None
+
+
+def list_available_plugins() -> None:
+    """
+    List all available player plugins.
+    """
+    registry = get_registry()
+    # Plugins are auto-discovered via entry points on import
+    plugins = registry.list_plugins()
+    
+    print("Available player plugins:")
+    print("=" * 80)
+    for plugin in sorted(plugins):
+        metadata = registry.get(plugin)
+        if metadata:
+            desc = metadata.description or "No description"
+            print(f"  {plugin:20s} - {desc}")
+        else:
+            print(f"  {plugin:20s}")
+    print("=" * 80)
+    print(f"\nTotal: {len(plugins)} plugins")
+    print("\nUse --opponent <plugin_name> to train against a specific opponent.")
+    print("Example: --opponent heuristic")
 
 
 def find_latest_checkpoint(checkpoint_dir: Path) -> Optional[Path]:
@@ -165,8 +192,37 @@ def main() -> None:
         default=128,
         help="Number of MCTS simulations per decision (default: 128)",
     )
+    parser.add_argument(
+        "--opponent",
+        type=str,
+        default=None,
+        help="Opponent plugin to train against. Use 'list' to enumerate available plugins. "
+             "If not specified, trains against itself (self-play).",
+    )
 
     args = parser.parse_args()
+    
+    # Configure CPU threading for optimal performance
+    # Set PyTorch to use all available CPU threads
+    num_threads = os.cpu_count() or 16
+    torch.set_num_threads(num_threads)
+    torch.set_num_interop_threads(num_threads)
+    
+    # Set environment variables for BLAS/MKL libraries
+    os.environ.setdefault("OMP_NUM_THREADS", str(num_threads))
+    os.environ.setdefault("MKL_NUM_THREADS", str(num_threads))
+    os.environ.setdefault("NUMEXPR_NUM_THREADS", str(num_threads))
+    os.environ.setdefault("OPENBLAS_NUM_THREADS", str(num_threads))
+    
+    print(f"CPU Threading Configuration:")
+    print(f"  Available CPU cores: {num_threads}")
+    print(f"  PyTorch threads: {torch.get_num_threads()}")
+    print(f"  PyTorch interop threads: {torch.get_num_interop_threads()}")
+    
+    # Handle --opponent list
+    if args.opponent == "list":
+        list_available_plugins()
+        sys.exit(0)
 
     # Determine training mode: duration-based or game-count-based
     max_duration_seconds = None
@@ -198,6 +254,10 @@ def main() -> None:
     print(f"Batch size: {args.batch_size}")
     print(f"Games per iteration: {args.num_games}")
     print(f"MCTS simulations: {args.num_simulations}")
+    if args.opponent:
+        print(f"Opponent: {args.opponent}")
+    else:
+        print("Opponent: self-play (PerceiverMuZero vs PerceiverMuZero)")
     print("=" * 80)
 
     # Setup device
@@ -289,12 +349,25 @@ def main() -> None:
                     try:
                         game_start_time = time.time()
 
-                        # Create game with 4 PerceiverMuZero players
+                        # Create game configuration
+                        # Team 0 (players 0, 2): PerceiverMuZero (training player)
+                        # Team 1 (players 1, 3): Opponent or PerceiverMuZero (self-play)
+                        opponent_type = args.opponent if args.opponent else "perceiver_muzero"
+                        
+                        # Validate opponent plugin exists
+                        if args.opponent:
+                            registry = get_registry()
+                            # Plugins are auto-discovered via entry points on import
+                            if not registry.has(args.opponent):
+                                print(f"Error: Opponent plugin '{args.opponent}' not found.")
+                                print("Use --opponent list to see available plugins.")
+                                sys.exit(1)
+                        
                         player_config = [
                             ("PerceiverMuZero_0", "perceiver_muzero"),
-                            ("PerceiverMuZero_1", "perceiver_muzero"),
+                            (f"Opponent_1", opponent_type),
                             ("PerceiverMuZero_2", "perceiver_muzero"),
-                            ("PerceiverMuZero_3", "perceiver_muzero"),
+                            (f"Opponent_3", opponent_type),
                         ]
 
                         game = Game(player_config)

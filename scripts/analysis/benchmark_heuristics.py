@@ -157,7 +157,13 @@ def compare_player_types(num_games: int = 1000) -> Dict[str, Dict[str, Any]]:
             ("H2", "heuristic"),
             ("R2", "random"),
         ],
-        "heuristic_vs_ai": [
+        "heuristic_vs_weighted_heuristic": [
+            ("H1", "heuristic"),
+            ("A1", "weighted_heuristic"),
+            ("H2", "heuristic"),
+            ("A2", "weighted_heuristic"),
+        ],
+        "heuristic_vs_ai": [  # Backward compatibility alias
             ("H1", "heuristic"),
             ("A1", "ai"),
             ("H2", "heuristic"),

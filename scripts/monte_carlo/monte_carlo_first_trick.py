@@ -291,7 +291,7 @@ def simulate_hand(
         ("Player3", "random"),
     ]
     # Set test player to use AI profile
-    player_config[test_player_id] = ("TestPlayer", "ai")
+    player_config[test_player_id] = ("TestPlayer", "weighted_heuristic")
 
     game = Game(player_config)
     game.dealer_id = dealer_id

@@ -6,6 +6,7 @@ for Euchre, patterned after AlphaZero/MuZero architecture.
 """
 
 import argparse
+import os
 import re
 import signal
 import sys
@@ -16,12 +17,13 @@ from typing import Dict, Optional
 import torch
 
 from eucher.game import Game
-from eucher.players.computer.euchergo.config import EucherGoConfig
-from eucher.players.computer.euchergo.networks.model import EucherGoModel
-from eucher.players.computer.euchergo.training.dashboard import EucherGoDashboard
-from eucher.players.computer.euchergo.training.replay_buffer import ReplayBuffer
-from eucher.players.computer.euchergo.training.self_play import generate_self_play_game
-from eucher.players.computer.euchergo.training.trainer import EucherGoTrainer
+from eucher.plugins import get_registry
+from plugins.euchergo.config import EucherGoConfig
+from plugins.euchergo.networks.model import EucherGoModel
+from plugins.euchergo.training.dashboard import EucherGoDashboard
+from plugins.euchergo.training.replay_buffer import ReplayBuffer
+from plugins.euchergo.training.self_play import generate_self_play_game
+from plugins.euchergo.training.trainer import EucherGoTrainer
 
 
 class TrainingInterrupt(Exception):
@@ -59,6 +61,29 @@ def parse_duration(duration_str: str) -> Optional[float]:
             return value * 86400.0
 
     return None
+
+
+def list_available_plugins() -> None:
+    """
+    List all available player plugins.
+    """
+    registry = get_registry()
+    # Plugins are auto-discovered via entry points on import
+    plugins = registry.list_plugins()
+    
+    print("Available player plugins:")
+    print("=" * 80)
+    for plugin in sorted(plugins):
+        metadata = registry.get(plugin)
+        if metadata:
+            desc = metadata.description or "No description"
+            print(f"  {plugin:20s} - {desc}")
+        else:
+            print(f"  {plugin:20s}")
+    print("=" * 80)
+    print(f"\nTotal: {len(plugins)} plugins")
+    print("\nUse --opponent <plugin_name> to train against a specific opponent.")
+    print("Example: --opponent heuristic")
 
 
 def find_latest_checkpoint(checkpoint_dir: Path) -> Optional[Path]:
@@ -161,8 +186,37 @@ def main() -> None:
         default=10,
         help="Evaluate model every N iterations (default: 10)",
     )
+    parser.add_argument(
+        "--opponent",
+        type=str,
+        default=None,
+        help="Opponent plugin to train against. Use 'list' to enumerate available plugins. "
+             "If not specified, trains against itself (self-play).",
+    )
 
     args = parser.parse_args()
+    
+    # Configure CPU threading for optimal performance
+    # Set PyTorch to use all available CPU threads
+    num_threads = os.cpu_count() or 16
+    torch.set_num_threads(num_threads)
+    torch.set_num_interop_threads(num_threads)
+    
+    # Set environment variables for BLAS/MKL libraries
+    os.environ.setdefault("OMP_NUM_THREADS", str(num_threads))
+    os.environ.setdefault("MKL_NUM_THREADS", str(num_threads))
+    os.environ.setdefault("NUMEXPR_NUM_THREADS", str(num_threads))
+    os.environ.setdefault("OPENBLAS_NUM_THREADS", str(num_threads))
+    
+    print(f"CPU Threading Configuration:")
+    print(f"  Available CPU cores: {num_threads}")
+    print(f"  PyTorch threads: {torch.get_num_threads()}")
+    print(f"  PyTorch interop threads: {torch.get_num_interop_threads()}")
+    
+    # Handle --opponent list
+    if args.opponent == "list":
+        list_available_plugins()
+        sys.exit(0)
 
     # Parse duration
     max_duration_seconds = parse_duration(args.duration)
@@ -179,6 +233,10 @@ def main() -> None:
     print(f"Batch size: {args.batch_size}")
     print(f"Games per iteration: {args.num_games}")
     print(f"MCTS simulations: {args.num_simulations}")
+    if args.opponent:
+        print(f"Opponent: {args.opponent}")
+    else:
+        print("Opponent: self-play (EucherGo vs EucherGo)")
     print("=" * 80)
 
     # Setup device
@@ -286,20 +344,33 @@ def main() -> None:
                     try:
                         game_start_time = time.time()
 
-                        # Create game with 4 EucherGo players
+                        # Create game configuration
+                        # Team 0 (players 0, 2): EucherGo (training player)
+                        # Team 1 (players 1, 3): Opponent or EucherGo (self-play)
+                        opponent_type = args.opponent if args.opponent else "euchergo"
+                        
+                        # Validate opponent plugin exists
+                        if args.opponent:
+                            registry = get_registry()
+                            # Plugins are auto-discovered via entry points on import
+                            if not registry.has(args.opponent):
+                                print(f"Error: Opponent plugin '{args.opponent}' not found.")
+                                print("Use --opponent list to see available plugins.")
+                                sys.exit(1)
+                        
                         player_config = [
                             ("EucherGo_0", "euchergo"),
-                            ("EucherGo_1", "euchergo"),
+                            (f"Opponent_1", opponent_type),
                             ("EucherGo_2", "euchergo"),
-                            ("EucherGo_3", "euchergo"),
+                            (f"Opponent_3", opponent_type),
                         ]
 
                         game = Game(player_config)
 
                         # Set game reference and model for all EucherGo players
-                        from eucher.players.computer.euchergo.player import EucherGoPlayer
-                        from eucher.players.computer.euchergo.mcts.search import EucherGoMCTSSearch
-                        from eucher.players.computer.euchergo.state_encoder import EucherGoStateEncoder
+                        from plugins.euchergo.player import EucherGoPlayer
+                        from plugins.euchergo.mcts.search import EucherGoMCTSSearch
+                        from plugins.euchergo.state_encoder import EucherGoStateEncoder
 
                         state_encoder = EucherGoStateEncoder()
                         mcts = EucherGoMCTSSearch(model, config.num_simulations, config.exploration_constant, config.device)

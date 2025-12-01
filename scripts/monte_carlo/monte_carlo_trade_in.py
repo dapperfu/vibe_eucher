@@ -285,7 +285,7 @@ def simulate_game_with_trade_in_decision(
 
 
 def run_monte_carlo_simulation(
-    player_types: List[str] = ["random", "heuristic", "ai"],
+    player_types: List[str] = ["random", "heuristic", "weighted_heuristic"],
     num_simulations: int = 100,
     max_attempts_per_sim: int = 10000,
     seed: Optional[int] = None,
@@ -438,9 +438,9 @@ def main() -> None:
     parser.add_argument(
         "--player-types",
         nargs="+",
-        default=["random", "heuristic", "ai"],
-        choices=["random", "heuristic", "ai"],
-        help="Player types to test (default: random heuristic ai)",
+        default=["random", "heuristic", "weighted_heuristic"],
+        choices=["random", "heuristic", "weighted_heuristic"],
+        help="Player types to test (default: random heuristic weighted_heuristic)",
     )
     parser.add_argument(
         "--seed",

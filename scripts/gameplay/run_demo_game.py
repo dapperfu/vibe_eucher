@@ -8,10 +8,10 @@ def main() -> None:
     """Run a demo game with automated players."""
     # Create a game with mixed player types for variety
     player_config = [
-        ("Alice", "ai"),
+        ("Alice", "weighted_heuristic"),
         ("Bob", "heuristic"),
         ("Charlie", "random"),
-        ("Diana", "ai"),
+        ("Diana", "weighted_heuristic"),
     ]
 
     # Create game

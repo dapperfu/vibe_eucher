@@ -8,6 +8,7 @@ This script is for supervised learning on pre-collected data files.
 """
 
 import argparse
+import os
 import re
 import signal
 import sys
@@ -21,10 +22,10 @@ import torch
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from eucher.players.computer.ml.pytorch.pytorch_networks import create_network
-from eucher.players.computer.ml.pytorch.training.checkpoint_manager import CheckpointManager
-from eucher.players.computer.ml.pytorch.training.data_manager import TrainingDataManager
-from eucher.players.computer.ml.pytorch.training.trainer import CumulativeTrainer, EuchreDataset
+from plugins.ml.pytorch.pytorch_networks import create_network
+from plugins.ml.pytorch.training.checkpoint_manager import CheckpointManager
+from plugins.ml.pytorch.training.data_manager import TrainingDataManager
+from plugins.ml.pytorch.training.trainer import CumulativeTrainer, EuchreDataset
 
 
 class TrainingInterrupt(Exception):
@@ -247,6 +248,23 @@ def main() -> None:
 
     args = parser.parse_args()
 
+    # Configure CPU threading for optimal performance
+    # Set PyTorch to use all available CPU threads
+    num_threads = os.cpu_count() or 16
+    torch.set_num_threads(num_threads)
+    torch.set_num_interop_threads(num_threads)
+    
+    # Set environment variables for BLAS/MKL libraries
+    os.environ.setdefault("OMP_NUM_THREADS", str(num_threads))
+    os.environ.setdefault("MKL_NUM_THREADS", str(num_threads))
+    os.environ.setdefault("NUMEXPR_NUM_THREADS", str(num_threads))
+    os.environ.setdefault("OPENBLAS_NUM_THREADS", str(num_threads))
+    
+    print(f"CPU Threading Configuration:")
+    print(f"  Available CPU cores: {num_threads}")
+    print(f"  PyTorch threads: {torch.get_num_threads()}")
+    print(f"  PyTorch interop threads: {torch.get_num_interop_threads()}")
+
     # Determine device
     device_str = args.device
     if device_str == "gpu":
@@ -370,7 +388,7 @@ def main() -> None:
         return
     
     # Import feature encoder for dataset
-    from eucher.players.computer.ml.pytorch.feature_encoder import EuchreFeatureEncoder
+    from plugins.ml.pytorch.feature_encoder import EuchreFeatureEncoder
 
     feature_encoder = EuchreFeatureEncoder()
     

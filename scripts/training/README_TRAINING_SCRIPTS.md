@@ -128,7 +128,7 @@ When creating player configurations in training scripts, use these exact player 
 - **EucherGo**: `euchergo`
 - **ReinforcementEucher**: `reinforcement_eucher`
 - **Heuristic**: `heuristic`
-- **AI**: `ai`
+- **Weighted Heuristic**: `weighted_heuristic` (formerly `ai`)
 - **Random**: `random`
 
 To see all available player types, run:

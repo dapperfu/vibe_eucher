@@ -3,9 +3,12 @@
 import json
 import os
 import random
+import signal
+import sys
+import time
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 
 import click
 from faker import Faker
@@ -50,6 +53,7 @@ def get_computer_types() -> list[str]:
     list[str]
         List of available computer player type names.
     """
+    # Plugins are auto-discovered via entry points on import
     registry = get_registry()
     plugin_names = registry.list_plugins()
     
@@ -70,20 +74,273 @@ def cli() -> None:
     pass
 
 
+def _play_server(
+    name: str,
+    port: int,
+    seed: Optional[str],
+    save_dir: Optional[str],
+    assistant: Optional[str],
+    xray: bool,
+    record_decisions: Optional[str],
+    playback_decisions: Optional[str],
+) -> None:
+    """Run game as server."""
+    from eucher.network.server import EuchreServer
+    import signal
+    import sys
+
+    # Create server
+    server = EuchreServer(port=port)
+    
+    def signal_handler(sig: Any, frame: Any) -> None:
+        """Handle shutdown signal."""
+        click.echo("\nShutting down server...")
+        server.stop()
+        sys.exit(0)
+    
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    
+    try:
+        server.start()
+        
+        # Wait for 3 clients to connect
+        click.echo(f"\nWaiting for 3 clients to connect...")
+        click.echo(f"Server player: {name} (Player 0)")
+        
+        while len(server.get_connected_players()) < 4:
+            import time
+            time.sleep(0.5)
+            if not server.running:
+                return
+        
+        click.echo("\nAll players connected! Starting game...")
+        
+        # Create player config with server as Player 0
+        # Other players will be filled in as they connect
+        player_config: List[Tuple[str, str]] = [
+            (name, "human"),  # Server player
+        ]
+        
+        # Get client names
+        for player_id in [1, 2, 3]:
+            client = server.get_client_by_player_id(player_id)
+            if client and client.name:
+                player_config.append((client.name, "human"))
+            else:
+                player_config.append((f"Player {player_id}", "human"))
+        
+        # Parse seed
+        parsed_seed: Optional[Union[int, str]] = None
+        if seed is not None:
+            try:
+                parsed_seed = int(seed)
+            except ValueError:
+                parsed_seed = seed
+        
+        # Create game
+        game = Game(player_config, seed=parsed_seed)
+        
+        # Create TUI for server (handles both local and network players)
+        from eucher.tui.server_network_tui import ServerNetworkTUI
+        from eucher.decision_playback import DecisionPlayback
+        
+        decision_playback = None
+        if record_decisions or playback_decisions:
+            decision_playback = DecisionPlayback(
+                record_file=record_decisions,
+                playback_file=playback_decisions,
+            )
+            if hasattr(game, "game_uuid"):
+                decision_playback.start_game(game.game_uuid)
+            elif parsed_seed is not None:
+                decision_playback.start_game(parsed_seed)
+        
+        tui = ServerNetworkTUI(
+            server=server,
+            local_player_id=0,
+            assistant_helpers=None,  # TODO: Support assistants in network mode
+            xray_mode=xray,
+            decision_playback=decision_playback,
+        )
+        game.set_tui(tui)
+        
+        # Play game loop
+        while True:
+            click.echo("\n" + "=" * 50)
+            click.echo("New Hand")
+            click.echo("=" * 50)
+            
+            continue_game = game.play_hand()
+            
+            scores = game.get_scores()
+            tui.display_scores(scores[0], scores[1])
+            
+            winner = game.get_winner()
+            if winner is not None:
+                tui.display_game_over(winner)
+                if hasattr(tui, "display_game_log"):
+                    tui.display_game_log()
+                from eucher.game_stats import display_game_summary
+                final_scores = game.get_scores()
+                display_game_summary(game.stats, game.players, final_scores, winner)
+                break
+            
+            if not continue_game:
+                break
+        
+        # Save game if requested
+        if save_dir is not None and hasattr(game, 'game_uuid'):
+            try:
+                from eucher.game_file import save_game
+                save_path = save_game(game, Path(save_dir))
+                click.echo(f"\nGame saved to: {save_path}")
+            except Exception as e:
+                click.echo(f"Error saving game: {e}", err=True)
+        
+        click.echo("\nThanks for playing!")
+        
+    except Exception as e:
+        click.echo(f"Server error: {e}", err=True)
+        raise
+    finally:
+        server.stop()
+
+
+def _play_client(
+    server_host: str,
+    server_port: int,
+    timeout: int,
+    name: str,
+    assistant: Optional[str],
+    xray: bool,
+) -> None:
+    """Run game as client."""
+    from eucher.network.client import EuchreClient
+    from eucher.tui.network_tui import NetworkTUI
+    from eucher.network.protocol import MessageType
+    
+    client = EuchreClient(server_host, server_port, timeout)
+    
+    try:
+        # Connect to server
+        if not client.connect():
+            click.echo("Failed to connect to server", err=True)
+            raise click.Abort()
+        
+        click.echo("Connected to server!")
+        
+        # Wait for position selection prompt
+        while True:
+            message = client.receive_message()
+            if message is None:
+                click.echo("Lost connection to server", err=True)
+                raise click.Abort()
+            
+            msg_type = MessageType(message["type"])
+            
+            if msg_type == MessageType.CONNECTION_ACK:
+                click.echo(message["data"].get("message", "Connected"))
+            elif msg_type == MessageType.POSITION_SELECT:
+                available = message["data"]["available_positions"]
+                position = client.select_position(available)
+                
+                # Send position selection
+                position_msg = {
+                    "type": "POSITION_SELECT",
+                    "data": {
+                        "position": position,
+                        "name": name,
+                    },
+                }
+                client.send_message(position_msg)
+            elif msg_type == MessageType.POSITION_ASSIGNED:
+                client.player_id = message["player_id"]
+                click.echo(f"\nAssigned to position {client.player_id}: {message['data']['name']}")
+                break
+            elif msg_type == MessageType.ERROR:
+                click.echo(f"Error: {message['data'].get('message', 'Unknown error')}", err=True)
+                raise click.Abort()
+        
+        # Create network TUI
+        tui = NetworkTUI(
+            client=client,
+            player_id=client.player_id,
+            assistant_helpers=None,  # TODO: Support assistants in network mode
+            xray_mode=xray,
+            decision_playback=None,  # TODO: Support decision playback in network mode
+        )
+        
+        click.echo("\nWaiting for game to start...")
+        
+        # Wait for game start message
+        game_started = False
+        while not game_started:
+            message = client.receive_message()
+            if message is None:
+                click.echo("Lost connection to server", err=True)
+                break
+            
+            msg_type = MessageType(message["type"])
+            
+            if msg_type == MessageType.GAME_START:
+                click.echo("Game starting!")
+                game_started = True
+            elif msg_type == MessageType.ERROR:
+                click.echo(f"Error: {message['data'].get('message', 'Unknown error')}", err=True)
+                break
+        
+        if not game_started:
+            return
+        
+        # The NetworkTUI will handle decision requests and game state updates
+        # Keep connection alive and handle messages
+        click.echo("\nGame session active. Make decisions when prompted.")
+        click.echo("Press Ctrl+C to disconnect.")
+        
+        try:
+            while client.connected:
+                # NetworkTUI methods will be called when server requests decisions
+                # Just keep the connection alive and let NetworkTUI handle everything
+                message = client.receive_message(timeout=0.5)
+                if message:
+                    msg_type = MessageType(message["type"])
+                    if msg_type == MessageType.GAME_STATE:
+                        tui._update_game_state(message["data"])
+                    elif msg_type == MessageType.ERROR:
+                        click.echo(f"Error: {message['data'].get('message', 'Unknown error')}", err=True)
+        except KeyboardInterrupt:
+            click.echo("\nDisconnecting...")
+        except Exception as e:
+            click.echo(f"Error: {e}", err=True)
+        
+    except Exception as e:
+        click.echo(f"Client error: {e}", err=True)
+        raise
+    finally:
+        client.close()
+
+
 @cli.command()
 @click.option(
     "--opponent-type",
     "--model",
-    type=click.Choice(COMPUTER_TYPES, case_sensitive=False),
+    type=str,
     default=None,
-    help="Computer player type for all opponents (if not specified, types are randomly chosen)",
+    help="Computer player type(s) for opponents. Can be a single type or comma-separated list (e.g., 'heuristic' or 'euchergo,eucher_zero'). With 2 types, assigns to the 2 opponents (Players 1 and 3); partner (Player 2) uses first type.",
 )
 @click.option("--name", default="You", help="Human player name")
 @click.option("--seed", type=str, default=None, help="Random seed for reproducible games (integer or UUID string)")
 @click.option("--save-dir", type=click.Path(file_okay=False, dir_okay=True), default=None, help="Directory to save game file")
-@click.option("--ai-summary", is_flag=True, default=False, help="Generate AI-powered verbal summaries after each hand (requires OPENAI_API_KEY)")
-@click.option("--assistant", type=str, default=None, help="Assistant bot type to show decision recommendations (use 'list' to see available types)")
-def play(opponent_type: Optional[str], name: str, seed: Optional[str], save_dir: Optional[str], ai_summary: bool, assistant: Optional[str]) -> None:
+@click.option("--assistant", type=str, default=None, help="Assistant bot type(s) to show decision recommendations (comma-separated, e.g., 'heuristic,euchergo'). Use 'list' to see available types)")
+@click.option("--xray", is_flag=True, default=False, help="Enable xray mode to display all hidden information (all players' hands, kitty cards, etc.)")
+@click.option("--record-decisions", type=click.Path(file_okay=True, dir_okay=False), default=None, help="Path to file where human decisions will be recorded for later playback")
+@click.option("--playback-decisions", type=click.Path(file_okay=True, dir_okay=False), default=None, help="Path to file containing recorded decisions to replay")
+@click.option("--server", is_flag=True, default=False, help="Run as server (host game for network multiplayer)")
+@click.option("--client", type=str, default=None, help="Connect to server at specified IP address (e.g., --client=10.0.0.10)")
+@click.option("--port", type=int, default=8765, help="Server port number (default: 8765)")
+@click.option("--timeout", type=int, default=300, help="Client connection timeout in seconds (default: 300)")
+def play(opponent_type: Optional[str], name: str, seed: Optional[str], save_dir: Optional[str], assistant: Optional[str], xray: bool, record_decisions: Optional[str], playback_decisions: Optional[str], server: bool, client: Optional[str], port: int, timeout: int) -> None:
     """
     Play a game of Euchre with 1 human player and 3 computer opponents.
 
@@ -96,8 +353,21 @@ def play(opponent_type: Optional[str], name: str, seed: Optional[str], save_dir:
     <uuid>.gz if --save-dir is provided.
 
     Use --assistant=<bot_type> to display decision recommendations from a bot.
+    Use --assistant=<bot_type1>,<bot_type2> to display recommendations from multiple bots.
     Use --assistant=list to see available assistant bot types.
+
+    Network multiplayer:
+    Use --server to host a game (you are Player 0).
+    Use --client=<ip> to connect to a server (you select your position).
     """
+    # Handle network multiplayer modes
+    if server:
+        _play_server(name, port, seed, save_dir, assistant, xray, record_decisions, playback_decisions)
+        return
+    elif client is not None:
+        _play_client(client, port, timeout, name, assistant, xray)
+        return
+
     # Handle assistant list request
     if assistant == "list":
         registry = get_registry()
@@ -176,19 +446,43 @@ def play(opponent_type: Optional[str], name: str, seed: Optional[str], save_dir:
             opponent_names.append(first_name)
 
     # Determine opponent types
+    # Euchre has 4 players: Player 0 (human), Player 1 (opponent), Player 2 (partner/teammate), Player 3 (opponent)
     if opponent_type:
-        # Use specified type for all opponents (normalize case)
-        opponent_type_normalized = opponent_type.lower()
-        opponent_types = [opponent_type_normalized] * 3
+        # Parse comma-separated list of opponent types
+        type_list = [t.strip().lower() for t in opponent_type.split(",")]
+        
+        # Validate each type
+        valid_types = [t.lower() for t in COMPUTER_TYPES]
+        for opp_type in type_list:
+            if opp_type not in valid_types:
+                click.echo(f"Error: Invalid opponent type '{opp_type}'.", err=True)
+                click.echo(f"Valid types: {', '.join(COMPUTER_TYPES)}", err=True)
+                raise click.Abort()
+        
+        # Assign types to computer players:
+        # - Player 1 (opponent): first type
+        # - Player 2 (partner/teammate): first type (same as first opponent, or use first type if only 2 provided)
+        # - Player 3 (opponent): second type (if provided) or cycles
+        opponent_types = []
+        if len(type_list) == 1:
+            # Single type: all 3 computer players get the same type
+            opponent_types = [type_list[0]] * 3
+        elif len(type_list) == 2:
+            # Two types: assign to the 2 opponents (Players 1 and 3)
+            # Partner (Player 2) gets the first type
+            opponent_types = [type_list[0], type_list[0], type_list[1]]
+        else:
+            # Three or more types: assign in order (Player 1, Player 2, Player 3), cycling if needed
+            opponent_types = [type_list[i % len(type_list)] for i in range(3)]
     else:
-        # Randomly select types for each opponent
+        # Randomly select types for each computer player
         opponent_types = [random.choice(COMPUTER_TYPES).lower() for _ in range(3)]
 
     # Create player configuration: (name, profile_type)
     player_config: List[Tuple[str, str]] = [
         (name, "human"),  # Player 0: Human
     ]
-    # Add 3 computer opponents
+    # Add 3 computer players: Player 1 (opponent), Player 2 (teammate), Player 3 (opponent)
     for opp_name, opp_type in zip(opponent_names, opponent_types):
         player_config.append((opp_name, opp_type))
 
@@ -215,25 +509,59 @@ def play(opponent_type: Optional[str], name: str, seed: Optional[str], save_dir:
         click.echo(f"To replay this game, use: --seed {game.game_uuid}")
         click.echo()
 
-    # Create assistant helper if specified
-    assistant_helper = None
+    # Create assistant helpers if specified
+    assistant_helpers = []
     if assistant is not None:
-        try:
-            from eucher.assistant import AssistantHelper
-            assistant_helper = AssistantHelper(assistant, game=game)
-            click.echo(f"Assistant mode enabled: {assistant}")
+        # Parse comma-separated assistant types
+        assistant_types = [t.strip() for t in assistant.split(",")]
+        from eucher.assistant import AssistantHelper
+        
+        for assistant_type in assistant_types:
+            try:
+                helper = AssistantHelper(assistant_type, game=game)
+                assistant_helpers.append(helper)
+            except ValueError as e:
+                click.echo(f"Warning: Invalid assistant type '{assistant_type}': {e}", err=True)
+                click.echo("Skipping this assistant...")
+            except Exception as e:
+                click.echo(f"Warning: Failed to initialize assistant '{assistant_type}': {e}", err=True)
+                click.echo("Skipping this assistant...")
+        
+        if assistant_helpers:
+            assistant_names = [h.bot_type for h in assistant_helpers]
+            click.echo(f"Assistant mode enabled: {', '.join(assistant_names)}")
             click.echo()
-        except ValueError as e:
-            click.echo(f"Warning: Invalid assistant type '{assistant}': {e}", err=True)
-            click.echo("Continuing without assistant...")
-            click.echo()
-        except Exception as e:
-            click.echo(f"Warning: Failed to initialize assistant: {e}", err=True)
-            click.echo("Continuing without assistant...")
+        else:
+            click.echo("Warning: No valid assistants initialized. Continuing without assistants...")
             click.echo()
 
+    # Create decision playback if requested
+    decision_playback = None
+    if record_decisions or playback_decisions:
+        from eucher.decision_playback import DecisionPlayback
+
+        decision_playback = DecisionPlayback(
+            record_file=record_decisions,
+            playback_file=playback_decisions,
+        )
+        # Start game recording/playback using game UUID or seed
+        if hasattr(game, "game_uuid"):
+            decision_playback.start_game(game.game_uuid)
+        elif parsed_seed is not None:
+            decision_playback.start_game(parsed_seed)
+        
+        if record_decisions:
+            click.echo(f"Recording decisions to: {record_decisions}")
+        if playback_decisions:
+            click.echo(f"Playing back decisions from: {playback_decisions}")
+        click.echo()
+
     # Create and set TUI
-    tui = TextTUI(assistant_helper=assistant_helper)
+    tui = TextTUI(
+        assistant_helpers=assistant_helpers if assistant_helpers else None,
+        xray_mode=xray,
+        decision_playback=decision_playback,
+    )
     game.set_tui(tui)
 
     # Play game
@@ -247,24 +575,6 @@ def play(opponent_type: Optional[str], name: str, seed: Optional[str], save_dir:
         # Display scores
         scores = game.get_scores()
         tui.display_scores(scores[0], scores[1])
-
-        # Generate AI summary if enabled
-        if ai_summary:
-            # Get the last hand log (stored before clearing in display_hand_log)
-            hand_log = getattr(tui, 'last_hand_log', [])
-            if hand_log:
-                from eucher.ai_summary import generate_hand_summary_safe, OPENAI_AVAILABLE
-                summary = generate_hand_summary_safe(hand_log)
-                if summary:
-                    click.echo("\n" + "=" * 50)
-                    click.echo("AI Hand Summary")
-                    click.echo("=" * 50)
-                    click.echo(summary)
-                    click.echo("=" * 50)
-                elif not OPENAI_AVAILABLE:
-                    click.echo("\nNote: AI summaries require 'openai' package. Install with: pip install openai", err=True)
-                elif not os.getenv("OPENAI_API_KEY"):
-                    click.echo("\nNote: AI summaries require OPENAI_API_KEY environment variable.", err=True)
 
         # Check for game over
         winner = game.get_winner()
@@ -683,8 +993,8 @@ def replay(game_id: str, data_dir: Optional[str]) -> None:
     from pathlib import Path
     
     # Import here to avoid circular dependencies
-    from eucher.players.computer.ml.ml_config import MLConfig
-    from eucher.players.computer.ml.ml_features import GameStateEncoder
+    from plugins.ml.ml_config import MLConfig
+    from plugins.ml.ml_features import GameStateEncoder
     
     # Get data directory
     if data_dir:
@@ -830,7 +1140,7 @@ def list(as_json: bool) -> None:
             ]
         },
         {
-            "name": "ai",
+            "name": "weighted_heuristic",
             "display_name": "AI Decision Maker",
             "personality": "Advanced rule-based AI with strategic decision-making capabilities.",
             "training_method": "None - uses sophisticated rule-based algorithms",

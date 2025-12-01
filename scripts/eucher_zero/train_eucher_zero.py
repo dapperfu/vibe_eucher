@@ -11,20 +11,25 @@ import re
 import signal
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, List, Optional
+
+# Add project root to Python path
+_project_root = Path(__file__).parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
 
 import torch
 
 from eucher.game import Game
 from eucher.plugins import get_registry
-from eucher.plugins.discovery import discover_builtin_plugins
-from eucher.players.computer.eucher_zero.config import EucherZeroConfig
-from eucher.players.computer.eucher_zero.networks.model import EucherZeroModel
-from eucher.players.computer.eucher_zero.training.dashboard import EuchreZeroDashboard
-from eucher.players.computer.eucher_zero.training.replay_buffer import ReplayBuffer
-from eucher.players.computer.eucher_zero.training.self_play import generate_self_play_game
-from eucher.players.computer.eucher_zero.training.trainer import EucherZeroTrainer
+from plugins.eucher_zero.config import EucherZeroConfig
+from plugins.eucher_zero.networks.model import EucherZeroModel
+from plugins.eucher_zero.training.dashboard import EuchreZeroDashboard
+from plugins.eucher_zero.training.replay_buffer import ReplayBuffer
+from plugins.eucher_zero.training.self_play import generate_self_play_game
+from plugins.eucher_zero.training.trainer import EucherZeroTrainer
 
 
 class TrainingInterrupt(Exception):
@@ -69,7 +74,7 @@ def list_available_plugins() -> None:
     List all available player plugins.
     """
     registry = get_registry()
-    discover_builtin_plugins()
+    # Plugins are auto-discovered via entry points on import
     plugins = registry.list_plugins()
     
     print("Available player plugins:")
@@ -291,27 +296,15 @@ def main() -> None:
                 if elapsed >= max_duration_seconds:
                     break
 
-                # Generate self-play games
-                for game_num in range(config.num_games):
-                    if time.time() - start_time >= max_duration_seconds:
-                        break
-
+                # Generate self-play games in parallel
+                # Use threading to parallelize game generation (CPU-bound operations)
+                num_workers = min(config.num_games, max(1, os.cpu_count() or 4))
+                
+                def generate_single_game(game_num: int) -> Optional[List]:
+                    """Generate a single self-play game."""
                     try:
-                        game_start_time = time.time()
-
                         # Create game configuration
-                        # Team 0 (players 0, 2): EucherZero (training player)
-                        # Team 1 (players 1, 3): Opponent or EucherZero (self-play)
                         opponent_type = args.opponent if args.opponent else "eucher_zero"
-                        
-                        # Validate opponent plugin exists
-                        if args.opponent:
-                            registry = get_registry()
-                            discover_builtin_plugins()
-                            if not registry.has(args.opponent):
-                                print(f"Error: Opponent plugin '{args.opponent}' not found.")
-                                print("Use --opponent list to see available plugins.")
-                                sys.exit(1)
                         
                         player_config = [
                             ("EucherZero_0", "eucher_zero"),
@@ -332,31 +325,39 @@ def main() -> None:
 
                         # Collect training examples from self-play
                         examples = generate_self_play_game(model, config, game=game, risk_factor=0.0)
-
-                        # Add to replay buffer
-                        for example in examples:
-                            replay_buffer.add(
-                                example.state,
-                                example.policy,
-                                example.value,
-                                example.reward,
-                            )
-
-                        game_count += 1
-                        total_examples_collected += len(examples)
-                        game_time = time.time() - game_start_time
-                        game_times.append(game_time)
-
+                        return examples
                     except Exception as e:
-                        # Update dashboard even on error
-                        dashboard.update(
-                            game_count=game_count,
-                            iteration=iteration,
-                            examples_collected=total_examples_collected,
-                            replay_buffer_size=len(replay_buffer),
-                        )
-                        dashboard.update_live_display(live_display, config)
-                        continue
+                        print(f"Error generating game {game_num}: {e}")
+                        return None
+
+                # Generate games in parallel using ThreadPoolExecutor
+                games_to_generate = config.num_games
+                with ThreadPoolExecutor(max_workers=num_workers) as executor:
+                    futures = [executor.submit(generate_single_game, game_num) for game_num in range(games_to_generate)]
+                    
+                    for future in as_completed(futures):
+                        if time.time() - start_time >= max_duration_seconds:
+                            # Cancel remaining futures
+                            for f in futures:
+                                f.cancel()
+                            break
+                            
+                        try:
+                            examples = future.result()
+                            if examples is not None:
+                                # Add to replay buffer (thread-safe append operations)
+                                for example in examples:
+                                    replay_buffer.add(
+                                        example.state,
+                                        example.policy,
+                                        example.value,
+                                        example.reward,
+                                    )
+                                game_count += 1
+                                total_examples_collected += len(examples)
+                        except Exception as e:
+                            print(f"Error processing game result: {e}")
+                            continue
 
                 # Train on replay buffer
                 losses: Dict[str, float] = {}

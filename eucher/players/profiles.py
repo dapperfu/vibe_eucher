@@ -5,7 +5,19 @@ from typing import TYPE_CHECKING, Dict, List, Optional
 # torch is imported lazily only when needed for ML profiles
 from eucher.cards import Card, Rank, Suit
 from eucher.players.base import PlayerProfile
-from eucher.players.computer import AIPlayer, HeuristicPlayer, RandomPlayer
+# Import player classes from plugins (moved from eucher.players.computer)
+try:
+    from plugins.ai import AIPlayer
+except ImportError:
+    AIPlayer = None  # type: ignore
+try:
+    from plugins.heuristic import HeuristicPlayer  # type: ignore
+except ImportError:
+    HeuristicPlayer = None  # type: ignore
+try:
+    from plugins.random import RandomPlayer  # type: ignore
+except ImportError:
+    RandomPlayer = None  # type: ignore
 from eucher.rules import RulesEngine
 
 if TYPE_CHECKING:
@@ -86,7 +98,7 @@ class HumanProfile(PlayerProfile):
         """Get user input for playing a card."""
         if self.tui is None:
             raise RuntimeError("TUI not set for human profile")
-        return self.tui.get_play_card_decision(player, led_suit, trump_suit, trick_cards)
+        return self.tui.get_play_card_decision(player, led_suit, trump_suit, trick_cards, trick_player_ids)
 
     def decide_going_alone(self, player: "Player", trump_suit: Suit) -> bool:
         """Get user input for going alone."""

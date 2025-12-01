@@ -29,7 +29,7 @@ from eucher.game import Game
 # Default player types to test
 DEFAULT_PLAYER_TYPES = [
     "heuristic",
-    "ai",
+    "weighted_heuristic",
     "random",
     "ml_sklearn",
     "ml_pytorch",
@@ -814,7 +814,7 @@ Examples:
   python scripts/ai_tournament.py --checkpoint tournament_checkpoint.json
 
   # Run tournament with specific player types and checkpoint
-  python scripts/ai_tournament.py --types heuristic ai random --num-games 200 --checkpoint checkpoint.json
+  python scripts/ai_tournament.py --types heuristic weighted_heuristic random --num-games 200 --checkpoint checkpoint.json
 
   # Save results to file
   python scripts/ai_tournament.py --num-games 200 --output tournament_results.json

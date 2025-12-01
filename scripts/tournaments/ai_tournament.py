@@ -11,31 +11,34 @@ import json
 import random
 import sys
 import threading
+import warnings
 from collections import defaultdict
 from datetime import datetime
 from itertools import combinations
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 from rich.console import Console
+from rich.live import Live
+from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 from rich.table import Table
-from tqdm import tqdm
+
+# Disable GIL RuntimeWarning
+warnings.filterwarnings("ignore", message=".*global interpreter lock.*", category=RuntimeWarning)
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from eucher.game import Game
 from eucher.plugins import get_registry
-from eucher.plugins.discovery import discover_builtin_plugins
 
 
 # Default player types to test (fallback if plugin discovery fails)
-# Note: "ai" is excluded as it's too generic - all players are AI.
-# It will still be discovered automatically via plugin discovery.
 DEFAULT_PLAYER_TYPES = [
     "heuristic",
     "heuristic2",
+    "weighted_heuristic",
     "random",
     "ml_sklearn",
     "ml_pytorch",
@@ -99,7 +102,7 @@ def get_available_player_types(requested_types: Optional[List[str]] = None) -> L
     # Try to discover plugins dynamically
     try:
         registry = get_registry()
-        discover_builtin_plugins()  # Ensure builtin plugins are loaded
+        # Plugins are auto-discovered via entry points on import
         all_plugins = registry.list_plugins()
         
         # Filter out "human" and any explicitly requested types
@@ -464,9 +467,13 @@ def run_matchup(
     player_type_1: str,
     num_games: int,
     seed_base: int = 0,
-    progress_bar: Optional[tqdm] = None,
+    matchup_progress: Optional[Progress] = None,
+    matchup_task_id: Optional[int] = None,
+    global_progress: Optional[Progress] = None,
+    global_task_id: Optional[int] = None,
     timeout_per_game: int = 300,
     start_game: int = 0,
+    stats_callback: Optional[Callable[[Dict[str, int]], None]] = None,
 ) -> List[Dict[str, any]]:
     """
     Run games for a specific matchup.
@@ -481,12 +488,20 @@ def run_matchup(
         Number of games to run.
     seed_base : int
         Base seed for random number generation.
-    progress_bar : Optional[tqdm]
-        Optional progress bar to update.
+    matchup_progress : Optional[Progress]
+        Rich Progress instance for matchup progress bar.
+    matchup_task_id : Optional[int]
+        Task ID for matchup progress bar.
+    global_progress : Optional[Progress]
+        Rich Progress instance for global tournament progress bar.
+    global_task_id : Optional[int]
+        Task ID for global tournament progress bar.
     timeout_per_game : int
         Maximum seconds per game before timeout.
     start_game : int
         Game number to start from (for resuming).
+    stats_callback : Optional[Callable[[Dict[str, int]], None]]
+        Callback function to update live stats display.
 
     Returns
     -------
@@ -499,6 +514,14 @@ def run_matchup(
     max_consecutive_timeouts = 5  # Skip matchup if too many consecutive timeouts
     last_progress_time = None
     stall_timeout = 600  # 10 minutes without progress = stall
+    
+    # Track stats for live display
+    matchup_stats = {
+        "team0_wins": 0,
+        "team1_wins": 0,
+        "total_hands": 0,
+        "games_completed": 0,
+    }
 
     for game_num in range(start_game, num_games):
         import time
@@ -527,20 +550,12 @@ def run_matchup(
                 (f"{player_type_1}_3", player_type_1),
             ]
 
-            # Log progress every 50 games
-            if game_num > 0 and game_num % 50 == 0:
-                print(f"\n  Progress: {game_num}/{num_games} games completed for {player_type_0} vs {player_type_1}")
-
             # Run game with timeout
             game_start_time = time.time()
             game_result = run_single_game_with_timeout(
                 player_config, seed_base + game_num, timeout_per_game
             )
             game_duration = time.time() - game_start_time
-            
-            # Warn if games are taking too long (even if not timing out)
-            if game_duration > timeout_per_game * 0.8:  # 80% of timeout
-                print(f"\n⚠️  Slow game: {game_duration:.1f}s (game {game_num}, seed {seed_base + game_num})")
             
             # Force garbage collection periodically to prevent memory buildup
             if game_num > 0 and game_num % 25 == 0:
@@ -557,34 +572,49 @@ def run_matchup(
                         "hands_played": game_result["hands_played"],
                     }
                 )
+                # Update matchup stats
+                matchup_stats["games_completed"] += 1
+                matchup_stats["total_hands"] += game_result["hands_played"]
+                if game_result["winner"] == 0:
+                    matchup_stats["team0_wins"] += 1
+                elif game_result["winner"] == 1:
+                    matchup_stats["team1_wins"] += 1
+                
                 consecutive_timeouts = 0  # Reset counter on success
                 last_progress_time = time.time()  # Update progress time
+                
+                # Update progress bars
+                if matchup_progress and matchup_task_id is not None:
+                    matchup_progress.update(matchup_task_id, advance=1)
+                if global_progress and global_task_id is not None:
+                    global_progress.update(global_task_id, advance=1)
+                
+                # Update live stats display
+                if stats_callback:
+                    stats_callback(matchup_stats)
             else:
                 timeout_count += 1
                 consecutive_timeouts += 1
                 # If too many consecutive timeouts, skip this matchup
                 if consecutive_timeouts >= max_consecutive_timeouts:
-                    print(f"\n⚠️  Skipping matchup {player_type_0} vs {player_type_1} after {consecutive_timeouts} consecutive timeouts")
-                    print(f"   Completed {len(results)}/{num_games} games before skipping")
                     break
-
-            if progress_bar:
-                progress_bar.update(1)
+                
+                # Still update progress bars on timeout
+                if matchup_progress and matchup_task_id is not None:
+                    matchup_progress.update(matchup_task_id, advance=1)
+                if global_progress and global_task_id is not None:
+                    global_progress.update(global_task_id, advance=1)
 
         except KeyboardInterrupt:
-            print(f"\n\n⚠️  Interrupted at game {game_num}/{num_games} for {player_type_0} vs {player_type_1}")
             raise
         except Exception as e:
-            print(f"\n❌ Error running game {game_num} for matchup {player_type_0} vs {player_type_1}: {e}")
-            import traceback
-            traceback.print_exc()
             consecutive_timeouts = 0  # Reset on exception (different from timeout)
-            if progress_bar:
-                progress_bar.update(1)
+            # Update progress bars on error
+            if matchup_progress and matchup_task_id is not None:
+                matchup_progress.update(matchup_task_id, advance=1)
+            if global_progress and global_task_id is not None:
+                global_progress.update(global_task_id, advance=1)
             continue
-
-    if timeout_count > 0:
-        print(f"\n⚠️  Matchup {player_type_0} vs {player_type_1}: {timeout_count} games timed out out of {num_games}")
 
     return results
 
@@ -716,8 +746,54 @@ def run_tournament(
     else:
         print(f"Remaining games: {remaining_games}")
 
-    # Run matchups
-    with tqdm(total=total_games, initial=completed_games, desc="Running games") as pbar:
+    # Run matchups with Rich Progress and Live display
+    console = Console()
+    
+    # Create progress bars
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+        TextColumn("({task.completed}/{task.total})"),
+        TimeElapsedColumn(),
+        TimeRemainingColumn(),
+        console=console,
+    ) as progress:
+        # Global tournament progress bar
+        global_task = progress.add_task(
+            "[cyan]Tournament Progress",
+            total=total_games,
+            completed=completed_games,
+        )
+        
+        # Live stats display
+        matchup_stats = {
+            "team0_wins": 0,
+            "team1_wins": 0,
+            "total_hands": 0,
+            "games_completed": 0,
+        }
+        
+        def create_stats_table(player_type_0: str, player_type_1: str, stats: Dict[str, int]) -> Table:
+            """Create a Rich table showing current matchup stats."""
+            table = Table(show_header=False, box=None, padding=(0, 1))
+            table.add_column(style="cyan", no_wrap=True)
+            table.add_column(style="white")
+            
+            avg_hands = stats["total_hands"] / stats["games_completed"] if stats["games_completed"] > 0 else 0
+            team0_win_rate = stats["team0_wins"] / stats["games_completed"] if stats["games_completed"] > 0 else 0
+            team1_win_rate = stats["team1_wins"] / stats["games_completed"] if stats["games_completed"] > 0 else 0
+            
+            table.add_row("[bold]Matchup:[/bold]", f"[bold]{player_type_0}[/bold] vs [bold]{player_type_1}[/bold]")
+            table.add_row("Games:", f"{stats['games_completed']}")
+            table.add_row(f"{player_type_0} Wins:", f"[green]{stats['team0_wins']}[/green] ({team0_win_rate:.1%})")
+            table.add_row(f"{player_type_1} Wins:", f"[green]{stats['team1_wins']}[/green] ({team1_win_rate:.1%})")
+            table.add_row("Total Hands:", f"{stats['total_hands']}")
+            table.add_row("Avg Hands/Game:", f"{avg_hands:.1f}")
+            
+            return table
+        
         for idx in range(current_matchup_idx, len(matchups)):
             player_type_0, player_type_1 = matchups[idx]
             matchup_key = tuple(sorted([player_type_0, player_type_1]))
@@ -728,42 +804,81 @@ def run_tournament(
                 continue
             
             tournament.current_matchup = matchup_key
-            pbar.set_description(f"Matchup: {matchup_str}")
-
-            # Run games for this matchup
-            print(f"\n▶️  Starting matchup {idx + 1}/{len(matchups)}: {matchup_str}")
-            results = run_matchup(
-                player_type_0, 
-                player_type_1, 
-                num_games_per_matchup, 
-                seed_base=seed or 0, 
-                progress_bar=pbar,
-                timeout_per_game=timeout_per_game,
-                start_game=start_game if idx == current_matchup_idx else 0,
-            )
-            print(f"✅ Completed matchup {idx + 1}/{len(matchups)}: {matchup_str} ({len(results)} games)")
-
-            # Record results
-            for game_idx, result in enumerate(results):
-                tournament.record_game(
-                    result["player_type_0"],
-                    result["player_type_1"],
-                    result["winner"],
-                    result["scores"],
-                    result["hands_played"],
-                )
-                
-                # Update checkpoint tracking
-                tournament.current_matchup_games_completed = start_game + game_idx + 1
-                
-                # Save checkpoint periodically during matchup
-                if checkpoint_path and (game_idx + 1) % checkpoint_interval == 0:
-                    tournament.save_checkpoint(
-                        checkpoint_path, player_types, matchups, 
-                        num_games_per_matchup, seed, idx
-                    )
             
-            # Mark matchup as completed
+            # Reset matchup stats
+            matchup_stats = {
+                "team0_wins": 0,
+                "team1_wins": 0,
+                "total_hands": 0,
+                "games_completed": 0,
+            }
+            
+            # Create matchup progress bar
+            matchup_task = progress.add_task(
+                f"[yellow]{matchup_str}[/yellow]",
+                total=num_games_per_matchup,
+                completed=start_game if idx == current_matchup_idx else 0,
+            )
+            
+            # Create Live display for matchup stats
+            with Live(
+                create_stats_table(player_type_0, player_type_1, matchup_stats),
+                console=console,
+                refresh_per_second=4,
+            ) as live:
+                def update_stats(stats: Dict[str, int]) -> None:
+                    """Update the live stats display."""
+                    matchup_stats.update(stats)
+                    live.update(create_stats_table(player_type_0, player_type_1, matchup_stats))
+                
+                try:
+                    results = run_matchup(
+                        player_type_0, 
+                        player_type_1, 
+                        num_games_per_matchup, 
+                        seed_base=seed or 0, 
+                        matchup_progress=progress,
+                        matchup_task_id=matchup_task,
+                        global_progress=progress,
+                        global_task_id=global_task,
+                        timeout_per_game=timeout_per_game,
+                        start_game=start_game if idx == current_matchup_idx else 0,
+                        stats_callback=update_stats,
+                    )
+                except KeyboardInterrupt:
+                    # Re-raise keyboard interrupt to allow clean shutdown
+                    raise
+                except Exception as e:
+                    # Log error but ensure matchup is still marked as completed
+                    console.print(f"\n[red]❌ Error in matchup {matchup_str}: {e}[/red]")
+                    import traceback
+                    traceback.print_exc()
+                    results = []  # Ensure results is defined even on error
+                
+                # Record results
+                for game_idx, result in enumerate(results):
+                    tournament.record_game(
+                        result["player_type_0"],
+                        result["player_type_1"],
+                        result["winner"],
+                        result["scores"],
+                        result["hands_played"],
+                    )
+                    
+                    # Update checkpoint tracking
+                    tournament.current_matchup_games_completed = start_game + game_idx + 1
+                    
+                    # Save checkpoint periodically during matchup
+                    if checkpoint_path and (game_idx + 1) % checkpoint_interval == 0:
+                        tournament.save_checkpoint(
+                            checkpoint_path, player_types, matchups, 
+                            num_games_per_matchup, seed, idx
+                        )
+            
+            # Remove matchup progress bar
+            progress.remove_task(matchup_task)
+            
+            # Mark matchup as completed (always, even if it failed)
             tournament.completed_matchups.add(matchup_key)
             tournament.current_matchup = None
             tournament.current_matchup_games_completed = 0
@@ -1063,8 +1178,49 @@ Examples:
         load_and_display_results(results_file)
         return
 
+    # If --types list is specified, list all available types and exit
+    if args.types and "list" in args.types:
+        try:
+            registry = get_registry()
+            # Plugins are auto-discovered via entry points on import
+            all_plugins = registry.list_plugins()
+            
+            # Filter out "human" and sort
+            available_types = sorted([p for p in all_plugins if p != "human"])
+            
+            print("Available player types:")
+            print("=" * 80)
+            all_metadata = registry.get_all_metadata()
+            for plugin_name in available_types:
+                plugin_info = all_metadata.get(plugin_name)
+                if plugin_info:
+                    display_name = getattr(plugin_info, 'display_name', plugin_name)
+                    description = getattr(plugin_info, 'description', 'No description')
+                    print(f"  {plugin_name:20s} - {display_name}")
+                    if description and description != display_name:
+                        print(f"  {'':20s}   {description}")
+                else:
+                    print(f"  {plugin_name:20s}")
+            print("=" * 80)
+            print(f"\nTotal: {len(available_types)} player types")
+            sys.exit(0)
+        except Exception as e:
+            print(f"Error discovering plugins: {e}")
+            print("\nFallback to default player types:")
+            for pt in DEFAULT_PLAYER_TYPES:
+                print(f"  {pt}")
+            sys.exit(1)
+
     # Get available player types
-    requested_types = args.types if args.types else DEFAULT_PLAYER_TYPES
+    # Handle both comma-separated and space-separated formats
+    if args.types:
+        # Split comma-separated values and flatten
+        requested_types = []
+        for arg in args.types:
+            # Split by comma and strip whitespace
+            requested_types.extend([t.strip() for t in arg.split(',') if t.strip()])
+    else:
+        requested_types = DEFAULT_PLAYER_TYPES
     
     # Skip slow player types if requested
     if args.skip_slow:

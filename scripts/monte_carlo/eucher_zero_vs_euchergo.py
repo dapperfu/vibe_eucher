@@ -378,10 +378,10 @@ def run_single_game(
     eucher_zero_team = 1 - euchergo_team
     
     # Import player classes
-    from eucher.players.computer.euchergo.player import EucherGoPlayer
-    from eucher.players.computer.euchergo.config import EucherGoConfig
-    from eucher.players.computer.eucher_zero.player import EucherZeroPlayer
-    from eucher.players.computer.eucher_zero.config import EucherZeroConfig
+    from plugins.euchergo.player import EucherGoPlayer
+    from plugins.euchergo.config import EucherGoConfig
+    from plugins.eucher_zero.player import EucherZeroPlayer
+    from plugins.eucher_zero.config import EucherZeroConfig
     
     # Create player configuration (placeholder - we'll replace profiles)
     # Team 0: players 0 and 2

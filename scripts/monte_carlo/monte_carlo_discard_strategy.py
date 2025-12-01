@@ -339,7 +339,7 @@ def main() -> None:
         "--opponent-type",
         type=str,
         default="heuristic",
-        choices=["random", "heuristic", "ai"],
+        choices=["random", "heuristic", "weighted_heuristic"],
         help="Type of opponent bots (default: heuristic)",
     )
     parser.add_argument(

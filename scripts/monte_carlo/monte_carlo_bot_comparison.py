@@ -25,15 +25,15 @@ from eucher.game import Game
 
 
 # Available bot types to test
-BOT_TYPES = ["heuristic", "ai", "random", "eucher_zero"]
+BOT_TYPES = ["heuristic", "weighted_heuristic", "random", "eucher_zero"]
 
 # Try to import eucher_zero, skip if not available
 EUCHRE_ZERO_AVAILABLE = True
 try:
-    from eucher.players.computer.eucher_zero.player import EucherZeroPlayer
+    from plugins.eucher_zero.player import EucherZeroPlayer
 except ImportError:
     EUCHRE_ZERO_AVAILABLE = False
-    BOT_TYPES = ["heuristic", "ai", "random"]
+    BOT_TYPES = ["heuristic", "weighted_heuristic", "random"]
 
 
 class BotComparison:
@@ -528,8 +528,8 @@ Examples:
   # Compare all bots with 100 games per matchup
   python scripts/monte_carlo_bot_comparison.py --num-games 100
 
-  # Compare only heuristic and ai bots
-  python scripts/monte_carlo_bot_comparison.py --bots heuristic ai --num-games 200
+  # Compare only heuristic and weighted_heuristic bots
+  python scripts/monte_carlo_bot_comparison.py --bots heuristic weighted_heuristic --num-games 200
 
   # Save results to file
   python scripts/monte_carlo_bot_comparison.py --num-games 100 --output results.json

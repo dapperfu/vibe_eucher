@@ -22,7 +22,7 @@ class AssistantHelper:
         Parameters
         ----------
         bot_type : str
-            Type of bot to use as assistant (e.g., "random", "heuristic", "ai").
+            Type of bot to use as assistant (e.g., "random", "heuristic", "weighted_heuristic").
         game : Optional[Game]
             Game instance (required for some bot types that need game state).
         """
@@ -205,7 +205,7 @@ class AssistantHelper:
             # For EucherZero, try to get full policy distribution
             if self.bot_type == "eucher_zero" and hasattr(profile, 'mcts'):
                 try:
-                    from eucher.players.computer.eucher_zero.action_space import ActionEncoder
+                    from plugins.eucher_zero.action_space import ActionEncoder
                     import torch
                     
                     # Encode state
@@ -288,50 +288,20 @@ class AssistantHelper:
                         result[suit] = prob
                     return result, hand_strengths
             
-            # For EucherZero, try to get full policy distribution
-            if self.bot_type == "eucher_zero" and hasattr(profile, 'mcts'):
+            # For EucherZero and other players with get_call_trump_probabilities, use that method
+            if hasattr(profile, 'get_call_trump_probabilities'):
                 try:
-                    from eucher.players.computer.eucher_zero.action_space import ActionEncoder
-                    import torch
-                    
-                    # Encode state
-                    state_dict = profile.state_encoder.encode_full_state(
-                        profile._get_game(dummy_player), dummy_player.player_id
+                    # Use the profile's built-in method to get probability distribution
+                    result = profile.get_call_trump_probabilities(
+                        dummy_player, turned_card, None, must_choose
                     )
-                    state_dict["risk_factor"] = torch.tensor([profile.risk_factor])
-                    state_tensor = profile.state_encoder.encode_state_dict_to_tensor(state_dict)
-                    
-                    # Run MCTS to get policy
-                    policy = profile.mcts.search(state_tensor, profile.risk_factor)
-                    
-                    # Extract call trump probabilities
-                    # ACTION_SPACE: PASS=0, ORDER_UP=1, CALL_HEARTS=2, CALL_DIAMONDS=3, CALL_CLUBS=4, CALL_SPADES=5
-                    pass_prob = float(policy[0])
-                    call_probs = {
-                        Suit.HEARTS: float(policy[2]),
-                        Suit.DIAMONDS: float(policy[3]),
-                        Suit.CLUBS: float(policy[4]),
-                        Suit.SPADES: float(policy[5]),
-                    }
-                    
-                    # Remove forbidden suit
-                    if forbidden_suit in call_probs:
-                        del call_probs[forbidden_suit]
-                    
-                    # Normalize
-                    total = pass_prob + sum(call_probs.values())
-                    if total > 0:
-                        pass_prob /= total
-                        for suit in call_probs:
-                            call_probs[suit] /= total
-                    
-                    result: Dict[Optional[Suit], float] = {}
+                    # Filter to only available suits
+                    filtered_result: Dict[Optional[Suit], float] = {}
                     for suit in available_suits:
-                        result[suit] = call_probs.get(suit, 0.0)
+                        filtered_result[suit] = result.get(suit, 0.0)
                     if not must_choose:
-                        result[None] = pass_prob
-                    
-                    return result, hand_strengths
+                        filtered_result[None] = result.get(None, 0.0)
+                    return filtered_result, hand_strengths
                 except Exception:
                     # Fallback to decision-based approach
                     pass
@@ -399,45 +369,18 @@ class AssistantHelper:
                 prob = 1.0 / len(valid_cards) if valid_cards else 0.0
                 return {card: prob for card in valid_cards}
             
-            # For EucherZero, try to get full policy distribution
-            if self.bot_type == "eucher_zero" and hasattr(profile, 'mcts') and trump_suit is not None:
+            # For EucherZero and other players with get_play_card_probabilities, use that method
+            if hasattr(profile, 'get_play_card_probabilities') and trump_suit is not None:
                 try:
-                    import torch
-                    
-                    # Encode state
-                    state_dict = profile.state_encoder.encode_full_state(
-                        profile._get_game(dummy_player), dummy_player.player_id
+                    # Use the profile's built-in method to get probability distribution
+                    result = profile.get_play_card_probabilities(
+                        dummy_player, led_suit, trump_suit, trick_cards, trick_player_ids
                     )
-                    state_dict["risk_factor"] = torch.tensor([profile.risk_factor])
-                    state_tensor = profile.state_encoder.encode_state_dict_to_tensor(state_dict)
-                    
-                    # Run MCTS to get policy
-                    policy = profile.mcts.search(state_tensor, profile.risk_factor)
-                    
-                    # Extract play card probabilities
-                    # ACTION_SPACE: PLAY_0=13, PLAY_1=14, PLAY_2=15, PLAY_3=16, PLAY_4=17
-                    play_probs = policy[13:18]
-                    
-                    # Map to actual cards in hand
-                    result: Dict[Card, float] = {}
+                    # Ensure we only return probabilities for valid cards
+                    filtered_result: Dict[Card, float] = {}
                     for card in valid_cards:
-                        result[card] = 0.0
-                    
-                    # Distribute probabilities to valid cards
-                    # Note: policy indices correspond to hand positions
-                    total_prob = 0.0
-                    for i, card in enumerate(hand):
-                        if i < len(play_probs) and card in valid_cards:
-                            prob = float(play_probs[i])
-                            result[card] = prob
-                            total_prob += prob
-                    
-                    # Normalize
-                    if total_prob > 0:
-                        for card in result:
-                            result[card] /= total_prob
-                    
-                    return result
+                        filtered_result[card] = result.get(card, 0.0)
+                    return filtered_result
                 except Exception:
                     # Fallback to decision-based approach
                     pass
@@ -504,40 +447,18 @@ class AssistantHelper:
                 prob = 1.0 / len(hand) if hand else 0.0
                 return {card: prob for card in hand}
             
-            # For EucherZero, try to get full policy distribution
-            if self.bot_type == "eucher_zero" and hasattr(profile, 'mcts'):
+            # For EucherZero and other players with get_discard_probabilities, use that method
+            if hasattr(profile, 'get_discard_probabilities'):
                 try:
-                    import torch
-                    
-                    # Encode state
-                    state_dict = profile.state_encoder.encode_full_state(
-                        profile._get_game(dummy_player), dummy_player.player_id
+                    # Use the profile's built-in method to get probability distribution
+                    result = profile.get_discard_probabilities(
+                        dummy_player, turned_card, ordered_up_by
                     )
-                    state_dict["risk_factor"] = torch.tensor([profile.risk_factor])
-                    state_tensor = profile.state_encoder.encode_state_dict_to_tensor(state_dict)
-                    
-                    # Run MCTS to get policy
-                    policy = profile.mcts.search(state_tensor, profile.risk_factor)
-                    
-                    # Extract discard probabilities
-                    # ACTION_SPACE: DISCARD_0=7, DISCARD_1=8, DISCARD_2=9, DISCARD_3=10, DISCARD_4=11, DISCARD_5=12
-                    discard_probs = policy[7:13]
-                    
-                    # Map to actual cards in hand
-                    result: Dict[Card, float] = {}
-                    total_prob = 0.0
-                    for i, card in enumerate(hand):
-                        if i < len(discard_probs):
-                            prob = float(discard_probs[i])
-                            result[card] = prob
-                            total_prob += prob
-                    
-                    # Normalize
-                    if total_prob > 0:
-                        for card in result:
-                            result[card] /= total_prob
-                    
-                    return result
+                    # Ensure we only return probabilities for cards in hand
+                    filtered_result: Dict[Card, float] = {}
+                    for card in hand:
+                        filtered_result[card] = result.get(card, 0.0)
+                    return filtered_result
                 except Exception:
                     # Fallback to decision-based approach
                     pass

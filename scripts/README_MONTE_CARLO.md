@@ -9,7 +9,7 @@ This script runs Monte Carlo simulations to compare different Euchre bot types a
 python scripts/monte_carlo_bot_comparison.py
 
 # Compare specific bots with more games
-python scripts/monte_carlo_bot_comparison.py --bots heuristic ai random --num-games 200
+python scripts/monte_carlo_bot_comparison.py --bots heuristic weighted_heuristic random --num-games 200
 
 # Save results to a JSON file
 python scripts/monte_carlo_bot_comparison.py --num-games 100 --output results.json
@@ -21,15 +21,15 @@ python scripts/monte_carlo_bot_comparison.py --num-games 100 --seed 42
 ## Available Bot Types
 
 - `heuristic` - Improved HeuristicPlayer (rule-based)
-- `ai` - AIDecisionMaker (weighted heuristics)
+- `weighted_heuristic` - Weighted heuristic-based player (formerly 'ai')
 - `random` - RandomPlayer (baseline)
 - `eucher_zero` - EucherZeroPlayer (MCTS-based, if available)
 
 ## How It Works
 
 1. **Generates Matchups**: Creates all unique combinations of bot types
-   - Tests same bot vs same bot (e.g., heuristic+heuristic vs ai+ai)
-   - Tests mixed teams (e.g., heuristic+ai vs random+random)
+   - Tests same bot vs same bot (e.g., heuristic+heuristic vs weighted_heuristic+weighted_heuristic)
+   - Tests mixed teams (e.g., heuristic+weighted_heuristic vs random+random)
    - Tests all permutations
 
 2. **Runs Games**: For each matchup, runs the specified number of games

@@ -12,10 +12,10 @@ class TestGame:
     def test_game_creation(self) -> None:
         """Test game creation."""
         player_config = [
-            ("Player 1", "ai"),
-            ("Player 2", "ai"),
-            ("Player 3", "ai"),
-            ("Player 4", "ai"),
+            ("Player 1", "weighted_heuristic"),
+            ("Player 2", "weighted_heuristic"),
+            ("Player 3", "weighted_heuristic"),
+            ("Player 4", "weighted_heuristic"),
         ]
         game = Game(player_config)
         assert len(game.players) == 4
@@ -23,17 +23,17 @@ class TestGame:
 
     def test_game_creation_wrong_player_count(self) -> None:
         """Test game creation with wrong number of players."""
-        player_config = [("Player 1", "ai"), ("Player 2", "ai")]
+        player_config = [("Player 1", "weighted_heuristic"), ("Player 2", "weighted_heuristic")]
         with pytest.raises(ValueError):
             Game(player_config)
 
     def test_game_scores(self) -> None:
         """Test game scoring."""
         player_config = [
-            ("Player 1", "ai"),
-            ("Player 2", "ai"),
-            ("Player 3", "ai"),
-            ("Player 4", "ai"),
+            ("Player 1", "weighted_heuristic"),
+            ("Player 2", "weighted_heuristic"),
+            ("Player 3", "weighted_heuristic"),
+            ("Player 4", "weighted_heuristic"),
         ]
         game = Game(player_config)
         scores = game.get_scores()
@@ -42,10 +42,10 @@ class TestGame:
     def test_game_not_over_initially(self) -> None:
         """Test that game is not over initially."""
         player_config = [
-            ("Player 1", "ai"),
-            ("Player 2", "ai"),
-            ("Player 3", "ai"),
-            ("Player 4", "ai"),
+            ("Player 1", "weighted_heuristic"),
+            ("Player 2", "weighted_heuristic"),
+            ("Player 3", "weighted_heuristic"),
+            ("Player 4", "weighted_heuristic"),
         ]
         game = Game(player_config)
         assert game.get_winner() is None

@@ -193,6 +193,7 @@ class LoggingTUI:
         call_trump: list,
         trump_suit: Optional[Suit],
         maker_name: Optional[str],
+        turned_card: Optional["Card"] = None,
     ) -> None:
         """Display a summary of all trump decisions (no-op for logging TUI).
 
@@ -206,6 +207,8 @@ class LoggingTUI:
             The selected trump suit.
         maker_name : Optional[str]
             Name of the player who made trump.
+        turned_card : Optional[Card]
+            The card that was turned up (for order-up phase).
         """
         # Already logged via log_trump_decision_history, so no-op
         pass

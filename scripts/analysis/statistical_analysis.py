@@ -468,7 +468,7 @@ def simulate_screw_dealer_hand(
         ID of the dealer (0-3).
     profile_type : str
         Profile type for all players (default: "heuristic").
-        Options: "heuristic", "ai", "random", "eucher_zero", etc.
+        Options: "heuristic", "weighted_heuristic", "random", "eucher_zero", etc.
         All players use the same type for consistency.
     max_attempts : int
         Maximum number of attempts to find a natural screw the dealer scenario.
@@ -698,7 +698,7 @@ def run_screw_dealer_simulation(
         Number of hands to simulate (will attempt until this many natural scenarios found).
     profile_type : str
         Profile type for all players (default: "heuristic").
-        Options: "heuristic", "ai", "random", "eucher_zero", etc.
+        Options: "heuristic", "weighted_heuristic", "random", "eucher_zero", etc.
         All players use the same type for consistency.
     parallel : bool
         Whether to use parallel processing.
@@ -1162,12 +1162,12 @@ def main() -> None:
         "--profile-type",
         type=str,
         default="heuristic",
-        help="Player profile type for gameplay (default: 'heuristic'). Options: heuristic, ai, random, eucher_zero, etc.",
+        help="Player profile type for gameplay (default: 'heuristic'). Options: heuristic, weighted_heuristic, random, eucher_zero, etc.",
     )
     parser.add_argument(
         "--all-profile-types",
         action="store_true",
-        help="Run simulation for all profile types (heuristic, ai, random, eucher_zero)",
+        help="Run simulation for all profile types (heuristic, weighted_heuristic, random, eucher_zero)",
     )
 
     args = parser.parse_args()
@@ -1209,7 +1209,7 @@ def main() -> None:
     if args.screw_dealer_only:
         if args.all_profile_types:
             # Run for all profile types
-            profile_types = ["heuristic", "ai", "random", "eucher_zero"]
+            profile_types = ["heuristic", "weighted_heuristic", "random", "eucher_zero"]
             all_stats = GameStatistics()
             
             for prof_type in profile_types:

@@ -68,9 +68,9 @@ The Heuristic Bot follows basic rules that a beginner Euchre player might use. I
 
 ---
 
-## 3. AI Bot (Weighted Heuristic Bot)
+## 3. Weighted Heuristic Bot (formerly AI Bot)
 
-**Type Name:** `ai`
+**Type Name:** `weighted_heuristic` (or `ai` for backward compatibility)
 
 **How It Works:**
 The AI Bot is like the Heuristic Bot, but much smarter. Instead of simple yes/no rules, it uses a scoring system to evaluate situations. Think of it like a judge giving points for different factors:

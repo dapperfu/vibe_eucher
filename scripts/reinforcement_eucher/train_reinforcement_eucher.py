@@ -6,6 +6,7 @@ through self-play without supervised data.
 """
 
 import argparse
+import os
 import re
 import signal
 import sys
@@ -15,10 +16,10 @@ from typing import Optional
 
 import torch
 
-from eucher.players.computer.reinforcement_eucher.config import ReinforcementEucherConfig
-from eucher.players.computer.reinforcement_eucher.networks.model import ReinforcementEucherModel
-from eucher.players.computer.reinforcement_eucher.state_encoder import StateEncoder
-from eucher.players.computer.reinforcement_eucher.training.trainer import ReinforcementEucherTrainer
+from plugins.reinforcement_eucher.config import ReinforcementEucherConfig
+from plugins.reinforcement_eucher.networks.model import ReinforcementEucherModel
+from plugins.reinforcement_eucher.state_encoder import StateEncoder
+from plugins.reinforcement_eucher.training.trainer import ReinforcementEucherTrainer
 
 
 class TrainingInterrupt(Exception):
@@ -141,6 +142,23 @@ def main() -> None:
     )
 
     args = parser.parse_args()
+
+    # Configure CPU threading for optimal performance
+    # Set PyTorch to use all available CPU threads
+    num_threads = os.cpu_count() or 16
+    torch.set_num_threads(num_threads)
+    torch.set_num_interop_threads(num_threads)
+    
+    # Set environment variables for BLAS/MKL libraries
+    os.environ.setdefault("OMP_NUM_THREADS", str(num_threads))
+    os.environ.setdefault("MKL_NUM_THREADS", str(num_threads))
+    os.environ.setdefault("NUMEXPR_NUM_THREADS", str(num_threads))
+    os.environ.setdefault("OPENBLAS_NUM_THREADS", str(num_threads))
+    
+    print(f"CPU Threading Configuration:")
+    print(f"  Available CPU cores: {num_threads}")
+    print(f"  PyTorch threads: {torch.get_num_threads()}")
+    print(f"  PyTorch interop threads: {torch.get_num_interop_threads()}")
 
     # Device setup
     if args.device == "auto":

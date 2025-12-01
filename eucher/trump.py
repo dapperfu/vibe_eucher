@@ -127,6 +127,9 @@ class TrumpSelector:
                 ordered_up_by = None if player_idx == self.dealer_id else self.trump_maker_name
                 discard = dealer.choose_card_to_discard(self.turned_card, ordered_up_by)
                 dealer.remove_card(discard)
+                # Log discarded card in TUI
+                if self.tui is not None and hasattr(self.tui, "set_discarded_card"):
+                    self.tui.set_discarded_card(discard)
                 return self.turned_card.suit
 
         return None

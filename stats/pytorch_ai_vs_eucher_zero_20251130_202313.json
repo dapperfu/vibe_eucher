@@ -1,0 +1,1595 @@
+{
+  "timestamp": "2025-11-30T20:23:13.365862",
+  "num_games": 100,
+  "seed": null,
+  "model_a_type": "pytorch_ai",
+  "model_b_type": "eucher_zero",
+  "model_a_config": null,
+  "model_b_config": null,
+  "total_games": 100,
+  "pytorch_ai": {
+    "games_won": 26,
+    "games_lost": 74,
+    "total_score": 632,
+    "total_tricks_won": 2601,
+    "total_hands_played": 1020,
+    "hands_won": 0,
+    "hands_lost": 0,
+    "trump_makes": 894,
+    "going_alone_attempts": 0,
+    "going_alone_successes": 0,
+    "win_rate": 0.26,
+    "avg_score": 6.32,
+    "avg_tricks_per_game": 26.01,
+    "going_alone_success_rate": 0.0
+  },
+  "eucher_zero": {
+    "games_won": 74,
+    "games_lost": 26,
+    "total_score": 910,
+    "total_tricks_won": 2499,
+    "total_hands_played": 1020,
+    "hands_won": 0,
+    "hands_lost": 0,
+    "trump_makes": 126,
+    "going_alone_attempts": 2,
+    "going_alone_successes": 1,
+    "win_rate": 0.74,
+    "avg_score": 9.1,
+    "avg_tricks_per_game": 24.99,
+    "going_alone_success_rate": 0.5
+  },
+  "avg_hands_per_game": 10.2,
+  "player_stats": {
+    "pytorch_ai": {
+      "0": {
+        "tricks_won": 624,
+        "trump_makes": 219,
+        "points_contributed": 50,
+        "going_alone_attempts": 0,
+        "going_alone_successes": 0
+      },
+      "2": {
+        "tricks_won": 657,
+        "trump_makes": 213,
+        "points_contributed": 50,
+        "going_alone_attempts": 0,
+        "going_alone_successes": 0
+      },
+      "1": {
+        "tricks_won": 671,
+        "trump_makes": 201,
+        "points_contributed": 45,
+        "going_alone_attempts": 0,
+        "going_alone_successes": 0
+      },
+      "3": {
+        "tricks_won": 649,
+        "trump_makes": 261,
+        "points_contributed": 45,
+        "going_alone_attempts": 0,
+        "going_alone_successes": 0
+      }
+    },
+    "eucher_zero": {
+      "1": {
+        "tricks_won": 617,
+        "trump_makes": 40,
+        "points_contributed": 213,
+        "going_alone_attempts": 0,
+        "going_alone_successes": 0
+      },
+      "3": {
+        "tricks_won": 627,
+        "trump_makes": 33,
+        "points_contributed": 213,
+        "going_alone_attempts": 0,
+        "going_alone_successes": 0
+      },
+      "0": {
+        "tricks_won": 641,
+        "trump_makes": 21,
+        "points_contributed": 213,
+        "going_alone_attempts": 0,
+        "going_alone_successes": 0
+      },
+      "2": {
+        "tricks_won": 614,
+        "trump_makes": 32,
+        "points_contributed": 213,
+        "going_alone_attempts": 2,
+        "going_alone_successes": 1
+      }
+    }
+  },
+  "detailed_statistics": {
+    "games": [
+      {
+        "winner": 1,
+        "model_a_team": 0,
+        "scores": [
+          8,
+          10
+        ],
+        "hands_played": 11,
+        "model_a_tricks": 25,
+        "model_b_tricks": 30,
+        "model_a_score": 8,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:20.812724"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          10,
+          5
+        ],
+        "hands_played": 10,
+        "model_a_tricks": 27,
+        "model_b_tricks": 23,
+        "model_a_score": 5,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:21.263365"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 0,
+        "scores": [
+          8,
+          10
+        ],
+        "hands_played": 11,
+        "model_a_tricks": 32,
+        "model_b_tricks": 23,
+        "model_a_score": 8,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:21.749407"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          10,
+          4
+        ],
+        "hands_played": 9,
+        "model_a_tricks": 18,
+        "model_b_tricks": 27,
+        "model_a_score": 4,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:22.238509"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 0,
+        "scores": [
+          6,
+          11
+        ],
+        "hands_played": 11,
+        "model_a_tricks": 30,
+        "model_b_tricks": 25,
+        "model_a_score": 6,
+        "model_b_score": 11,
+        "timestamp": "2025-11-30T20:22:22.781023"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          10,
+          5
+        ],
+        "hands_played": 9,
+        "model_a_tricks": 23,
+        "model_b_tricks": 22,
+        "model_a_score": 5,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:23.198001"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 0,
+        "scores": [
+          6,
+          10
+        ],
+        "hands_played": 11,
+        "model_a_tricks": 27,
+        "model_b_tricks": 28,
+        "model_a_score": 6,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:23.716610"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          10,
+          6
+        ],
+        "hands_played": 11,
+        "model_a_tricks": 27,
+        "model_b_tricks": 28,
+        "model_a_score": 6,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:24.221704"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 0,
+        "scores": [
+          0,
+          10
+        ],
+        "hands_played": 5,
+        "model_a_tricks": 8,
+        "model_b_tricks": 17,
+        "model_a_score": 0,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:24.471356"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          10,
+          7
+        ],
+        "hands_played": 9,
+        "model_a_tricks": 18,
+        "model_b_tricks": 27,
+        "model_a_score": 7,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:24.971619"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 0,
+        "scores": [
+          10,
+          6
+        ],
+        "hands_played": 10,
+        "model_a_tricks": 30,
+        "model_b_tricks": 20,
+        "model_a_score": 10,
+        "model_b_score": 6,
+        "timestamp": "2025-11-30T20:22:25.478404"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          10,
+          2
+        ],
+        "hands_played": 7,
+        "model_a_tricks": 12,
+        "model_b_tricks": 23,
+        "model_a_score": 2,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:25.803280"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 0,
+        "scores": [
+          7,
+          10
+        ],
+        "hands_played": 12,
+        "model_a_tricks": 32,
+        "model_b_tricks": 28,
+        "model_a_score": 7,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:26.362442"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          10,
+          9
+        ],
+        "hands_played": 13,
+        "model_a_tricks": 34,
+        "model_b_tricks": 31,
+        "model_a_score": 9,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:26.996023"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 0,
+        "scores": [
+          4,
+          11
+        ],
+        "hands_played": 10,
+        "model_a_tricks": 21,
+        "model_b_tricks": 29,
+        "model_a_score": 4,
+        "model_b_score": 11,
+        "timestamp": "2025-11-30T20:22:27.510220"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          10,
+          5
+        ],
+        "hands_played": 11,
+        "model_a_tricks": 24,
+        "model_b_tricks": 31,
+        "model_a_score": 5,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:28.078622"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 0,
+        "scores": [
+          10,
+          9
+        ],
+        "hands_played": 11,
+        "model_a_tricks": 29,
+        "model_b_tricks": 26,
+        "model_a_score": 10,
+        "model_b_score": 9,
+        "timestamp": "2025-11-30T20:22:28.651186"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          10,
+          5
+        ],
+        "hands_played": 10,
+        "model_a_tricks": 23,
+        "model_b_tricks": 27,
+        "model_a_score": 5,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:29.108225"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 0,
+        "scores": [
+          8,
+          10
+        ],
+        "hands_played": 12,
+        "model_a_tricks": 35,
+        "model_b_tricks": 25,
+        "model_a_score": 8,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:29.671109"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          10,
+          4
+        ],
+        "hands_played": 9,
+        "model_a_tricks": 19,
+        "model_b_tricks": 26,
+        "model_a_score": 4,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:30.080739"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 0,
+        "scores": [
+          10,
+          4
+        ],
+        "hands_played": 12,
+        "model_a_tricks": 35,
+        "model_b_tricks": 25,
+        "model_a_score": 10,
+        "model_b_score": 4,
+        "timestamp": "2025-11-30T20:22:30.613608"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          10,
+          2
+        ],
+        "hands_played": 7,
+        "model_a_tricks": 17,
+        "model_b_tricks": 18,
+        "model_a_score": 2,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:30.990395"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 0,
+        "scores": [
+          10,
+          4
+        ],
+        "hands_played": 9,
+        "model_a_tricks": 23,
+        "model_b_tricks": 22,
+        "model_a_score": 10,
+        "model_b_score": 4,
+        "timestamp": "2025-11-30T20:22:31.463327"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 1,
+        "scores": [
+          6,
+          10
+        ],
+        "hands_played": 13,
+        "model_a_tricks": 35,
+        "model_b_tricks": 30,
+        "model_a_score": 10,
+        "model_b_score": 6,
+        "timestamp": "2025-11-30T20:22:32.046395"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 0,
+        "scores": [
+          9,
+          10
+        ],
+        "hands_played": 13,
+        "model_a_tricks": 34,
+        "model_b_tricks": 31,
+        "model_a_score": 9,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:32.735528"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          10,
+          6
+        ],
+        "hands_played": 11,
+        "model_a_tricks": 32,
+        "model_b_tricks": 23,
+        "model_a_score": 6,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:33.356843"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 0,
+        "scores": [
+          6,
+          10
+        ],
+        "hands_played": 11,
+        "model_a_tricks": 24,
+        "model_b_tricks": 31,
+        "model_a_score": 6,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:33.870405"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          10,
+          2
+        ],
+        "hands_played": 7,
+        "model_a_tricks": 13,
+        "model_b_tricks": 22,
+        "model_a_score": 2,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:34.204484"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 0,
+        "scores": [
+          10,
+          9
+        ],
+        "hands_played": 13,
+        "model_a_tricks": 31,
+        "model_b_tricks": 34,
+        "model_a_score": 10,
+        "model_b_score": 9,
+        "timestamp": "2025-11-30T20:22:34.855919"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          11,
+          7
+        ],
+        "hands_played": 10,
+        "model_a_tricks": 24,
+        "model_b_tricks": 26,
+        "model_a_score": 7,
+        "model_b_score": 11,
+        "timestamp": "2025-11-30T20:22:35.382786"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 0,
+        "scores": [
+          8,
+          10
+        ],
+        "hands_played": 12,
+        "model_a_tricks": 35,
+        "model_b_tricks": 25,
+        "model_a_score": 8,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:35.935297"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          10,
+          9
+        ],
+        "hands_played": 13,
+        "model_a_tricks": 35,
+        "model_b_tricks": 30,
+        "model_a_score": 9,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:36.529999"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 0,
+        "scores": [
+          5,
+          10
+        ],
+        "hands_played": 10,
+        "model_a_tricks": 23,
+        "model_b_tricks": 27,
+        "model_a_score": 5,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:36.998810"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          10,
+          2
+        ],
+        "hands_played": 7,
+        "model_a_tricks": 14,
+        "model_b_tricks": 21,
+        "model_a_score": 2,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:37.331488"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 0,
+        "scores": [
+          3,
+          10
+        ],
+        "hands_played": 8,
+        "model_a_tricks": 17,
+        "model_b_tricks": 23,
+        "model_a_score": 3,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:37.698835"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          10,
+          5
+        ],
+        "hands_played": 9,
+        "model_a_tricks": 24,
+        "model_b_tricks": 21,
+        "model_a_score": 5,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:38.098407"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 0,
+        "scores": [
+          10,
+          9
+        ],
+        "hands_played": 14,
+        "model_a_tricks": 36,
+        "model_b_tricks": 34,
+        "model_a_score": 10,
+        "model_b_score": 9,
+        "timestamp": "2025-11-30T20:22:38.797752"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          10,
+          3
+        ],
+        "hands_played": 7,
+        "model_a_tricks": 17,
+        "model_b_tricks": 18,
+        "model_a_score": 3,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:39.142090"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 0,
+        "scores": [
+          3,
+          10
+        ],
+        "hands_played": 7,
+        "model_a_tricks": 17,
+        "model_b_tricks": 18,
+        "model_a_score": 3,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:39.475331"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          10,
+          5
+        ],
+        "hands_played": 8,
+        "model_a_tricks": 21,
+        "model_b_tricks": 19,
+        "model_a_score": 5,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:39.842663"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 0,
+        "scores": [
+          3,
+          11
+        ],
+        "hands_played": 9,
+        "model_a_tricks": 21,
+        "model_b_tricks": 24,
+        "model_a_score": 3,
+        "model_b_score": 11,
+        "timestamp": "2025-11-30T20:22:40.292688"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          10,
+          8
+        ],
+        "hands_played": 12,
+        "model_a_tricks": 28,
+        "model_b_tricks": 32,
+        "model_a_score": 8,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:40.911262"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 0,
+        "scores": [
+          5,
+          10
+        ],
+        "hands_played": 10,
+        "model_a_tricks": 24,
+        "model_b_tricks": 26,
+        "model_a_score": 5,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:41.355837"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 1,
+        "scores": [
+          8,
+          10
+        ],
+        "hands_played": 13,
+        "model_a_tricks": 41,
+        "model_b_tricks": 24,
+        "model_a_score": 10,
+        "model_b_score": 8,
+        "timestamp": "2025-11-30T20:22:41.932977"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 0,
+        "scores": [
+          2,
+          10
+        ],
+        "hands_played": 7,
+        "model_a_tricks": 14,
+        "model_b_tricks": 21,
+        "model_a_score": 2,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:42.256200"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 1,
+        "scores": [
+          2,
+          10
+        ],
+        "hands_played": 8,
+        "model_a_tricks": 30,
+        "model_b_tricks": 10,
+        "model_a_score": 10,
+        "model_b_score": 2,
+        "timestamp": "2025-11-30T20:22:42.627054"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 0,
+        "scores": [
+          6,
+          11
+        ],
+        "hands_played": 11,
+        "model_a_tricks": 25,
+        "model_b_tricks": 30,
+        "model_a_score": 6,
+        "model_b_score": 11,
+        "timestamp": "2025-11-30T20:22:43.154098"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 1,
+        "scores": [
+          4,
+          11
+        ],
+        "hands_played": 10,
+        "model_a_tricks": 31,
+        "model_b_tricks": 19,
+        "model_a_score": 11,
+        "model_b_score": 4,
+        "timestamp": "2025-11-30T20:22:43.670681"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 0,
+        "scores": [
+          8,
+          10
+        ],
+        "hands_played": 12,
+        "model_a_tricks": 27,
+        "model_b_tricks": 33,
+        "model_a_score": 8,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:44.227792"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 1,
+        "scores": [
+          4,
+          10
+        ],
+        "hands_played": 9,
+        "model_a_tricks": 31,
+        "model_b_tricks": 14,
+        "model_a_score": 10,
+        "model_b_score": 4,
+        "timestamp": "2025-11-30T20:22:44.669713"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 0,
+        "scores": [
+          3,
+          10
+        ],
+        "hands_played": 8,
+        "model_a_tricks": 18,
+        "model_b_tricks": 22,
+        "model_a_score": 3,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:45.048525"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 1,
+        "scores": [
+          2,
+          10
+        ],
+        "hands_played": 10,
+        "model_a_tricks": 33,
+        "model_b_tricks": 17,
+        "model_a_score": 10,
+        "model_b_score": 2,
+        "timestamp": "2025-11-30T20:22:45.511856"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 0,
+        "scores": [
+          3,
+          10
+        ],
+        "hands_played": 8,
+        "model_a_tricks": 18,
+        "model_b_tricks": 22,
+        "model_a_score": 3,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:45.979130"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          10,
+          4
+        ],
+        "hands_played": 9,
+        "model_a_tricks": 23,
+        "model_b_tricks": 22,
+        "model_a_score": 4,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:46.400025"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 0,
+        "scores": [
+          3,
+          10
+        ],
+        "hands_played": 8,
+        "model_a_tricks": 16,
+        "model_b_tricks": 24,
+        "model_a_score": 3,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:46.774815"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 1,
+        "scores": [
+          6,
+          10
+        ],
+        "hands_played": 13,
+        "model_a_tricks": 37,
+        "model_b_tricks": 28,
+        "model_a_score": 10,
+        "model_b_score": 6,
+        "timestamp": "2025-11-30T20:22:47.460867"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 0,
+        "scores": [
+          10,
+          8
+        ],
+        "hands_played": 14,
+        "model_a_tricks": 41,
+        "model_b_tricks": 29,
+        "model_a_score": 10,
+        "model_b_score": 8,
+        "timestamp": "2025-11-30T20:22:48.100974"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          10,
+          8
+        ],
+        "hands_played": 12,
+        "model_a_tricks": 29,
+        "model_b_tricks": 31,
+        "model_a_score": 8,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:48.737754"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 0,
+        "scores": [
+          2,
+          11
+        ],
+        "hands_played": 8,
+        "model_a_tricks": 18,
+        "model_b_tricks": 22,
+        "model_a_score": 2,
+        "model_b_score": 11,
+        "timestamp": "2025-11-30T20:22:49.126075"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 1,
+        "scores": [
+          6,
+          10
+        ],
+        "hands_played": 12,
+        "model_a_tricks": 36,
+        "model_b_tricks": 24,
+        "model_a_score": 10,
+        "model_b_score": 6,
+        "timestamp": "2025-11-30T20:22:49.661657"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 0,
+        "scores": [
+          7,
+          10
+        ],
+        "hands_played": 12,
+        "model_a_tricks": 35,
+        "model_b_tricks": 25,
+        "model_a_score": 7,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:50.215800"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          10,
+          6
+        ],
+        "hands_played": 11,
+        "model_a_tricks": 27,
+        "model_b_tricks": 28,
+        "model_a_score": 6,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:50.711586"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 0,
+        "scores": [
+          5,
+          11
+        ],
+        "hands_played": 10,
+        "model_a_tricks": 26,
+        "model_b_tricks": 24,
+        "model_a_score": 5,
+        "model_b_score": 11,
+        "timestamp": "2025-11-30T20:22:51.169239"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 1,
+        "scores": [
+          8,
+          10
+        ],
+        "hands_played": 14,
+        "model_a_tricks": 40,
+        "model_b_tricks": 30,
+        "model_a_score": 10,
+        "model_b_score": 8,
+        "timestamp": "2025-11-30T20:22:51.814883"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 0,
+        "scores": [
+          10,
+          8
+        ],
+        "hands_played": 12,
+        "model_a_tricks": 37,
+        "model_b_tricks": 23,
+        "model_a_score": 10,
+        "model_b_score": 8,
+        "timestamp": "2025-11-30T20:22:52.367766"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          10,
+          7
+        ],
+        "hands_played": 11,
+        "model_a_tricks": 30,
+        "model_b_tricks": 25,
+        "model_a_score": 7,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:52.945779"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 0,
+        "scores": [
+          10,
+          8
+        ],
+        "hands_played": 12,
+        "model_a_tricks": 30,
+        "model_b_tricks": 30,
+        "model_a_score": 10,
+        "model_b_score": 8,
+        "timestamp": "2025-11-30T20:22:53.589068"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          10,
+          1
+        ],
+        "hands_played": 6,
+        "model_a_tricks": 13,
+        "model_b_tricks": 17,
+        "model_a_score": 1,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:53.900123"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 0,
+        "scores": [
+          3,
+          10
+        ],
+        "hands_played": 8,
+        "model_a_tricks": 18,
+        "model_b_tricks": 22,
+        "model_a_score": 3,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:54.304751"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          10,
+          8
+        ],
+        "hands_played": 13,
+        "model_a_tricks": 31,
+        "model_b_tricks": 34,
+        "model_a_score": 8,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:54.948713"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 0,
+        "scores": [
+          1,
+          10
+        ],
+        "hands_played": 6,
+        "model_a_tricks": 10,
+        "model_b_tricks": 20,
+        "model_a_score": 1,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:55.235185"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          10,
+          5
+        ],
+        "hands_played": 9,
+        "model_a_tricks": 21,
+        "model_b_tricks": 24,
+        "model_a_score": 5,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:55.677849"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 0,
+        "scores": [
+          0,
+          10
+        ],
+        "hands_played": 5,
+        "model_a_tricks": 9,
+        "model_b_tricks": 16,
+        "model_a_score": 0,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:55.918972"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          10,
+          8
+        ],
+        "hands_played": 13,
+        "model_a_tricks": 38,
+        "model_b_tricks": 27,
+        "model_a_score": 8,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:56.533269"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 0,
+        "scores": [
+          10,
+          6
+        ],
+        "hands_played": 11,
+        "model_a_tricks": 35,
+        "model_b_tricks": 20,
+        "model_a_score": 10,
+        "model_b_score": 6,
+        "timestamp": "2025-11-30T20:22:57.235526"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          10,
+          6
+        ],
+        "hands_played": 11,
+        "model_a_tricks": 26,
+        "model_b_tricks": 29,
+        "model_a_score": 6,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:57.894136"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 0,
+        "scores": [
+          4,
+          10
+        ],
+        "hands_played": 9,
+        "model_a_tricks": 22,
+        "model_b_tricks": 23,
+        "model_a_score": 4,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:58.429348"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          10,
+          4
+        ],
+        "hands_played": 9,
+        "model_a_tricks": 23,
+        "model_b_tricks": 22,
+        "model_a_score": 4,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:59.085612"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 0,
+        "scores": [
+          5,
+          10
+        ],
+        "hands_played": 10,
+        "model_a_tricks": 25,
+        "model_b_tricks": 25,
+        "model_a_score": 5,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:22:59.685084"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          10,
+          7
+        ],
+        "hands_played": 12,
+        "model_a_tricks": 30,
+        "model_b_tricks": 30,
+        "model_a_score": 7,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:23:00.410029"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 0,
+        "scores": [
+          6,
+          10
+        ],
+        "hands_played": 11,
+        "model_a_tricks": 29,
+        "model_b_tricks": 26,
+        "model_a_score": 6,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:23:01.066529"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          11,
+          7
+        ],
+        "hands_played": 14,
+        "model_a_tricks": 35,
+        "model_b_tricks": 35,
+        "model_a_score": 7,
+        "model_b_score": 11,
+        "timestamp": "2025-11-30T20:23:02.027184"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 0,
+        "scores": [
+          10,
+          8
+        ],
+        "hands_played": 14,
+        "model_a_tricks": 39,
+        "model_b_tricks": 31,
+        "model_a_score": 10,
+        "model_b_score": 8,
+        "timestamp": "2025-11-30T20:23:02.881865"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 1,
+        "scores": [
+          8,
+          10
+        ],
+        "hands_played": 13,
+        "model_a_tricks": 35,
+        "model_b_tricks": 30,
+        "model_a_score": 10,
+        "model_b_score": 8,
+        "timestamp": "2025-11-30T20:23:03.665413"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 0,
+        "scores": [
+          0,
+          10
+        ],
+        "hands_played": 5,
+        "model_a_tricks": 7,
+        "model_b_tricks": 18,
+        "model_a_score": 0,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:23:03.966038"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          10,
+          1
+        ],
+        "hands_played": 6,
+        "model_a_tricks": 9,
+        "model_b_tricks": 21,
+        "model_a_score": 1,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:23:04.347975"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 0,
+        "scores": [
+          7,
+          10
+        ],
+        "hands_played": 12,
+        "model_a_tricks": 32,
+        "model_b_tricks": 28,
+        "model_a_score": 7,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:23:05.049167"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          10,
+          6
+        ],
+        "hands_played": 10,
+        "model_a_tricks": 25,
+        "model_b_tricks": 25,
+        "model_a_score": 6,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:23:05.654344"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 0,
+        "scores": [
+          10,
+          5
+        ],
+        "hands_played": 10,
+        "model_a_tricks": 31,
+        "model_b_tricks": 19,
+        "model_a_score": 10,
+        "model_b_score": 5,
+        "timestamp": "2025-11-30T20:23:06.290035"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 1,
+        "scores": [
+          8,
+          10
+        ],
+        "hands_played": 14,
+        "model_a_tricks": 39,
+        "model_b_tricks": 31,
+        "model_a_score": 10,
+        "model_b_score": 8,
+        "timestamp": "2025-11-30T20:23:07.077179"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 0,
+        "scores": [
+          7,
+          11
+        ],
+        "hands_played": 12,
+        "model_a_tricks": 29,
+        "model_b_tricks": 31,
+        "model_a_score": 7,
+        "model_b_score": 11,
+        "timestamp": "2025-11-30T20:23:07.891118"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 1,
+        "scores": [
+          5,
+          10
+        ],
+        "hands_played": 10,
+        "model_a_tricks": 30,
+        "model_b_tricks": 20,
+        "model_a_score": 10,
+        "model_b_score": 5,
+        "timestamp": "2025-11-30T20:23:08.531586"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 0,
+        "scores": [
+          11,
+          7
+        ],
+        "hands_played": 12,
+        "model_a_tricks": 38,
+        "model_b_tricks": 22,
+        "model_a_score": 11,
+        "model_b_score": 7,
+        "timestamp": "2025-11-30T20:23:09.344999"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          10,
+          7
+        ],
+        "hands_played": 11,
+        "model_a_tricks": 28,
+        "model_b_tricks": 27,
+        "model_a_score": 7,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:23:09.992303"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 0,
+        "scores": [
+          4,
+          10
+        ],
+        "hands_played": 9,
+        "model_a_tricks": 18,
+        "model_b_tricks": 27,
+        "model_a_score": 4,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:23:10.507091"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          10,
+          8
+        ],
+        "hands_played": 13,
+        "model_a_tricks": 33,
+        "model_b_tricks": 32,
+        "model_a_score": 8,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:23:11.268723"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 0,
+        "scores": [
+          10,
+          2
+        ],
+        "hands_played": 11,
+        "model_a_tricks": 34,
+        "model_b_tricks": 21,
+        "model_a_score": 10,
+        "model_b_score": 2,
+        "timestamp": "2025-11-30T20:23:11.892097"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          10,
+          1
+        ],
+        "hands_played": 6,
+        "model_a_tricks": 9,
+        "model_b_tricks": 21,
+        "model_a_score": 1,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:23:12.241701"
+      },
+      {
+        "winner": 1,
+        "model_a_team": 0,
+        "scores": [
+          2,
+          10
+        ],
+        "hands_played": 6,
+        "model_a_tricks": 11,
+        "model_b_tricks": 19,
+        "model_a_score": 2,
+        "model_b_score": 10,
+        "timestamp": "2025-11-30T20:23:12.630207"
+      },
+      {
+        "winner": 0,
+        "model_a_team": 1,
+        "scores": [
+          11,
+          8
+        ],
+        "hands_played": 11,
+        "model_a_tricks": 22,
+        "model_b_tricks": 33,
+        "model_a_score": 8,
+        "model_b_score": 11,
+        "timestamp": "2025-11-30T20:23:13.365434"
+      }
+    ],
+    "model_a_team_stats": {
+      "games_won": 26,
+      "games_lost": 74,
+      "total_score": 632,
+      "total_tricks_won": 2601,
+      "total_hands_played": 1020,
+      "hands_won": 0,
+      "hands_lost": 0,
+      "trump_makes": 894,
+      "going_alone_attempts": 0,
+      "going_alone_successes": 0
+    },
+    "model_b_team_stats": {
+      "games_won": 74,
+      "games_lost": 26,
+      "total_score": 910,
+      "total_tricks_won": 2499,
+      "total_hands_played": 1020,
+      "hands_won": 0,
+      "hands_lost": 0,
+      "trump_makes": 126,
+      "going_alone_attempts": 2,
+      "going_alone_successes": 1
+    },
+    "model_a_player_stats": {
+      "0": {
+        "tricks_won": 624,
+        "trump_makes": 219,
+        "points_contributed": 50,
+        "going_alone_attempts": 0,
+        "going_alone_successes": 0
+      },
+      "2": {
+        "tricks_won": 657,
+        "trump_makes": 213,
+        "points_contributed": 50,
+        "going_alone_attempts": 0,
+        "going_alone_successes": 0
+      },
+      "1": {
+        "tricks_won": 671,
+        "trump_makes": 201,
+        "points_contributed": 45,
+        "going_alone_attempts": 0,
+        "going_alone_successes": 0
+      },
+      "3": {
+        "tricks_won": 649,
+        "trump_makes": 261,
+        "points_contributed": 45,
+        "going_alone_attempts": 0,
+        "going_alone_successes": 0
+      }
+    },
+    "model_b_player_stats": {
+      "1": {
+        "tricks_won": 617,
+        "trump_makes": 40,
+        "points_contributed": 213,
+        "going_alone_attempts": 0,
+        "going_alone_successes": 0
+      },
+      "3": {
+        "tricks_won": 627,
+        "trump_makes": 33,
+        "points_contributed": 213,
+        "going_alone_attempts": 0,
+        "going_alone_successes": 0
+      },
+      "0": {
+        "tricks_won": 641,
+        "trump_makes": 21,
+        "points_contributed": 213,
+        "going_alone_attempts": 0,
+        "going_alone_successes": 0
+      },
+      "2": {
+        "tricks_won": 614,
+        "trump_makes": 32,
+        "points_contributed": 213,
+        "going_alone_attempts": 2,
+        "going_alone_successes": 1
+      }
+    },
+    "model_a_name": "pytorch_ai",
+    "model_b_name": "eucher_zero"
+  }
+}

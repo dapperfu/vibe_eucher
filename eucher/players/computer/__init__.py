@@ -1,12 +1,13 @@
-"""Computer player implementations."""
+"""Computer player base classes.
 
-from eucher.players.computer.ai import AIDecisionMaker, AIPlayer
+All player implementations are now external plugins.
+See plugins/ directory for all player implementations.
+"""
+
 from eucher.players.computer.base import ComputerPlayer
-from eucher.players.computer.heuristic import HeuristicPlayer
-from eucher.players.computer.random import RandomPlayer
 
-__all__ = ["ComputerPlayer", "HeuristicPlayer", "RandomPlayer", "AIDecisionMaker", "AIPlayer"]
+__all__ = ["ComputerPlayer"]
 
-# Note: Plugin registration is handled by eucher.plugins.builtin modules.
-# This module only provides the implementation classes.
+# Note: All player implementations are external plugins discovered via entry points.
+# This module only provides the base ComputerPlayer class.
 

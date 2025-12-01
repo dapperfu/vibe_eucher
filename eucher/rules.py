@@ -100,9 +100,7 @@ class RulesEngine:
         if trump_suit is None:
             return card.suit == led_suit
 
-        # With trump, check for bowers
-        # Right Bower (Jack of trump) doesn't match non-trump led suit
-        # Left Bower (Jack of same color) doesn't match non-trump led suit
+        # With trump, check for bowers first
         if card.rank.value == 11:  # Jack
             if card.suit == trump_suit:
                 # Right Bower - only matches if trump was led
@@ -113,12 +111,32 @@ class RulesEngine:
                 # Left Bower - only matches if trump was led
                 return led_suit == trump_suit
 
-        # Regular cards match their suit
-        if card.suit == led_suit:
-            return True
+        # If trump was led, only trump cards match (including bowers handled above)
+        if led_suit == trump_suit:
+            # Must be a trump card (right bower, left bower, or regular trump suit card)
+            if card.suit == trump_suit:
+                return True
+            # Check if it's left bower (already checked above, but be explicit)
+            if card.rank.value == 11:
+                trump_card = Card(trump_suit, card.rank)
+                if card.is_same_color(trump_card):
+                    return True
+            return False
 
-        # Trump cards match if trump was led
-        if card.suit == trump_suit and led_suit == trump_suit:
+        # If non-trump suit was led, cards of that suit match
+        # (but NOT trump cards, even if they're the same color)
+        if card.suit == led_suit:
+            # Make sure it's not a bower (which would be trump)
+            if card.rank.value == 11:
+                # Check if it's left bower
+                trump_card = Card(trump_suit, card.rank)
+                if card.is_same_color(trump_card):
+                    # This is left bower (trump), doesn't match non-trump led suit
+                    return False
+                # Check if it's right bower
+                if card.suit == trump_suit:
+                    # This is right bower (trump), doesn't match non-trump led suit
+                    return False
             return True
 
         return False

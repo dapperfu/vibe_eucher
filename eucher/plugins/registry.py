@@ -150,6 +150,10 @@ def register_plugin(
     """
     from eucher.plugins.base import PluginMetadata
 
+    # Skip if already registered (prevents duplicate registration warnings)
+    if _registry.has(name):
+        return
+
     metadata = PluginMetadata(
         name=name,
         display_name=display_name or name,

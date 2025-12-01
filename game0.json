@@ -1,0 +1,370 @@
+{
+  "decisions": {
+    "6af613b6-569c-5c22-9c37-2ed93f31d3af": [
+      {
+        "type": "discard",
+        "value": {
+          "rank": 9,
+          "suit": "Hearts"
+        },
+        "counter": 0
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 9,
+          "suit": "Diamonds"
+        },
+        "counter": 1
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 10,
+          "suit": "Diamonds"
+        },
+        "counter": 2
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 14,
+          "suit": "Clubs"
+        },
+        "counter": 3
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 11,
+          "suit": "Diamonds"
+        },
+        "counter": 4
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 11,
+          "suit": "Clubs"
+        },
+        "counter": 5
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 9,
+          "suit": "Diamonds"
+        },
+        "counter": 6
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 10,
+          "suit": "Hearts"
+        },
+        "counter": 7
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 11,
+          "suit": "Clubs"
+        },
+        "counter": 8
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 13,
+          "suit": "Spades"
+        },
+        "counter": 9
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 13,
+          "suit": "Clubs"
+        },
+        "counter": 10
+      },
+      {
+        "type": "order_up",
+        "value": false,
+        "counter": 11
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 14,
+          "suit": "Hearts"
+        },
+        "counter": 12
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 14,
+          "suit": "Spades"
+        },
+        "counter": 13
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 11,
+          "suit": "Diamonds"
+        },
+        "counter": 14
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 13,
+          "suit": "Clubs"
+        },
+        "counter": 15
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 9,
+          "suit": "Clubs"
+        },
+        "counter": 16
+      },
+      {
+        "type": "order_up",
+        "value": false,
+        "counter": 17
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 14,
+          "suit": "Hearts"
+        },
+        "counter": 18
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 9,
+          "suit": "Hearts"
+        },
+        "counter": 19
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 11,
+          "suit": "Clubs"
+        },
+        "counter": 20
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 10,
+          "suit": "Spades"
+        },
+        "counter": 21
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 14,
+          "suit": "Diamonds"
+        },
+        "counter": 22
+      },
+      {
+        "type": "discard",
+        "value": {
+          "rank": 10,
+          "suit": "Clubs"
+        },
+        "counter": 23
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 14,
+          "suit": "Clubs"
+        },
+        "counter": 24
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 11,
+          "suit": "Diamonds"
+        },
+        "counter": 25
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 12,
+          "suit": "Diamonds"
+        },
+        "counter": 26
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 14,
+          "suit": "Spades"
+        },
+        "counter": 27
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 12,
+          "suit": "Hearts"
+        },
+        "counter": 28
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 9,
+          "suit": "Spades"
+        },
+        "counter": 29
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 14,
+          "suit": "Spades"
+        },
+        "counter": 30
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 11,
+          "suit": "Diamonds"
+        },
+        "counter": 31
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 9,
+          "suit": "Diamonds"
+        },
+        "counter": 32
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 10,
+          "suit": "Clubs"
+        },
+        "counter": 33
+      },
+      {
+        "type": "order_up",
+        "value": false,
+        "counter": 34
+      },
+      {
+        "type": "order_up",
+        "value": true,
+        "counter": 35
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 11,
+          "suit": "Diamonds"
+        },
+        "counter": 36
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 14,
+          "suit": "Diamonds"
+        },
+        "counter": 37
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 11,
+          "suit": "Hearts"
+        },
+        "counter": 38
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 12,
+          "suit": "Diamonds"
+        },
+        "counter": 39
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 10,
+          "suit": "Diamonds"
+        },
+        "counter": 40
+      },
+      {
+        "type": "discard",
+        "value": {
+          "rank": 9,
+          "suit": "Hearts"
+        },
+        "counter": 41
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 10,
+          "suit": "Spades"
+        },
+        "counter": 42
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 10,
+          "suit": "Diamonds"
+        },
+        "counter": 43
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 11,
+          "suit": "Diamonds"
+        },
+        "counter": 44
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 13,
+          "suit": "Clubs"
+        },
+        "counter": 45
+      },
+      {
+        "type": "play_card",
+        "value": {
+          "rank": 10,
+          "suit": "Clubs"
+        },
+        "counter": 46
+      }
+    ]
+  }
+}

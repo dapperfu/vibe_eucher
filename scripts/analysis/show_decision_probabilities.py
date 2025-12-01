@@ -42,7 +42,7 @@ def create_player_config_with_probabilities(
     Parameters
     ----------
     player_types : List[str]
-        List of player types: "random", "ai", "heuristic", "ml_sklearn", "pytorch"
+        List of player types: "random", "weighted_heuristic", "heuristic", "ml_sklearn", "pytorch"
     model_path : Optional[str]
         Path to PyTorch model file (for pytorch players).
     device : Optional[str]
@@ -61,7 +61,7 @@ def create_player_config_with_probabilities(
     for i, player_type in enumerate(player_types):
         if player_type == "random":
             profile = RandomPlayer()
-        elif player_type == "ai":
+        elif player_type == "weighted_heuristic" or player_type == "ai":
             profile = AIPlayer(AIDecisionMaker())
         elif player_type == "heuristic":
             profile = HeuristicPlayer()
@@ -146,11 +146,11 @@ def main() -> None:
     parser.add_argument(
         "--players",
         type=str,
-        default="random,ai,ml_sklearn,pytorch",
+        default="random,weighted_heuristic,ml_sklearn,pytorch",
         help=(
             "Comma-separated list of 4 player types: "
-            "random, ai, heuristic, ml_sklearn, pytorch "
-            "(default: random,ai,ml_sklearn,pytorch)"
+            "random, weighted_heuristic, heuristic, ml_sklearn, pytorch "
+            "(default: random,weighted_heuristic,ml_sklearn,pytorch)"
         ),
     )
     parser.add_argument(
@@ -179,14 +179,14 @@ def main() -> None:
         player_types = [pt.strip().lower() for pt in args.players.split(",")]
         if len(player_types) != 4:
             raise ValueError("Must provide exactly 4 player types")
-        valid_types = {"random", "ai", "heuristic", "ml_sklearn", "pytorch"}
+        valid_types = {"random", "weighted_heuristic", "ai", "heuristic", "ml_sklearn", "pytorch"}
         for pt in player_types:
             if pt not in valid_types:
                 raise ValueError(f"Invalid player type: {pt}. Must be one of {valid_types}")
     except ValueError as e:
         print(f"Error parsing player types: {e}")
         print("Expected format: player1,player2,player3,player4")
-        print("Valid types: random, ai, heuristic, ml_sklearn, pytorch")
+        print("Valid types: random, weighted_heuristic, heuristic, ml_sklearn, pytorch")
         return
 
     print("=" * 80)

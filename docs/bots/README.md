@@ -7,7 +7,7 @@ This directory contains detailed documentation for all computer bot types availa
 ### Basic Bots
 - [Random Bot](random.md) - Makes all decisions randomly
 - [Heuristic Bot](heuristic.md) - Rule-based bot with basic strategy
-- [AI Bot](ai.md) - Weighted heuristic bot with strategic decision-making
+- [Weighted Heuristic Bot](weighted_heuristic.md) - Weighted heuristic bot with strategic decision-making
 
 ### Machine Learning Bots
 - [ML Supervised Bot](ml_supervised.md) - Trained on collected game data
@@ -26,7 +26,7 @@ This directory contains detailed documentation for all computer bot types availa
 |----------|------------|----------------|----------|---------------|
 | Random | Very Low | None | No | Testing, baseline |
 | Heuristic | Low | Basic | No | Learning, predictable play |
-| AI | Medium | Intermediate | No | Strategic play |
+| Weighted Heuristic | Medium | Intermediate | No | Strategic play |
 | ML Supervised | Medium-High | Advanced | Yes (from data) | Competitive play |
 | ML RL | High | Advanced | Yes (from experience) | Long-term learning |
 | ML GAN | Very High | Advanced | Yes (adversarial) | Research, creativity |
@@ -50,7 +50,7 @@ from eucher.game import Game
 player_config = [
     ("Player 1", "euchergo"),
     ("Player 2", "heuristic"),
-    ("Player 3", "ai"),
+    ("Player 3", "weighted_heuristic"),
     ("Player 4", "random"),
 ]
 

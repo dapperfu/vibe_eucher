@@ -1,2 +1,0 @@
-"""EucherZero player implementation."""
-

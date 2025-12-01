@@ -146,7 +146,7 @@ player_config = [
     ("Player 1", "my_bot"),
     ("Player 2", "heuristic"),
     ("Player 3", "random"),
-    ("Player 4", "ai"),
+    ("Player 4", "weighted_heuristic"),
 ]
 
 game = Game(player_config)
@@ -300,6 +300,6 @@ game.play_hand()
 ## Further Reading
 
 - `eucher/players/base.py` - PlayerProfile interface definition
-- `eucher/plugins/builtin/` - Examples of built-in plugins
+- `plugins/eucher_zero/` - Example of external plugin
 - `eucher/game.py` - How plugins are used in game creation
 
