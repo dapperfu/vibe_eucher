@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, List, Optional
 import numpy as np
 import torch
 
-from eucher.cards import Card, Suit
+from eucher.cards import Card, Rank, Suit
 from eucher.players.base import PlayerProfile
 from eucher.players.computer.euchergo.action_space import ActionEncoder
 from eucher.players.computer.euchergo.config import EucherGoConfig
@@ -455,9 +455,39 @@ class EucherGoPlayer(PlayerProfile):
         best_idx = play_indices[np.argmax(play_probs)]
         return player.hand[best_idx]
 
+    def _is_trump_card(self, card: Card, trump_suit: Suit) -> bool:
+        """
+        Check if a card is a trump card.
+
+        Parameters
+        ----------
+        card : Card
+            The card to check.
+        trump_suit : Suit
+            The trump suit.
+
+        Returns
+        -------
+        bool
+            True if card is trump, False otherwise.
+        """
+        # Right Bower
+        if card.rank == Rank.JACK and card.suit == trump_suit:
+            return True
+        # Left Bower
+        if card.rank == Rank.JACK:
+            trump_card = Card(trump_suit, Rank.ACE)
+            if card.is_same_color(trump_card):
+                return True
+        # Regular trump
+        return card.suit == trump_suit
+
     def decide_going_alone(self, player: "Player", trump_suit: Suit) -> bool:
         """
         Decide whether to go alone after making trump.
+
+        Uses MCTS policy with a high threshold and heuristic safety checks
+        to prevent going alone with weak hands.
 
         Parameters
         ----------
@@ -473,6 +503,18 @@ class EucherGoPlayer(PlayerProfile):
         """
         game = self._get_game(player)
 
+        # Heuristic safety check: don't go alone with obviously weak hands
+        # Count trump cards in hand
+        trump_count = sum(1 for card in player.hand if self._is_trump_card(card, trump_suit))
+        
+        # Check for flush in trump (all 5 cards are trump) - always go alone
+        if trump_count == 5:
+            return True
+        
+        # Don't go alone with fewer than 3 trump cards (too weak)
+        if trump_count < 3:
+            return False
+
         # Encode state
         state_tensor = self._encode_state(player, game)
         action_mask = self._get_action_mask(player, game, "go_alone")
@@ -480,9 +522,10 @@ class EucherGoPlayer(PlayerProfile):
         # Run MCTS
         policy = self.mcts.search(state_tensor, action_mask)
 
-        # Check go alone probability
+        # Check go alone probability with higher threshold (default 0.75)
         go_alone_prob = policy[ActionEncoder.GO_ALONE]
-        return go_alone_prob > 0.5
+        threshold = self.config.going_alone_threshold
+        return go_alone_prob > threshold
 
     def decide_trade_in(self, player: "Player", eligible_cards: List[Card]) -> bool:
         """

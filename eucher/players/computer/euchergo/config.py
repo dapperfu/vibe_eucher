@@ -34,6 +34,7 @@ class EucherGoConfig:
         use_conv1d: bool = False,
         num_simulations: int = 100,
         exploration_constant: float = 1.0,
+        going_alone_threshold: float = 0.75,
         device: Optional[torch.device] = None,
     ) -> None:
         """Initialize configuration."""
@@ -43,6 +44,7 @@ class EucherGoConfig:
         self.use_conv1d = use_conv1d
         self.num_simulations = num_simulations
         self.exploration_constant = exploration_constant
+        self.going_alone_threshold = going_alone_threshold
 
         if device is None:
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
