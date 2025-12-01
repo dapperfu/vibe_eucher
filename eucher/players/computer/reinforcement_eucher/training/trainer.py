@@ -1,6 +1,7 @@
 """Main training orchestrator for ReinforcementEucher."""
 
 import json
+import pickle
 import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -14,6 +15,54 @@ from eucher.players.computer.reinforcement_eucher.training.experience_buffer imp
 from eucher.players.computer.reinforcement_eucher.training.ppo_trainer import PPOTrainer
 from eucher.players.computer.reinforcement_eucher.training.self_play import SelfPlayGenerator
 from eucher.players.computer.reinforcement_eucher.training.trick_simulator import TrickSimulator
+
+
+def _convert_tensors_to_cpu(obj: any) -> any:
+    """Recursively convert tensors in nested structures to CPU.
+
+    Parameters
+    ----------
+    obj : any
+        Object that may contain tensors.
+
+    Returns
+    -------
+    any
+        Object with tensors moved to CPU.
+    """
+    if isinstance(obj, torch.Tensor):
+        return obj.cpu().detach()
+    elif isinstance(obj, dict):
+        return {k: _convert_tensors_to_cpu(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return type(obj)(_convert_tensors_to_cpu(item) for item in obj)
+    else:
+        return obj
+
+
+def _convert_tensors_to_device(obj: any, device: torch.device) -> any:
+    """Recursively convert tensors in nested structures to device.
+
+    Parameters
+    ----------
+    obj : any
+        Object that may contain tensors.
+    device : torch.device
+        Target device.
+
+    Returns
+    -------
+    any
+        Object with tensors moved to device.
+    """
+    if isinstance(obj, torch.Tensor):
+        return obj.to(device)
+    elif isinstance(obj, dict):
+        return {k: _convert_tensors_to_device(v, device) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return type(obj)(_convert_tensors_to_device(item, device) for item in obj)
+    else:
+        return obj
 
 
 class ReinforcementEucherTrainer:
@@ -261,7 +310,26 @@ class ReinforcementEucherTrainer:
         if additional_state:
             checkpoint["additional_state"] = additional_state
 
-        torch.save(checkpoint, checkpoint_path)
+        # Save checkpoint with fallback for PyTorch serialization issues
+        try:
+            # Try torch.save with _use_new_zipfile_serialization=False to avoid serialization bug
+            try:
+                torch.save(checkpoint, checkpoint_path, _use_new_zipfile_serialization=False)
+            except TypeError:
+                # Parameter doesn't exist in this PyTorch version, try standard save
+                torch.save(checkpoint, checkpoint_path)
+        except (ModuleNotFoundError, AttributeError) as e:
+            # Fallback to pickle if torch.save fails due to serialization issues
+            if "serialization" in str(e).lower() or "torch.utils.serialization" in str(e):
+                # Move all tensors to CPU for pickle compatibility
+                checkpoint_cpu = _convert_tensors_to_cpu(checkpoint)
+                
+                # Save using pickle
+                with open(checkpoint_path, "wb") as f:
+                    pickle.dump(checkpoint_cpu, f, protocol=pickle.HIGHEST_PROTOCOL)
+            else:
+                # Re-raise if it's a different error
+                raise
 
         # Save metadata
         metadata_path = checkpoint_path.with_suffix(".json")
@@ -306,7 +374,19 @@ class ReinforcementEucherTrainer:
         if checkpoint_path is None or not checkpoint_path.exists():
             raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
 
-        checkpoint = torch.load(checkpoint_path, map_location=self.device)
+        # Try torch.load first, fallback to pickle if it fails
+        try:
+            checkpoint = torch.load(checkpoint_path, map_location=self.device)
+        except (ModuleNotFoundError, AttributeError, RuntimeError) as e:
+            # Fallback to pickle if torch.load fails
+            if "serialization" in str(e).lower() or "torch.utils.serialization" in str(e) or isinstance(e, RuntimeError):
+                with open(checkpoint_path, "rb") as f:
+                    checkpoint = pickle.load(f)
+                # Convert all tensors back to proper device recursively
+                checkpoint = _convert_tensors_to_device(checkpoint, self.device)
+            else:
+                # Re-raise if it's a different error
+                raise
 
         # Load model state
         self.model.load_state_dict(checkpoint["model_state_dict"])
