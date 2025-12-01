@@ -9,12 +9,37 @@ import torch
 
 from eucher.cards import Card, Deck, Suit
 from eucher.players import Player
-from eucher.players.computer.ai import AIDecisionMaker
-from eucher.players.computer.ml.ml_config import MLConfig
-from eucher.players.computer.ml.ml_features import GameStateEncoder
-from eucher.players.computer.ml.ml_model import EucherMLModel
-from eucher.players.computer.ml.player import MLPlayer
-from eucher.players.computer import AIPlayer, HeuristicPlayer, RandomPlayer
+# Import AIDecisionMaker from plugins (moved from eucher.players.computer.ai)
+try:
+    from plugins.ai import AIDecisionMaker
+except ImportError:
+    # Fallback if plugins aren't available
+    AIDecisionMaker = None  # type: ignore
+# Import ML-related classes from plugins
+try:
+    from plugins.ml.ml_config import MLConfig
+    from plugins.ml.ml_features import GameStateEncoder
+    from plugins.ml.ml_model import EucherMLModel
+    from plugins.ml.player import MLPlayer
+except ImportError:
+    # Fallback if plugins aren't available
+    MLConfig = None  # type: ignore
+    GameStateEncoder = None  # type: ignore
+    EucherMLModel = None  # type: ignore
+    MLPlayer = None  # type: ignore
+# Import player classes from plugins (moved from eucher.players.computer)
+try:
+    from plugins.ai import AIPlayer
+except ImportError:
+    AIPlayer = None  # type: ignore
+try:
+    from plugins.heuristic import HeuristicPlayer  # type: ignore
+except ImportError:
+    HeuristicPlayer = None  # type: ignore
+try:
+    from plugins.random import RandomPlayer  # type: ignore
+except ImportError:
+    RandomPlayer = None  # type: ignore
 from eucher.players.profiles import HumanProfile, MLBasedProfile, PlayerProfile
 from eucher.plugins import get_registry
 from eucher.rules import RulesEngine
@@ -102,9 +127,14 @@ class Game:
         # Game state tracking for ML profiles
         self._current_trick_number: int = 0
         self._current_tricks_won: List[int] = [0, 0]
+        # Renege tracking (detected after hand completes)
         self._renege_occurred: bool = False
         self._renege_player_id: Optional[int] = None
         self._renege_team: Optional[int] = None
+        self._renege_trick_num: Optional[int] = None
+        self._renege_card: Optional[Card] = None
+        # Track player hands at start of each trick for renege verification
+        self._trick_start_hands: List[Dict[int, List[Card]]] = []  # List of dicts: {player_id: hand}
 
         # Store risk factors for ML players
         self.trump_selection_risk = trump_selection_risk
@@ -178,7 +208,7 @@ class Game:
             return HeuristicPlayer()
         elif profile_type == "heuristic2":
             return HeuristicPlayer()
-        elif profile_type == "ai":
+        elif profile_type == "weighted_heuristic" or profile_type == "ai":
             return AIPlayer(self.ai_decision_maker)
         elif profile_type == "random":
             return RandomPlayer()
@@ -191,21 +221,21 @@ class Game:
         elif profile_type == "ml_pytorch":
             return self._create_ml_profile(player_id)
         elif profile_type == "pytorch_ai" or profile_type == "pytorch_strategic":
-            from eucher.players.computer.ml.pytorch.pytorch_player import PyTorchStrategicPlayer
+            from plugins.ml.pytorch.pytorch_player import PyTorchStrategicPlayer
 
             return PyTorchStrategicPlayer()
         elif profile_type == "eucher_zero":
-            from eucher.players.computer.eucher_zero.player import EucherZeroPlayer
-            from eucher.players.computer.eucher_zero.config import EucherZeroConfig
+            from plugins.eucher_zero.player import EucherZeroPlayer
+            from plugins.eucher_zero.config import EucherZeroConfig
 
             config = EucherZeroConfig()
             player = EucherZeroPlayer(config=config, game=self)
             return player
         elif profile_type.startswith("perceiver_muzero"):
-            from eucher.players.computer.perceiver_muzero.player import (
+            from plugins.perceiver_muzero.player import (
                 EucherPerceiverMuZeroPlayer,
             )
-            from eucher.players.computer.perceiver_muzero.config import (
+            from plugins.perceiver_muzero.config import (
                 PerceiverMuZeroConfig,
             )
 
@@ -231,9 +261,9 @@ class Game:
                 )
             return player
         elif profile_type == "reinforcement_eucher":
-            from eucher.players.computer.reinforcement_eucher.player import ReinforcementEucherPlayer
-            from eucher.players.computer.reinforcement_eucher.config import ReinforcementEucherConfig
-            from eucher.players.computer.reinforcement_eucher.networks.model import ReinforcementEucherModel
+            from plugins.reinforcement_eucher.player import ReinforcementEucherPlayer
+            from plugins.reinforcement_eucher.config import ReinforcementEucherConfig
+            from plugins.reinforcement_eucher.networks.model import ReinforcementEucherModel
 
             config = ReinforcementEucherConfig()
             model = ReinforcementEucherModel(config)
@@ -269,7 +299,17 @@ class Game:
         -------
         MLBasedProfile
             The ML profile.
+
+        Raises
+        ------
+        ImportError
+            If ML plugins are not available.
         """
+        if MLConfig is None or EucherMLModel is None or GameStateEncoder is None:
+            raise ImportError(
+                "ML plugins are not available. Cannot create ML profile. "
+                "Ensure plugins are properly installed and accessible."
+            )
         # Lazy initialization of ML components
         if self._ml_model is None:
             config = MLConfig()
@@ -318,7 +358,17 @@ class Game:
         -------
         MLPlayer
             The ML player profile.
+
+        Raises
+        ------
+        ImportError
+            If ML plugins are not available.
         """
+        if MLPlayer is None:
+            raise ImportError(
+                "ML plugins are not available. Cannot create ML player profile. "
+                "Ensure plugins are properly installed and accessible."
+            )
         # Create game state provider function
         def get_game_state() -> tuple[int, int, int]:
             """Get current game state for ML player."""
@@ -373,6 +423,10 @@ class Game:
         self._renege_occurred = False
         self._renege_player_id = None
         self._renege_team = None
+        self._renege_trick_num = None
+        self._renege_card = None
+        self._trick_start_hands = []  # Reset trick hand tracking
+        self._trick_details = []  # Reset trick details
         # Reset going alone state
         self.going_alone = False
         self.going_alone_player_id: Optional[int] = None
@@ -408,6 +462,10 @@ class Game:
         # Log turned card
         if self.tui is not None and hasattr(self.tui, "log_turned_card"):
             self.tui.log_turned_card(self.turned_card)
+        
+        # Set kitty cards in TUI
+        if self.tui is not None and hasattr(self.tui, "set_kitty_cards"):
+            self.tui.set_kitty_cards(self.kitty)
 
         # Display turned card prominently after deal
         if self.tui is not None and hasattr(self.tui, "display_turned_card"):
@@ -467,11 +525,13 @@ class Game:
         if self.tui is not None and hasattr(self.tui, "display_trump_decision_summary"):
             history = self.trump_selector.get_decision_history()
             maker_name = getattr(self.trump_selector, "trump_maker_name", None)
+            turned_card = getattr(self.trump_selector, "turned_card", None)
             self.tui.display_trump_decision_summary(
                 history.get("order_up", []),
                 history.get("call_trump", []),
                 self.trump_suit,
-                maker_name
+                maker_name,
+                turned_card
             )
 
         # Play 5 tricks
@@ -499,7 +559,7 @@ class Game:
             if self.tui is not None and hasattr(self.tui, "display_trick_winner"):
                 self.tui.display_trick_winner(winner.name)
 
-            # Log trick
+            # Log trick (renege detection happens after hand completes)
             if self.tui is not None and hasattr(self.tui, "log_trick"):
                 if hasattr(self, "_last_trick_cards") and hasattr(self, "_last_trick_player_ids"):
                     self.tui.log_trick(
@@ -530,10 +590,33 @@ class Game:
             successful = tricks_won[making_team] == 5 if making_team is not None else False
             self.stats.record_going_alone(self.going_alone_player_id, successful)
 
+        # Check for reneges retroactively (after hand completes, like in real life)
+        self._check_for_reneges()
+        
+        # Update trick logs with renege info if detected (before displaying summary)
+        if self._renege_occurred and self._renege_trick_num is not None and self.tui is not None:
+            # Update the trick log with renege information
+            if hasattr(self.tui, "update_trick_renege"):
+                self.tui.update_trick_renege(
+                    self._renege_trick_num,
+                    self._renege_card,
+                    self._renege_player_id,
+                    self._renege_team,
+                )
+            
+            # Display renege message
+            if hasattr(self.tui, "display_renege"):
+                self.tui.display_renege(
+                    self._renege_card,
+                    self._renege_player_id,
+                    self._renege_team,
+                    tuple(points_awarded),
+                )
+
         # Log hand score
         if self.tui is not None and hasattr(self.tui, "log_hand_score"):
             scores = self.get_scores()
-            self.tui.log_hand_score(tricks_won, scores)
+            self.tui.log_hand_score(tricks_won, scores, making_team)
 
         # Display hand log
         if self.tui is not None and hasattr(self.tui, "display_hand_log"):
@@ -590,6 +673,12 @@ class Game:
             participating_players = list(range(4))
             num_players = 4
 
+        # Track player hands at start of trick for renege verification
+        trick_start_hands = {}
+        for player in self.players:
+            trick_start_hands[player.player_id] = player.hand.copy()
+        self._trick_start_hands.append(trick_start_hands)
+
         # Each participating player plays a card
         player_idx_in_trick = 0
         for i in range(4):
@@ -606,27 +695,7 @@ class Game:
             # Get card to play
             card = player.play_card(led_suit, self.trump_suit, played_cards, player_ids)
 
-            # Check for renege (invalid play) - don't raise error, mark it and apply penalties
-            is_renege = not self.rules.can_play_card(card, player.hand, led_suit, self.trump_suit)
-            if is_renege:
-                # Mark renege occurred - this will result in heavy penalties
-                self._renege_occurred = True
-                self._renege_player_id = player_idx
-                self._renege_team = player.team
-                # If calling team reneged, they automatically lose the hand
-                if hasattr(self, "trump_selector") and self.trump_selector and self.trump_selector.trump_maker_name:
-                    # Find calling team from trump maker name
-                    calling_team = None
-                    for p in self.players:
-                        if p.name == self.trump_selector.trump_maker_name:
-                            calling_team = p.team
-                            break
-                    if calling_team is not None and player.team == calling_team:
-                        # Calling team reneged - they lose the hand (set to 0 tricks)
-                        self._current_tricks_won[calling_team] = 0
-                        self._current_tricks_won[1 - calling_team] = 5  # Opponents get all tricks
-
-            # Play the card (even if it's a renege - let the model learn from the penalty)
+            # Play the card (renege detection happens after hand completes)
             player.remove_card(card)
             played_cards.append(card)
             player_ids.append(player_idx)
@@ -685,6 +754,44 @@ class Game:
 
         # Regular cards lead as their suit
         return card.suit
+
+    def _check_for_reneges(self) -> None:
+        """
+        Check for reneges retroactively after hand completes.
+        
+        In real Euchre, reneges are only discovered after the hand when cards are revealed.
+        This method reconstructs each player's hand at the start of each trick and verifies
+        if they reneged.
+        """
+        if not self._trick_details or not self._trick_start_hands:
+            return
+        
+        # Check each trick for reneges
+        for trick_idx, trick_detail in enumerate(self._trick_details):
+            played_cards = trick_detail["cards"]
+            player_ids = trick_detail["player_ids"]
+            led_suit = trick_detail["led_suit"]
+            
+            # Get hands at start of this trick
+            if trick_idx < len(self._trick_start_hands):
+                hands_at_start = self._trick_start_hands[trick_idx]
+            else:
+                continue  # Skip if we don't have hand info
+            
+            # Check each player's play in this trick
+            for card, player_id in zip(played_cards, player_ids):
+                if player_id in hands_at_start:
+                    hand_at_start = hands_at_start[player_id]
+                    # Check if this play was valid
+                    if not self.rules.can_play_card(card, hand_at_start, led_suit, self.trump_suit):
+                        # Renege detected!
+                        self._renege_occurred = True
+                        self._renege_player_id = player_id
+                        self._renege_team = self.players[player_id].team
+                        self._renege_trick_num = trick_idx + 1
+                        self._renege_card = card
+                        # Only report first renege found
+                        return
 
     def _score_hand(self, tricks_won: List[int]) -> None:
         """

@@ -36,27 +36,25 @@ ai = [
 eucher = "eucher.cli:main"
 
 [project.entry-points."eucher.plugins"]
-random = "eucher.plugins.builtin.random"
-heuristic = "eucher.plugins.builtin.heuristic"
-heuristic2 = "eucher.plugins.builtin.heuristic"
-ai = "eucher.plugins.builtin.ai"
-ml_sklearn = "eucher.plugins.builtin.ml"
-ml_rl = "eucher.plugins.builtin.ml"
-ml_gan = "eucher.plugins.builtin.ml"
-ml_pytorch = "eucher.plugins.builtin.ml"
-pytorch_ai = "eucher.plugins.builtin.ml"
-pytorch_strategic = "eucher.plugins.builtin.ml"
-eucher_zero = "eucher.plugins.builtin.eucher_zero"
-euchergo = "eucher.plugins.builtin.euchergo"
-reinforcement_eucher = "eucher.plugins.builtin.reinforcement_eucher"
-perceiver_muzero = "eucher.plugins.builtin.perceiver_muzero"
-perceiver_muzero_1 = "eucher.plugins.builtin.perceiver_muzero"
-perceiver_muzero_16 = "eucher.plugins.builtin.perceiver_muzero"
-perceiver_muzero_64 = "eucher.plugins.builtin.perceiver_muzero"
-perceiver_muzero_128 = "eucher.plugins.builtin.perceiver_muzero"
+eucher_zero = "plugins.eucher_zero"
+euchergo = "plugins.euchergo"
+perceiver_muzero = "plugins.perceiver_muzero"
+reinforcement_eucher = "plugins.reinforcement_eucher"
+random = "plugins.random"
+heuristic = "plugins.heuristic"
+heuristic2 = "plugins.heuristic2"
+heuristic3 = "plugins.heuristic3"
+ai = "plugins.ai"
+weighted_heuristic = "plugins.ai"
+ml_sklearn = "plugins.ml"
+ml_rl = "plugins.ml"
+ml_gan = "plugins.ml"
+ml_pytorch = "plugins.ml.pytorch"
+pytorch_ai = "plugins.ml.pytorch"
+pytorch_strategic = "plugins.ml.pytorch"
 
 [tool.setuptools]
-packages = ["eucher"]
+packages = ["eucher", "plugins"]
 
 [tool.ruff]
 line-length = 100
