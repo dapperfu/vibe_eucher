@@ -4,7 +4,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+PROJECT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 cd "${PROJECT_DIR}"
 
@@ -15,7 +15,7 @@ fi
 
 # Force CPU device
 # Optimized for 32GB RAM systems
-python scripts/training/train_pytorch_ai.py \
+python scripts/pytorch_ai/train_pytorch_ai.py \
     --device cpu \
     --batch-size 16 \
     "$@"
