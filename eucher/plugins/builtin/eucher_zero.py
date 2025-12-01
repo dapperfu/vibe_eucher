@@ -39,7 +39,17 @@ def create_eucher_zero_player(
     if config is None:
         config = EucherZeroConfig()
 
-    return EucherZeroPlayer(config=config, game=game)
+    model_path = kwargs.get("model_path", None)
+    num_simulations = kwargs.get("num_simulations", None)
+    risk_factor = kwargs.get("risk_factor", 0.0)
+
+    return EucherZeroPlayer(
+        model_path=model_path,
+        config=config,
+        num_simulations=num_simulations,
+        risk_factor=risk_factor,
+        game=game,
+    )
 
 
 # Register the plugin
