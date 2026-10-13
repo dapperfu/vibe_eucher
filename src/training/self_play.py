@@ -54,7 +54,7 @@ class SelfPlayTrainer:
         self.data_collector.start_game(game_id)
 
         # Create game
-        game = Game(player_config)
+        game = Game(player_config, allow_untrained=True)
 
         # Determine which players to collect from
         if collect_from_players is None:

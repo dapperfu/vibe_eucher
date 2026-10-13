@@ -31,6 +31,7 @@ def _create_ml_sklearn_player(game=None, **kwargs):
         game_state_provider=game_state_provider,
         trump_selection_risk=trump_selection_risk,
         gameplay_risk=gameplay_risk,
+        require_trained=not bool(kwargs.get("allow_untrained", False)),
     )
 
 
@@ -60,6 +61,7 @@ def _create_ml_rl_player(game=None, **kwargs):
         game_state_provider=game_state_provider,
         trump_selection_risk=trump_selection_risk,
         gameplay_risk=gameplay_risk,
+        require_trained=not bool(kwargs.get("allow_untrained", False)),
     )
 
 
@@ -89,6 +91,7 @@ def _create_ml_gan_player(game=None, **kwargs):
         game_state_provider=game_state_provider,
         trump_selection_risk=trump_selection_risk,
         gameplay_risk=gameplay_risk,
+        require_trained=not bool(kwargs.get("allow_untrained", False)),
     )
 
 

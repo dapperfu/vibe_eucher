@@ -5,15 +5,19 @@ from typing import TYPE_CHECKING, List, Optional
 
 import torch
 
-from eucher.cards import Card, Suit
-from eucher.players.profiles import PlayerProfile
-from eucher.rules import RulesEngine
-
 from eucher.ai_players.feature_encoder import EuchreFeatureEncoder
 from eucher.ai_players.game_state_tracker import BowerProbabilityEstimator, TrickHistoryTracker
 from eucher.ai_players.model_manager import ModelManager
-from eucher.ai_players.pytorch_networks import HybridNetwork, create_network
+from eucher.ai_players.pytorch_networks import create_network
 from eucher.ai_players.strategic_engine import BowerDrawingStrategy, CardEvaluationSystem
+from eucher.cards import Card, Suit
+from eucher.personality_training import (
+    UntrainedPersonalityError,
+    assert_checkpoint_adequate,
+    missing_training_message,
+)
+from eucher.players.profiles import PlayerProfile
+from eucher.rules import RulesEngine
 
 if TYPE_CHECKING:
     from eucher.players import Player
@@ -39,6 +43,7 @@ class PyTorchStrategicPlayer(PlayerProfile):
         use_strategic_overrides: bool = True,
         trump_selection_risk: Optional[float] = None,
         gameplay_risk: Optional[float] = None,
+        require_trained: bool = True,
     ) -> None:
         """Initialize PyTorch strategic player.
 
@@ -54,6 +59,13 @@ class PyTorchStrategicPlayer(PlayerProfile):
             Risk factor for trump selection (0.0-1.0). If None, uses default 0.5.
         gameplay_risk : Optional[float]
             Risk factor for gameplay (0.0-1.0). If None, uses default 0.5.
+        require_trained : bool
+            When True, a saved model must load. Random initialization is refused.
+
+        Raises
+        ------
+        UntrainedPersonalityError
+            If ``require_trained`` is True and no saved model can be loaded.
         """
         # Setup device
         if device is None:
@@ -85,22 +97,7 @@ class PyTorchStrategicPlayer(PlayerProfile):
             gameplay_risk if gameplay_risk is not None else config.gameplay_risk
         )
 
-        # Load or create model
-        if model_path:
-            try:
-                self.model, _ = self.model_manager.load_model(
-                    Path(model_path), device=self.device
-                )
-            except Exception:
-                print(f"Failed to load model from {model_path}, using random initialization")
-                self.model = create_network(device=self.device)
-        else:
-            # Try to load existing model
-            try:
-                self.model, _ = self.model_manager.load_model(device=self.device)
-            except FileNotFoundError:
-                # Create new model
-                self.model = create_network(device=self.device)
+        self._load_trained_model(model_path, require_trained)
 
         self.model.eval()
 
@@ -109,6 +106,49 @@ class PyTorchStrategicPlayer(PlayerProfile):
         self.team_scores = [0, 0]
         self.dealer_id = 0
         self.trick_history: List[dict] = []
+
+    def _load_trained_model(self, model_path: Optional[str], require_trained: bool) -> None:
+        """Load saved weights or build an untrained network for training.
+
+        Parameters
+        ----------
+        model_path : Optional[str]
+            Explicit checkpoint path. None searches the model directory.
+        require_trained : bool
+            When True, missing weights raise instead of random initialization.
+
+        Raises
+        ------
+        UntrainedPersonalityError
+            When a trained model is required and cannot be loaded.
+        """
+        personality = "ml_pytorch"
+        if model_path:
+            path = Path(model_path)
+            if not path.exists():
+                if require_trained:
+                    raise UntrainedPersonalityError(missing_training_message(personality, path))
+                self.model = create_network(device=self.device)
+                return
+            model, metadata = self.model_manager.load_model(path, device=self.device)
+            if require_trained and isinstance(metadata, dict):
+                assert_checkpoint_adequate(personality, metadata, path)
+            self.model = model
+            return
+
+        try:
+            model, metadata = self.model_manager.load_model(device=self.device)
+        except FileNotFoundError:
+            if require_trained:
+                raise UntrainedPersonalityError(
+                    missing_training_message(personality, self.model_manager.model_dir)
+                ) from None
+            self.model = create_network(device=self.device)
+            return
+
+        if require_trained and isinstance(metadata, dict):
+            assert_checkpoint_adequate(personality, metadata, self.model_manager.get_model_path())
+        self.model = model
 
     def decide_order_up(
         self, player: "Player", turned_card: Card, dealer_id: int, trump_suit: Optional[Suit]

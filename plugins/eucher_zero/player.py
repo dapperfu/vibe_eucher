@@ -1,14 +1,15 @@
 """EucherZero player profile implementation."""
 
-from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Optional
 
 import numpy as np
 import torch
 
 from eucher.cards import Card, Rank, Suit
+from eucher.personality_training import assert_checkpoint_adequate, resolve_checkpoint_path
 from eucher.players.base import PlayerProfile
-from .action_space import ActionEncoder, ACTION_SPACE_SIZE
+
+from .action_space import ActionEncoder
 from .config import EucherZeroConfig
 from .mcts.search import MCTSSearch
 from .networks.model import EucherZeroModel
@@ -29,6 +30,7 @@ class EucherZeroPlayer(PlayerProfile):
         num_simulations: Optional[int] = None,
         risk_factor: float = 0.0,
         game: Optional[object] = None,
+        require_trained: bool = True,
     ) -> None:
         """
         Initialize EucherZero player.
@@ -47,6 +49,15 @@ class EucherZeroPlayer(PlayerProfile):
             Risk factor for decision making (0.0-1.0).
         game : Optional[object]
             Game instance (will be set by game integration).
+        require_trained : bool
+            When True, load a checkpoint instead of a randomly initialized network.
+
+        Raises
+        ------
+        UntrainedPersonalityError
+            If ``require_trained`` is True and no adequate checkpoint exists.
+            A caller-supplied ``model`` is used as-is so in-process training
+            can pass the network it is updating.
         """
         if config is None:
             config = EucherZeroConfig()
@@ -61,11 +72,19 @@ class EucherZeroPlayer(PlayerProfile):
         # Initialize model
         if model is not None:
             self.model = model
-        elif model_path is not None and Path(model_path).exists():
-            self.model = EucherZeroModel(config)
-            self.model.load_checkpoint(Path(model_path))
         else:
+            checkpoint = resolve_checkpoint_path(
+                "eucher_zero",
+                model_path,
+                config.checkpoint_dir,
+                require_trained,
+            )
             self.model = EucherZeroModel(config)
+            if checkpoint is not None:
+                payload = torch.load(checkpoint, map_location="cpu")
+                if require_trained and isinstance(payload, dict):
+                    assert_checkpoint_adequate("eucher_zero", payload, checkpoint)
+                self.model.load_checkpoint(checkpoint)
 
         self.model.eval_mode()
 

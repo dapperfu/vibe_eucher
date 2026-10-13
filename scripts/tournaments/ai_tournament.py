@@ -31,6 +31,7 @@ warnings.filterwarnings("ignore", message=".*global interpreter lock.*", categor
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from eucher.game import Game
+from eucher.personality_training import UntrainedPersonalityError
 from eucher.plugins import get_registry
 
 
@@ -77,6 +78,9 @@ def check_player_type_available(player_type: str) -> bool:
         test_game = Game(test_config, seed=0)
         # If we get here, the player type is available
         return True
+    except UntrainedPersonalityError as exc:
+        print(f"Error: {exc}")
+        return False
     except (ValueError, ImportError, Exception) as e:
         # Player type not available
         return False

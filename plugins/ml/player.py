@@ -1,11 +1,14 @@
 """ML-based player using sklearn, GAN, or RL models for decision making."""
 
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Optional
-
-import numpy as np
+from typing import TYPE_CHECKING, List, NoReturn, Optional
 
 from eucher.cards import Card, Suit
+from eucher.personality_training import (
+    UntrainedPersonalityError,
+    assert_checkpoint_adequate,
+    missing_training_message,
+)
 from eucher.players.computer.base import ComputerPlayer
 from eucher.training.profiling import timed_operation
 
@@ -16,6 +19,8 @@ from .ml_decision_weights import (
     select_action_from_weights,
 )
 from .ml_features import GameStateEncoder
+from .models.ml_models_gan import GANCardPlayModel
+from .models.ml_models_rl import RLAgent
 from .models.ml_models_supervised import (
     CallTrumpClassifier,
     DiscardCardClassifier,
@@ -25,17 +30,6 @@ from .models.ml_models_supervised import (
 
 if TYPE_CHECKING:
     from eucher.players import Player
-
-# Optional imports for GAN and RL
-try:
-    from plugins.ml.models.ml_models_gan import GANCardPlayModel
-except ImportError:
-    GANCardPlayModel = None  # type: ignore
-
-try:
-    from plugins.ml.models.ml_models_rl import RLAgent
-except ImportError:
-    RLAgent = None  # type: ignore
 
 
 class MLPlayer(ComputerPlayer):
@@ -50,6 +44,7 @@ class MLPlayer(ComputerPlayer):
         training_mode: bool = False,
         trump_selection_risk: Optional[float] = None,
         gameplay_risk: Optional[float] = None,
+        require_trained: bool = True,
     ) -> None:
         """
         Initialize an ML-based player.
@@ -71,9 +66,19 @@ class MLPlayer(ComputerPlayer):
             Risk factor for trump selection decisions (0.0-1.0). If None, uses config default.
         gameplay_risk : Optional[float]
             Risk factor for gameplay decisions (0.0-1.0). If None, uses config default.
+        require_trained : bool
+            When True, refuse to construct the player unless every model it
+            plays with has been fitted or loaded from a trained checkpoint.
+            Training code that still needs heuristic fallbacks passes False.
+
+        Raises
+        ------
+        UntrainedPersonalityError
+            If ``require_trained`` is True and the backend has no adequate model.
         """
         super().__init__()
         self.backend = backend
+        self.require_trained = require_trained
         self.model_type = model_type
         self.config = MLConfig()
         self.encoder = GameStateEncoder()
@@ -90,6 +95,7 @@ class MLPlayer(ComputerPlayer):
         if model_dir is None:
             model_dir = self.config.models_dir
         self.model_dir = Path(model_dir)
+        self._rl_training_stats: Optional[dict] = None
 
         # Initialize based on backend
         if backend == "supervised":
@@ -100,6 +106,78 @@ class MLPlayer(ComputerPlayer):
             self._init_rl_models()
         else:
             raise ValueError(f"Unknown backend: {backend}")
+
+        if self.require_trained:
+            self._assert_adequately_trained()
+
+    def _personality_name(self) -> str:
+        """Return the plugin name for this backend.
+
+        Returns
+        -------
+        str
+            Personality type name.
+        """
+        names = {"supervised": "ml_sklearn", "gan": "ml_gan", "rl": "ml_rl"}
+        return names.get(self.backend, self.backend)
+
+    def _raise_untrained(self, decision: str) -> NoReturn:
+        """Raise because this personality cannot make a trained decision.
+
+        Parameters
+        ----------
+        decision : str
+            Decision that was requested.
+
+        Raises
+        ------
+        UntrainedPersonalityError
+            Always.
+        """
+        raise UntrainedPersonalityError(
+            f"{self._personality_name()} has not been adequately trained to decide {decision}."
+        )
+
+    def _assert_adequately_trained(self) -> None:
+        """Require fitted or checkpointed weights for the active backend.
+
+        Raises
+        ------
+        UntrainedPersonalityError
+            When the backend is missing trained weights, or a checkpoint
+            records zero completed training.
+        """
+        if self.backend == "supervised":
+            required = (
+                ("order up", self.order_up_classifier.model, self.model_dir / "order_up.pkl"),
+                ("call trump", self.call_trump_classifier.model, self.model_dir / "call_trump.pkl"),
+                ("play card", self.play_card_classifier.model, self.model_dir / "play_card.pkl"),
+                ("discard", self.discard_card_classifier.model, self.model_dir / "discard.pkl"),
+            )
+            missing = [
+                name
+                for name, model, path in required
+                if not path.exists() or not self._is_model_fitted(model)
+            ]
+            if missing:
+                raise UntrainedPersonalityError(
+                    missing_training_message("ml_sklearn", self.model_dir)
+                    + f" Unfitted decisions: {', '.join(missing)}."
+                )
+            return
+
+        if self.backend == "gan":
+            gan_path = self.model_dir / "gan_model.pth"
+            if not self.gan_model.weights_loaded:
+                raise UntrainedPersonalityError(missing_training_message("ml_gan", gan_path))
+            return
+
+        if self.backend == "rl":
+            rl_path = self.model_dir / "rl_model.pth"
+            if not self.rl_agent.weights_loaded:
+                raise UntrainedPersonalityError(missing_training_message("ml_rl", rl_path))
+            if isinstance(self._rl_training_stats, dict):
+                assert_checkpoint_adequate("ml_rl", self._rl_training_stats, rl_path)
 
     def _init_supervised_models(self) -> None:
         """Initialize supervised learning models."""
@@ -114,8 +192,6 @@ class MLPlayer(ComputerPlayer):
 
     def _init_gan_models(self) -> None:
         """Initialize GAN models."""
-        if GANCardPlayModel is None:
-            raise ImportError("GAN models not available. Install PyTorch.")
         self.gan_model = GANCardPlayModel(self.config)
         gan_path = self.model_dir / "gan_model.pth"
         if gan_path.exists():
@@ -123,12 +199,12 @@ class MLPlayer(ComputerPlayer):
 
     def _init_rl_models(self) -> None:
         """Initialize RL models."""
-        if RLAgent is None:
-            raise ImportError("RL models not available. Install PyTorch.")
         self.rl_agent = RLAgent(self.config)
         rl_path = self.model_dir / "rl_model.pth"
         if rl_path.exists():
-            self.rl_agent.load(rl_path)
+            loaded = self.rl_agent.load(rl_path)
+            if isinstance(loaded, dict):
+                self._rl_training_stats = loaded
 
     def _load_models(self) -> None:
         """Load trained models from disk if they exist."""
@@ -239,6 +315,8 @@ class MLPlayer(ComputerPlayer):
                 # Apply temperature threshold: weight >= temperature means order up
                 order_up_weight = weights[1]  # Probability of ordering up
                 return order_up_weight >= self.trump_selection_risk
+            elif self.require_trained:
+                self._raise_untrained("order up")
             else:
                 # Model not fitted, use heuristic fallback
                 trump_count = self._count_trump_cards(player.hand, turned_card.suit)
@@ -321,6 +399,8 @@ class MLPlayer(ComputerPlayer):
                 else:
                     # Fallback: use original method
                     predicted_suit = self.call_trump_classifier.predict_suit(X, turned_card.suit)
+            elif self.require_trained:
+                self._raise_untrained("call trump")
             else:
                 # Model not fitted, use heuristic fallback
                 suits = [Suit.HEARTS, Suit.DIAMONDS, Suit.CLUBS, Suit.SPADES]
@@ -413,6 +493,8 @@ class MLPlayer(ComputerPlayer):
                 predicted_card = self.encoder.decode_card_index(predicted_idx)
                 if predicted_card is not None and predicted_card in player.hand:
                     return predicted_card
+            if self.require_trained and not self._is_model_fitted(self.discard_card_classifier.model):
+                self._raise_untrained("discard")
             # Model not fitted or prediction failed, use heuristic fallback
             return min(player.hand, key=lambda c: c.rank.value)
         else:
@@ -503,6 +585,8 @@ class MLPlayer(ComputerPlayer):
                 predicted_card = self.encoder.decode_card_index(predicted_idx)
                 if predicted_card is not None and predicted_card in valid_cards:
                     return predicted_card
+            if self.require_trained and not self._is_model_fitted(self.play_card_classifier.model):
+                self._raise_untrained("card play")
             # Model not fitted or prediction failed, use fallback
             return valid_cards[0]
         elif self.backend == "gan":

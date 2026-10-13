@@ -5,10 +5,10 @@ import uuid
 from typing import List, Optional, Tuple, Union
 
 import numpy as np
-import torch
 
 from eucher.cards import Card, Deck, Suit
 from eucher.players import Player
+
 # Import AIDecisionMaker from plugins (moved from eucher.players.computer.ai)
 try:
     from plugins.weighted_heuristic import AIDecisionMaker
@@ -40,12 +40,12 @@ try:
     from plugins.random import RandomPlayer  # type: ignore
 except ImportError:
     RandomPlayer = None  # type: ignore
+from eucher.game_stats import GameStatistics
 from eucher.players.profiles import HumanProfile, MLBasedProfile, PlayerProfile
 from eucher.plugins import get_registry
 from eucher.rules import RulesEngine
-from eucher.game_stats import GameStatistics
-from eucher.training.profiling import timed_operation
 from eucher.trade_in import TradeInHandler
+from eucher.training.profiling import timed_operation
 from eucher.trump import TrumpSelector
 
 
@@ -59,6 +59,7 @@ class Game:
         gameplay_risk: Optional[float] = None,
         seed: Optional[Union[int, str]] = None,
         trade_in_enabled: bool = False,
+        allow_untrained: bool = False,
     ) -> None:
         """
         Initialize a new game.
@@ -81,6 +82,10 @@ class Game:
         trade_in_enabled : bool
             If True, enables the Midwest 9-10 trade-in variant.
             Default is False.
+        allow_untrained : bool
+            When True, machine-learning personalities may be created before
+            they have a trained checkpoint. Play uses the default, False,
+            and those personalities raise ``UntrainedPersonalityError``.
         """
         if len(player_config) != 4:
             raise ValueError("Euchre requires exactly 4 players")
@@ -142,6 +147,7 @@ class Game:
 
         # Store trade-in configuration
         self.trade_in_enabled = trade_in_enabled
+        self.allow_untrained = allow_untrained
 
         # Create players with profiles
         for i, (name, profile_type) in enumerate(player_config):
@@ -195,6 +201,7 @@ class Game:
                 kwargs["trump_selection_risk"] = self.trump_selection_risk
             if self.gameplay_risk is not None:
                 kwargs["gameplay_risk"] = self.gameplay_risk
+            kwargs["allow_untrained"] = self.allow_untrained
 
             # Call factory with game instance if required
             if plugin_metadata.requires_game:
@@ -223,20 +230,24 @@ class Game:
         elif profile_type == "pytorch_ai" or profile_type == "pytorch_strategic":
             from plugins.ml.pytorch.pytorch_player import PyTorchStrategicPlayer
 
-            return PyTorchStrategicPlayer()
+            return PyTorchStrategicPlayer(require_trained=not self.allow_untrained)
         elif profile_type == "eucher_zero":
-            from plugins.eucher_zero.player import EucherZeroPlayer
             from plugins.eucher_zero.config import EucherZeroConfig
+            from plugins.eucher_zero.player import EucherZeroPlayer
 
             config = EucherZeroConfig()
-            player = EucherZeroPlayer(config=config, game=self)
+            player = EucherZeroPlayer(
+                config=config,
+                game=self,
+                require_trained=not self.allow_untrained,
+            )
             return player
         elif profile_type.startswith("perceiver_muzero"):
-            from plugins.perceiver_muzero.player import (
-                EucherPerceiverMuZeroPlayer,
-            )
             from plugins.perceiver_muzero.config import (
                 PerceiverMuZeroConfig,
+            )
+            from plugins.perceiver_muzero.player import (
+                EucherPerceiverMuZeroPlayer,
             )
 
             config = PerceiverMuZeroConfig()
@@ -253,30 +264,33 @@ class Game:
             
             # If no simulation count specified or 1, use fast mode (equivalent to 1 simulation)
             if num_simulations is None or num_simulations == 1:
-                player = EucherPerceiverMuZeroPlayer(config=config, game=self, fast_mode=True)
+                player = EucherPerceiverMuZeroPlayer(
+                    config=config,
+                    game=self,
+                    fast_mode=True,
+                    require_trained=not self.allow_untrained,
+                )
             else:
                 # Use specified number of simulations (not fast mode)
                 player = EucherPerceiverMuZeroPlayer(
-                    config=config, game=self, num_simulations=num_simulations, fast_mode=False
+                    config=config,
+                    game=self,
+                    num_simulations=num_simulations,
+                    fast_mode=False,
+                    require_trained=not self.allow_untrained,
                 )
             return player
         elif profile_type == "reinforcement_eucher":
-            from plugins.reinforcement_eucher.player import ReinforcementEucherPlayer
             from plugins.reinforcement_eucher.config import ReinforcementEucherConfig
-            from plugins.reinforcement_eucher.networks.model import ReinforcementEucherModel
+            from plugins.reinforcement_eucher.player import ReinforcementEucherPlayer
+            from plugins.reinforcement_eucher.plugin import _load_reinforcement_model
 
             config = ReinforcementEucherConfig()
-            model = ReinforcementEucherModel(config)
-            
-            # Try to load checkpoint if available
-            checkpoint_dir = config.checkpoint_dir
-            latest_checkpoint = checkpoint_dir / "latest_checkpoint.pt"
-            if latest_checkpoint.exists() and latest_checkpoint.is_symlink():
-                resolved = latest_checkpoint.resolve()
-                if resolved.exists():
-                    checkpoint = torch.load(resolved, map_location=config.torch_device)
-                    model.load_state_dict(checkpoint["model_state_dict"])
-            
+            model = _load_reinforcement_model(
+                config,
+                None,
+                require_trained=not self.allow_untrained,
+            )
             player = ReinforcementEucherPlayer(model=model, game=self)
             return player
         else:
@@ -321,11 +335,21 @@ class Game:
             card_path = config.get_model_path("play_card.pth")
             discard_path = config.get_model_path("discard.pth")
 
-            if trump_path.exists() or card_path.exists() or discard_path.exists():
+            weights_present = trump_path.exists() and card_path.exists() and discard_path.exists()
+            if weights_present:
                 self._ml_model.load_weights(
-                    trump_path=str(trump_path) if trump_path.exists() else None,
-                    card_play_path=str(card_path) if card_path.exists() else None,
-                    discard_path=str(discard_path) if discard_path.exists() else None,
+                    trump_path=str(trump_path),
+                    card_play_path=str(card_path),
+                    discard_path=str(discard_path),
+                )
+            elif not self.allow_untrained:
+                from eucher.personality_training import (
+                    UntrainedPersonalityError,
+                    missing_training_message,
+                )
+
+                raise UntrainedPersonalityError(
+                    missing_training_message("ml_pytorch", config.models_dir)
                 )
 
         # Create game state provider function
@@ -382,6 +406,7 @@ class Game:
             game_state_provider=get_game_state,
             trump_selection_risk=self.trump_selection_risk,
             gameplay_risk=self.gameplay_risk,
+            require_trained=not self.allow_untrained,
         )
 
     def set_tui(self, tui) -> None:

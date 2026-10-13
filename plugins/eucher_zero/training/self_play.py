@@ -89,7 +89,7 @@ def generate_self_play_game(
                 ("EucherZero_2", "eucher_zero"),
                 ("EucherZero_3", "eucher_zero"),
             ]
-            game = Game(player_config)
+            game = Game(player_config, allow_untrained=True)
 
             # Set game reference for all EucherZero players
             for player in game.players:

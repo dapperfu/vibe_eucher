@@ -321,6 +321,7 @@ def train_rl_through_self_play(
                 player_config,
                 trump_selection_risk=config.trump_selection_risk,
                 gameplay_risk=config.gameplay_risk,
+                allow_untrained=True,
             )
 
             # Play game and collect experiences

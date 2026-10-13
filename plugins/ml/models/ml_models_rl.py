@@ -9,8 +9,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from eucher.cards import Card, Suit
-
 from ..ml_config import MLConfig
 
 
@@ -149,6 +147,7 @@ class RLAgent:
         self.epsilon_decay = 0.995
         self.epsilon_min = 0.01
         self.step_count = 0
+        self.weights_loaded = False
 
     def select_action(
         self,
@@ -271,6 +270,10 @@ class RLAgent:
             self.q_network.load_state_dict(checkpoint["q_network"])
             self.target_network.load_state_dict(checkpoint["target_network"])
             self.epsilon = checkpoint.get("epsilon", self.epsilon_min)
-            return checkpoint.get("training_stats")
+            self.weights_loaded = True
+            stats = checkpoint.get("training_stats")
+            if isinstance(stats, dict):
+                return stats
+            return checkpoint
         return None
 

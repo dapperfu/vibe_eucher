@@ -98,7 +98,7 @@ def generate_self_play_game(
                 ("PerceiverMuZero_2", "perceiver_muzero"),
                 ("PerceiverMuZero_3", "perceiver_muzero"),
             ]
-            game = Game(player_config)
+            game = Game(player_config, allow_untrained=True)
 
             # Set game reference for all players
             for player in game.players:

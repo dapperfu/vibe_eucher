@@ -35,6 +35,7 @@ def create_perceiver_muzero_player(
     num_simulations = kwargs.get("num_simulations", None)
     risk_factor = kwargs.get("risk_factor", 0.0)
     fast_mode = kwargs.get("fast_mode", False)
+    require_trained = not bool(kwargs.get("allow_untrained", False))
 
     return EucherPerceiverMuZeroPlayer(
         model_path=model_path,
@@ -43,6 +44,7 @@ def create_perceiver_muzero_player(
         risk_factor=risk_factor,
         game=game,
         fast_mode=fast_mode,
+        require_trained=require_trained,
     )
 
 

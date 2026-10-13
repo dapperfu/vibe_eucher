@@ -7,7 +7,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from eucher.cards import Card, Suit
 from ..ml_config import MLConfig
 
 
@@ -128,6 +127,7 @@ class GANCardPlayModel:
         self.generator = EuchreGANGenerator().to(self.device)
         # Discriminator input: features (260) + decision one-hot (24) = 284
         self.discriminator = EuchreGANDiscriminator(input_size=284).to(self.device)
+        self.weights_loaded = False
 
     def predict(self, features: np.ndarray, valid_card_indices: List[int]) -> int:
         """
@@ -229,6 +229,7 @@ class GANCardPlayModel:
             },
             filepath,
         )
+        self.weights_loaded = True
 
     def load(self, filepath: Path) -> None:
         """
@@ -243,4 +244,5 @@ class GANCardPlayModel:
             checkpoint = torch.load(filepath, map_location=self.device)
             self.generator.load_state_dict(checkpoint["generator"])
             self.discriminator.load_state_dict(checkpoint["discriminator"])
+            self.weights_loaded = True
 

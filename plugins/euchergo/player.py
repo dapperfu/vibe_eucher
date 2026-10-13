@@ -7,14 +7,19 @@ import numpy as np
 import torch
 
 from eucher.cards import Card, Rank, Suit
+from eucher.personality_training import (
+    assert_checkpoint_adequate,
+    resolve_checkpoint_path,
+)
 from eucher.players.base import PlayerProfile
+from eucher.rules import RulesEngine
+
 from .action_space import ActionEncoder
 from .config import EucherGoConfig
 from .mcts.search import EucherGoMCTSSearch
 from .networks.model import EucherGoModel
 from .state_encoder import EucherGoStateEncoder
 from .utils.belief_tracker import BeliefTracker
-from eucher.rules import RulesEngine
 
 if TYPE_CHECKING:
     from eucher.players import Player
@@ -38,6 +43,7 @@ class EucherGoPlayer(PlayerProfile):
         num_simulations: Optional[int] = None,
         risk_factor: float = 0.0,
         game: Optional[object] = None,
+        require_trained: bool = True,
     ) -> None:
         """
         Initialize EucherGo player.
@@ -56,6 +62,15 @@ class EucherGoPlayer(PlayerProfile):
             Risk factor for decision making (0.0-1.0).
         game : Optional[object]
             Game instance (will be set by game integration).
+        require_trained : bool
+            When True, load a checkpoint instead of a randomly initialized network.
+
+        Raises
+        ------
+        UntrainedPersonalityError
+            If ``require_trained`` is True and no adequate checkpoint exists.
+            A caller-supplied ``model`` is used as-is so in-process training
+            can pass the network it is updating.
         """
         if config is None:
             config = EucherGoConfig()
@@ -68,25 +83,7 @@ class EucherGoPlayer(PlayerProfile):
         self.game = game
 
         # Initialize model
-        if model is not None:
-            self.model = model
-        elif model_path is not None and Path(model_path).exists():
-            self.model = EucherGoModel(
-                input_size=config.input_size,
-                hidden_size=config.hidden_size,
-                num_layers=config.num_layers,
-                use_conv1d=config.use_conv1d,
-                action_space_size=ActionEncoder.ACTION_SPACE_SIZE,
-            )
-            self.model.load_checkpoint(Path(model_path))
-        else:
-            self.model = EucherGoModel(
-                input_size=config.input_size,
-                hidden_size=config.hidden_size,
-                num_layers=config.num_layers,
-                use_conv1d=config.use_conv1d,
-                action_space_size=ActionEncoder.ACTION_SPACE_SIZE,
-            )
+        self.model = self._build_model(model, model_path, config, require_trained)
 
         self.model.to(config.device)
         self.model.eval_mode()
@@ -107,6 +104,61 @@ class EucherGoPlayer(PlayerProfile):
         self.trick_history: List[List[Card]] = []
         self.current_trick_cards: List[Card] = []
         self.current_trick_player_ids: List[int] = []
+
+    def _build_model(
+        self,
+        model: Optional[EucherGoModel],
+        model_path: Optional[str],
+        config: EucherGoConfig,
+        require_trained: bool,
+    ) -> EucherGoModel:
+        """Create the network and load a checkpoint when one is required.
+
+        Parameters
+        ----------
+        model : Optional[EucherGoModel]
+            Caller-supplied network. Used as-is when provided.
+        model_path : Optional[str]
+            Explicit checkpoint path.
+        config : EucherGoConfig
+            Model configuration.
+        require_trained : bool
+            When True, a checkpoint must exist.
+
+        Returns
+        -------
+        EucherGoModel
+            Network ready for evaluation or training.
+
+        Raises
+        ------
+        UntrainedPersonalityError
+            When a trained checkpoint is required and none is adequate.
+        """
+        if model is not None:
+            return model
+
+        checkpoint = resolve_checkpoint_path(
+            "euchergo",
+            model_path,
+            Path("models/checkpoints/euchergo"),
+            require_trained,
+        )
+        network = EucherGoModel(
+            input_size=config.input_size,
+            hidden_size=config.hidden_size,
+            num_layers=config.num_layers,
+            use_conv1d=config.use_conv1d,
+            action_space_size=ActionEncoder.ACTION_SPACE_SIZE,
+        )
+        if checkpoint is None:
+            return network
+
+        payload = torch.load(checkpoint, map_location="cpu")
+        if require_trained and isinstance(payload, dict):
+            assert_checkpoint_adequate("euchergo", payload, checkpoint)
+        network.load_checkpoint(checkpoint)
+        return network
 
     def set_game(self, game: object) -> None:
         """
