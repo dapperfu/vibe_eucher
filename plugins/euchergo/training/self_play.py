@@ -85,7 +85,7 @@ def generate_self_play_game(
                 ("EucherGo_2", "euchergo"),
                 ("EucherGo_3", "euchergo"),
             ]
-            game = Game(player_config)
+            game = Game(player_config, allow_untrained=True)
 
             # Set game reference and model for all EucherGo players
             for player in game.players:

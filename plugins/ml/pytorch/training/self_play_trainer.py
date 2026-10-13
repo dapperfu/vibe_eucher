@@ -271,7 +271,7 @@ class SelfPlayPyTorchTrainer:
                     self.dashboard.update_live_display(self._live_display)
 
             # Create game first
-            game = Game(game_config)
+            game = Game(game_config, allow_untrained=True)
 
             # Update PyTorch players with current model and epsilon
             for i, (name, profile_type) in enumerate(player_config):
@@ -281,6 +281,7 @@ class SelfPlayPyTorchTrainer:
                         model_path=None,
                         device=str(self.device),
                         exploration_epsilon=epsilon,
+                        require_trained=False,
                     )
                     profile.model = self.model
                     profile.model.eval()

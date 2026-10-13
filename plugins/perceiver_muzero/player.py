@@ -1,15 +1,15 @@
 """EucherPerceiverMuZero player profile implementation."""
 
-from pathlib import Path
 from typing import TYPE_CHECKING, List, Optional
 
 import numpy as np
 import torch
 
-from eucher.cards import Card, Rank, Suit
+from eucher.cards import Card, Suit
+from eucher.personality_training import assert_checkpoint_adequate, resolve_checkpoint_path
 from eucher.players.base import PlayerProfile
 
-from .action_space import ActionEncoder, ACTION_SPACE_SIZE
+from .action_space import ActionEncoder
 from .config import PerceiverMuZeroConfig
 from .mcts.search import MCTSSearch
 from .networks.model import PerceiverMuZeroModel
@@ -31,6 +31,7 @@ class EucherPerceiverMuZeroPlayer(PlayerProfile):
         risk_factor: float = 0.0,
         game: Optional[object] = None,
         fast_mode: bool = False,
+        require_trained: bool = True,
     ) -> None:
         """
         Initialize EucherPerceiverMuZero player.
@@ -51,6 +52,15 @@ class EucherPerceiverMuZeroPlayer(PlayerProfile):
             Game instance (will be set by game integration).
         fast_mode : bool
             If True, use feed-forward only (no MCTS). Much faster for tournaments.
+        require_trained : bool
+            When True, load a checkpoint instead of a randomly initialized network.
+
+        Raises
+        ------
+        UntrainedPersonalityError
+            If ``require_trained`` is True and no adequate checkpoint exists.
+            A caller-supplied ``model`` is used as-is so in-process training
+            can pass the network it is updating.
         """
         if config is None:
             config = PerceiverMuZeroConfig()
@@ -66,11 +76,19 @@ class EucherPerceiverMuZeroPlayer(PlayerProfile):
         # Initialize model
         if model is not None:
             self.model = model
-        elif model_path is not None and Path(model_path).exists():
-            self.model = PerceiverMuZeroModel(config)
-            self.model.load_checkpoint(Path(model_path))
         else:
+            checkpoint = resolve_checkpoint_path(
+                "perceiver_muzero",
+                model_path,
+                config.checkpoint_dir,
+                require_trained,
+            )
             self.model = PerceiverMuZeroModel(config)
+            if checkpoint is not None:
+                payload = torch.load(checkpoint, map_location="cpu")
+                if require_trained and isinstance(payload, dict):
+                    assert_checkpoint_adequate("perceiver_muzero", payload, checkpoint)
+                self.model.load_checkpoint(checkpoint)
 
         self.model.eval_mode()
 

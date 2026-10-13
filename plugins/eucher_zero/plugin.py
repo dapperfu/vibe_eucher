@@ -42,6 +42,7 @@ def create_eucher_zero_player(
     model_path = kwargs.get("model_path", None)
     num_simulations = kwargs.get("num_simulations", None)
     risk_factor = kwargs.get("risk_factor", 0.0)
+    require_trained = not bool(kwargs.get("allow_untrained", False))
 
     return EucherZeroPlayer(
         model_path=model_path,
@@ -49,6 +50,7 @@ def create_eucher_zero_player(
         num_simulations=num_simulations,
         risk_factor=risk_factor,
         game=game,
+        require_trained=require_trained,
     )
 
 

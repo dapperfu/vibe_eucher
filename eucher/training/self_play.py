@@ -54,7 +54,7 @@ class SelfPlayTrainer:
         self.data_collector.start_game(game_id)
 
         # Create game with the same UUID as game_id for consistency
-        game = Game(player_config, seed=game_id)
+        game = Game(player_config, seed=game_id, allow_untrained=True)
 
         # Determine which players to collect from
         if collect_from_players is None:

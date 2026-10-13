@@ -370,7 +370,7 @@ def main() -> None:
                             (f"Opponent_3", opponent_type),
                         ]
 
-                        game = Game(player_config)
+                        game = Game(player_config, allow_untrained=True)
 
                         # Set game reference for all players
                         for player in game.players:

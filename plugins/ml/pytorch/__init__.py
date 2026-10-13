@@ -1,7 +1,8 @@
 """PyTorch-based AI player implementation."""
 
-from .pytorch_player import PyTorchStrategicPlayer
 from eucher.plugins import get_registry, register_plugin
+
+from .pytorch_player import PyTorchStrategicPlayer
 
 __all__ = ["PyTorchStrategicPlayer"]
 
@@ -11,8 +12,12 @@ def _create_pytorch_player(game=None, **kwargs):
     model_path = kwargs.get("model_path", None)
     device = kwargs.get("device", None)
     exploration_epsilon = kwargs.get("exploration_epsilon", 0.0)
+    require_trained = not bool(kwargs.get("allow_untrained", False))
     return PyTorchStrategicPlayer(
-        model_path=model_path, device=device, exploration_epsilon=exploration_epsilon
+        model_path=model_path,
+        device=device,
+        exploration_epsilon=exploration_epsilon,
+        require_trained=require_trained,
     )
 
 
