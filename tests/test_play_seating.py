@@ -5,7 +5,21 @@ import random
 import pytest
 from click.testing import CliRunner
 
-from eucher.cli import COMPUTER_TYPES, assign_computer_types, cli, ml_personality_names
+from eucher.cli import (
+    assign_computer_types,
+    cli,
+    ml_personality_names,
+    trained_ml_personality_names,
+)
+
+
+@pytest.fixture(autouse=True)
+def _treat_registered_models_as_trained(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep seating tests independent of checkpoints on disk.
+
+    Tests that care about the trained filter override this patch.
+    """
+    monkeypatch.setattr("eucher.cli.personality_is_trained", lambda name: True)
 
 
 def test_machine_learning_names_drop_aliases() -> None:
@@ -28,7 +42,7 @@ def test_machine_learning_names_drop_aliases() -> None:
 def test_one_opponent_type_fills_both_opponents() -> None:
     """A single opponent type is used for both opponents, not the partner."""
     random.seed(123)
-    expected_partner = random.choice(ml_personality_names())
+    expected_partner = random.choice(trained_ml_personality_names())
 
     random.seed(123)
     seats = assign_computer_types("heuristic", None)
@@ -40,7 +54,7 @@ def test_one_opponent_type_fills_both_opponents() -> None:
 def test_two_opponent_types_are_the_opponents() -> None:
     """Two listed types are the left and right opponents."""
     random.seed(7)
-    expected_partner = random.choice(ml_personality_names())
+    expected_partner = random.choice(trained_ml_personality_names())
 
     random.seed(7)
     seats = assign_computer_types("euchergo,eucher_zero", None)
@@ -57,28 +71,65 @@ def test_partner_type_overrides_the_random_partner() -> None:
     assert seats == ["euchergo", "heuristic2", "eucher_zero"]
 
 
-def test_omitted_types_draw_opponents_then_a_machine_learning_partner() -> None:
-    """Unspecified opponents come from every computer type, then the partner."""
-    pool = [name.lower() for name in COMPUTER_TYPES]
+def test_omitted_types_draw_trained_machine_learning_seats() -> None:
+    """Unspecified opponents and the partner come from the trained draw."""
+    pool = trained_ml_personality_names()
     random.seed(1)
     left = random.choice(pool)
     right = random.choice(pool)
-    partner = random.choice(ml_personality_names())
+    partner = random.choice(pool)
 
     random.seed(1)
     assert assign_computer_types(None, None) == [left, partner, right]
-    assert partner in ml_personality_names()
+    assert partner in pool
 
 
 def test_explicit_partner_does_not_consume_the_partner_draw() -> None:
     """A chosen partner leaves the random draw for the two opponents only."""
-    pool = [name.lower() for name in COMPUTER_TYPES]
+    pool = trained_ml_personality_names()
     random.seed(3)
     left = random.choice(pool)
     right = random.choice(pool)
 
     random.seed(3)
     assert assign_computer_types(None, "heuristic") == [left, "heuristic", right]
+
+
+def test_random_seats_skip_untrained_personalities(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An untrained model is not a random partner or opponent."""
+    monkeypatch.setattr(
+        "eucher.cli.personality_is_trained",
+        lambda name: name != "ml_pytorch",
+    )
+
+    for seed in range(20):
+        random.seed(seed)
+        seats = assign_computer_types(None, None)
+        assert "ml_pytorch" not in seats
+        assert all(seat in trained_ml_personality_names() for seat in seats)
+
+
+def test_explicit_request_can_still_name_an_untrained_personality(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Passing a type seats it even when that model has not been trained."""
+    monkeypatch.setattr("eucher.cli.personality_is_trained", lambda name: False)
+
+    assert assign_computer_types("heuristic", "ml_pytorch") == [
+        "heuristic",
+        "ml_pytorch",
+        "heuristic",
+    ]
+
+
+def test_random_seat_requires_a_trained_personality(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A random partner or opponent is an error when nothing has been trained."""
+    monkeypatch.setattr("eucher.cli.personality_is_trained", lambda name: False)
+
+    with pytest.raises(ValueError, match="No trained machine-learning"):
+        assign_computer_types("heuristic", None)
+    with pytest.raises(ValueError, match="No trained machine-learning"):
+        assign_computer_types(None, "heuristic")
 
 
 def test_more_than_two_opponent_types_are_rejected() -> None:
@@ -108,6 +159,7 @@ def test_play_help_documents_separate_partner_type() -> None:
     assert "--partner-type" in help_text
     assert "Does not set your partner" in help_text
     assert "random machine-learning personality" in help_text
+    assert "that has been trained" in help_text
 
 
 def test_play_command_rejects_three_opponent_types() -> None:

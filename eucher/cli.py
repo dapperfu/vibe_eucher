@@ -40,6 +40,7 @@ from eucher.db_serializers import (
     trick_to_dict,
 )
 from eucher.game import Game
+from eucher.personality_training import personality_is_trained
 from eucher.plugins import get_registry
 from eucher.tui import TextTUI
 
@@ -179,7 +180,7 @@ def ml_personality_names() -> List[str]:
     Returns
     -------
     list[str]
-        Sorted personality names that can be chosen as a random partner.
+        Sorted registered machine-learning names, including untrained ones.
     """
     registry = get_registry()
     by_factory: dict[int, List[str]] = {}
@@ -196,6 +197,50 @@ def ml_personality_names() -> List[str]:
     return sorted(selected)
 
 
+def trained_ml_personality_names() -> List[str]:
+    """Return machine-learning personalities that have adequate training.
+
+    ``ml_personality_names`` lists every learned implementation. This list
+    keeps only those that can play: a checkpoint or weight file is present,
+    and any recorded games, tricks, or steps are greater than zero.
+
+    Returns
+    -------
+    list[str]
+        Sorted names a random partner or opponent may use.
+    """
+    return [name for name in ml_personality_names() if personality_is_trained(name)]
+
+
+def _choose_trained_personality(choices: Sequence[str]) -> str:
+    """Choose one trained machine-learning personality.
+
+    Parameters
+    ----------
+    choices : Sequence[str]
+        Trained personality names.
+
+    Returns
+    -------
+    str
+        One name from ``choices``.
+
+    Raises
+    ------
+    ValueError
+        When ``choices`` is empty.
+    """
+    if not choices:
+        raise ValueError(
+            "No trained machine-learning personalities are available. "
+            "Train a personality and save a checkpoint, or pass "
+            "--opponent-type and --partner-type."
+        )
+    # ``list`` is a Click command in this module, so keep the builtin name.
+    names = tuple(choices)
+    return random.choice(names)
+
+
 def assign_computer_types(
     opponent_type: Optional[str],
     partner_type: Optional[str],
@@ -204,16 +249,17 @@ def assign_computer_types(
 
     ``--opponent-type`` never sets the partner. One opponent type is used for
     both opponents. Two types are the left-hand opponent and the right-hand
-    opponent. When ``--partner-type`` is omitted, the partner is a
+    opponent. When either flag is omitted, that seat is a trained
     machine-learning personality chosen with ``random.choice`` so a game seed
-    stays reproducible.
+    stays reproducible. Personalities with no checkpoint, and checkpoints that
+    record only zeros, are left out of the draw.
 
     Parameters
     ----------
     opponent_type : Optional[str]
         Comma-separated opponent personalities, or None to choose both at random.
     partner_type : Optional[str]
-        Partner personality, or None to choose a machine-learning personality.
+        Partner personality, or None to choose a trained machine-learning personality.
 
     Returns
     -------
@@ -224,8 +270,23 @@ def assign_computer_types(
     ------
     ValueError
         When a type name is unknown, more than two opponents are listed, or
-        no machine-learning personality is registered for a random partner.
+        no trained machine-learning personality is available for a random seat.
     """
+    trained: Optional[List[str]] = None
+
+    def trained_choices() -> List[str]:
+        """Load the trained draw once for this seating.
+
+        Returns
+        -------
+        list[str]
+            Trained machine-learning personality names.
+        """
+        nonlocal trained
+        if trained is None:
+            trained = trained_ml_personality_names()
+        return trained
+
     if opponent_type is not None and opponent_type.strip():
         opponent_types = _split_personality_types(opponent_type)
         if not opponent_types:
@@ -241,9 +302,8 @@ def assign_computer_types(
         else:
             left, right = opponent_types[0], opponent_types[1]
     else:
-        pool = [name.lower() for name in COMPUTER_TYPES]
-        left = random.choice(pool)
-        right = random.choice(pool)
+        left = _choose_trained_personality(trained_choices())
+        right = _choose_trained_personality(trained_choices())
 
     if partner_type is not None and partner_type.strip():
         partner_types = _split_personality_types(partner_type)
@@ -252,13 +312,7 @@ def assign_computer_types(
         _validate_personality_types(partner_types, "partner")
         partner = partner_types[0]
     else:
-        choices = ml_personality_names()
-        if not choices:
-            raise ValueError(
-                "No machine-learning personalities are registered. "
-                "Pass --partner-type to choose your partner."
-            )
-        partner = random.choice(choices)
+        partner = _choose_trained_personality(trained_choices())
 
     return [left, partner, right]
 
@@ -525,7 +579,9 @@ def _play_client(
     help=(
         "Personality for the two opponents (left, then right). "
         "One type is used for both. Two comma-separated types assign left and right. "
-        "Does not set your partner."
+        "Does not set your partner. "
+        "When omitted, each opponent is a random machine-learning personality "
+        "that has been trained."
     ),
 )
 @click.option(
@@ -534,7 +590,8 @@ def _play_client(
     default=None,
     help=(
         "Personality for your partner. "
-        "When omitted, the partner is a random machine-learning personality."
+        "When omitted, the partner is a random machine-learning personality "
+        "that has been trained."
     ),
 )
 @click.option("--name", default="You", help="Human player name")
@@ -571,10 +628,12 @@ def play(
 
     --opponent-type sets the opponents only. One type is used for both
     opponents. Two comma-separated types are the left-hand and right-hand
-    opponents. When it is omitted, each opponent is a random computer type.
+    opponents. When it is omitted, each opponent is a trained
+    machine-learning personality chosen at random.
 
     --partner-type sets the partner. When it is omitted, the partner is a
-    machine-learning personality chosen at random.
+    trained machine-learning personality chosen at random. Untrained
+    personalities are not part of either draw.
 
     The seed can be an integer or a UUID string. If a UUID is provided, it will
     be used to seed the random number generator and the game will be saved as

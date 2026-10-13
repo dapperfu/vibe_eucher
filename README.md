@@ -30,15 +30,15 @@ You are seat 0. The other three seats are, in order, the opponent on your left, 
 
 `--opponent-type` sets the opponents only. One type is used for both opponents. Two comma-separated types are the left-hand opponent and the right-hand opponent. That list does not set your partner.
 
-When `--partner-type` is omitted, your partner is a machine-learning personality chosen at random (`euchergo`, `eucher_zero`, `perceiver_muzero`, `reinforcement_eucher`, `ml_pytorch`, and the other learned models; aliases of the same model count once). Pass `--partner-type` to choose the partner, including a rule-based personality.
+When `--opponent-type` is omitted, each opponent is a trained machine-learning personality chosen at random. When `--partner-type` is omitted, your partner is chosen the same way. The draw includes a learned model only after it has been trained (`euchergo`, `eucher_zero`, `perceiver_muzero`, `reinforcement_eucher`, `ml_pytorch`, and the others; aliases of the same model count once). Untrained models are left out. Pass `--partner-type` or `--opponent-type` to choose a seat, including a rule-based personality.
 
-Both opponents Heuristic, partner a random machine-learning personality:
+Both opponents Heuristic, partner a random trained machine-learning personality:
 
 ```bash
 venv_vibe_eucher/bin/eucher play --opponent-type heuristic
 ```
 
-Left-hand opponent EucherGo, right-hand opponent EucherZero, partner a random machine-learning personality:
+Left-hand opponent EucherGo, right-hand opponent EucherZero, partner a random trained machine-learning personality:
 
 ```bash
 venv_vibe_eucher/bin/eucher play --opponent-type euchergo,eucher_zero
@@ -76,7 +76,7 @@ Adequate training means:
 - `ml_gan`, `ml_rl`, and `ml_pytorch`: a saved weight file
 - `eucher_zero`, `perceiver_muzero`, `euchergo`, and `reinforcement_eucher`: a checkpoint; if that file records games, tricks, or steps, the count has to be greater than zero
 
-Heuristic personalities are rule-based and can play immediately. Train a machine-learning personality with the command in its section below before selecting it for a game or a matchup. A tournament prints the same error and skips that personality when the checkpoint is missing.
+Heuristic personalities are rule-based and can play immediately. Train a machine-learning personality with the command in its section below before selecting it for a game or a matchup. Random partner and opponent selection skips a personality that fails this check. A tournament prints the same error and skips that personality when the checkpoint is missing.
 
 ## Testing
 
@@ -99,7 +99,7 @@ Computer opponents are personalities. Each one is a player plugin, selected by i
 eucher play --opponent-type heuristic
 ```
 
-That seats Heuristic as both opponents. Your partner is a random machine-learning personality unless you pass `--partner-type`.
+That seats Heuristic as both opponents. Your partner is a random trained machine-learning personality unless you pass `--partner-type`.
 
 Two names are the left-hand and right-hand opponents:
 
