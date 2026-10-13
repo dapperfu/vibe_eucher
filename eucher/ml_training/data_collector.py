@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from eucher.cards import Card, Suit
-from eucher.players.computer.ml.ml_config import MLConfig
+from plugins.ml.ml_config import MLConfig
 
 
 @dataclass

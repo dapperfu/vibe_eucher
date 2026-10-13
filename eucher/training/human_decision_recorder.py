@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from eucher.cards import Card, Suit
-from eucher.players.computer.ml.ml_features import GameStateEncoder
 from eucher.training.decision_format import (
     DecisionRecord,
     DecisionType,
@@ -13,6 +12,7 @@ from eucher.training.decision_format import (
     save_decisions,
     validate_decision,
 )
+from plugins.ml.ml_features import GameStateEncoder
 
 
 class HumanDecisionRecorder:
@@ -27,7 +27,7 @@ class HumanDecisionRecorder:
         output_file : Optional[Path]
             File to save recorded decisions. If None, uses default.
         """
-        from eucher.players.computer.ml.ml_config import MLConfig
+        from plugins.ml.ml_config import MLConfig
 
         self.config = MLConfig()
         if output_file is None:

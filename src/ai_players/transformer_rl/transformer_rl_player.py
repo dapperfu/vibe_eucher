@@ -12,8 +12,7 @@ import torch
 from eucher.cards import Card, Suit
 from eucher.players.profiles import PlayerProfile
 from eucher.rules import RulesEngine
-
-from eucher.players.computer.ml.pytorch.game_state_tracker import TrickHistoryTracker
+from plugins.ml.pytorch.game_state_tracker import TrickHistoryTracker
 from src.ai_players.transformer_rl.actor_critic_agent import ActorCriticAgent
 from src.ai_players.transformer_rl.deduction_engine import DeductionEngine
 from src.ai_players.transformer_rl.feature_encoder import TransformerRLFeatureEncoder

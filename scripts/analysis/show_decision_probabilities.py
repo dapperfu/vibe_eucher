@@ -14,14 +14,15 @@ import sys
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from eucher.game import Game
 from eucher.players.computer.ai import AIDecisionMaker, AIPlayer
-from eucher.players.computer import HeuristicPlayer, RandomPlayer
+
+from eucher.game import Game
 from eucher.players.base import PlayerProfile
-from eucher.players.computer.ml.ml_config import MLConfig
-from eucher.players.computer.ml.ml_features import GameStateEncoder
-from eucher.players.computer.ml.ml_model import EucherMLModel
-from eucher.players.computer.ml.player import MLPlayer
+from eucher.players.computer import HeuristicPlayer, RandomPlayer
+from plugins.ml.ml_config import MLConfig
+from plugins.ml.ml_features import GameStateEncoder
+from plugins.ml.ml_model import EucherMLModel
+from plugins.ml.player import MLPlayer
 from src.probability_wrapper import ProbabilityAwareProfile
 
 # Optional import for PyTorch players

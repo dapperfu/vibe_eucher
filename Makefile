@@ -120,7 +120,7 @@ help:
 	@echo "  make train-ml-supervised           - Train sklearn models (supervised)"
 	@echo "  make train-ml-gan                  - Train GAN models"
 	@echo "  make train-ml-rl                   - Train RL models"
-	@echo "  make train-ml-self-play            - Collect self-play data"
+	@echo "  make train-ml-self-play            - Collect self-play data (tqdm progress)"
 	@echo "  make train-ml-all                  - Run full ML training workflow"
 	@echo ""
 	@echo "Cleanup:"

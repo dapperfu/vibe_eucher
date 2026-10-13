@@ -10,8 +10,8 @@ from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeEl
 from sklearn.metrics import accuracy_score, classification_report, precision_recall_fscore_support
 from sklearn.model_selection import train_test_split
 
-from eucher.players.computer.ml.ml_config import MLConfig
-from eucher.players.computer.ml.models.ml_models_supervised import (
+from plugins.ml.ml_config import MLConfig
+from plugins.ml.models.ml_models_supervised import (
     CallTrumpClassifier,
     DiscardCardClassifier,
     OrderUpClassifier,

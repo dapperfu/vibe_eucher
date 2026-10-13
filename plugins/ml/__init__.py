@@ -65,7 +65,7 @@ def _create_ml_rl_player(game=None, **kwargs):
 
 def _create_ml_gan_player(game=None, **kwargs):
     """Factory for MLPlayer with GAN backend."""
-    from eucher.players.computer.ml.player import MLPlayer
+    from plugins.ml.player import MLPlayer
 
     player_id = kwargs.get("player_id", 0)
     trump_selection_risk = kwargs.get("trump_selection_risk", None)

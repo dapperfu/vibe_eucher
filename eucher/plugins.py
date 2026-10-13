@@ -123,12 +123,12 @@ class PluginRegistry:
             pass
 
         try:
-            from eucher.players.computer.ml import player as ml_player  # noqa: F401
+            from plugins.ml import player as ml_player  # noqa: F401
         except ImportError:
             pass
 
         try:
-            from eucher.players.computer.ml.pytorch import pytorch_player  # noqa: F401
+            from plugins.ml.pytorch import pytorch_player  # noqa: F401
         except ImportError:
             pass
 

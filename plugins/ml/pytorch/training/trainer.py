@@ -43,7 +43,7 @@ class EuchreDataset(Dataset):
         """
         self.data = data
         if feature_encoder is None:
-            from eucher.players.computer.ml.pytorch.feature_encoder import EuchreFeatureEncoder
+            from plugins.ml.pytorch.feature_encoder import EuchreFeatureEncoder
 
             self.feature_encoder = EuchreFeatureEncoder()
         else:
@@ -99,9 +99,11 @@ class EuchreDataset(Dataset):
             Model-ready sample.
         """
         import json
+
         import numpy as np
+
         from eucher.cards import Card, Rank, Suit
-        from eucher.players.computer.ml.pytorch.game_state_tracker import TrickHistoryTracker
+        from plugins.ml.pytorch.game_state_tracker import TrickHistoryTracker
 
         # Parse features if it's a string
         if isinstance(sample.get("features"), str):
@@ -172,7 +174,7 @@ class EuchreDataset(Dataset):
             Model-ready sample.
         """
         from eucher.cards import Card, Suit
-        from eucher.players.computer.ml.pytorch.game_state_tracker import TrickHistoryTracker
+        from plugins.ml.pytorch.game_state_tracker import TrickHistoryTracker
 
         # Parse cards
         hand = self._parse_cards(sample.get("hand", []))

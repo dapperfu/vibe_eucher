@@ -17,8 +17,8 @@ if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
 from eucher.cards import Card, Rank, Suit
-from eucher.players.computer.ml.ml_config import MLConfig
-from eucher.players.computer.ml.ml_features import GameStateEncoder
+from plugins.ml.ml_config import MLConfig
+from plugins.ml.ml_features import GameStateEncoder
 
 
 def parse_card_string(card_str: str) -> Optional[Card]:

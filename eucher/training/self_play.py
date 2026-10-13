@@ -2,7 +2,9 @@
 
 import uuid
 from pathlib import Path
-from typing import Callable, List, Optional, Tuple
+from typing import List, Optional, Tuple
+
+from tqdm import tqdm
 
 from eucher.game import Game
 from eucher.training.data_collector import GameDataCollector
@@ -27,7 +29,7 @@ class SelfPlayTrainer:
         output_dir : Optional[Path]
             Directory for output data. If None, uses default from MLConfig.
         """
-        from eucher.players.computer.ml.ml_config import MLConfig
+        from plugins.ml.ml_config import MLConfig
 
         self.config = MLConfig()
         if data_collector is None:
@@ -113,12 +115,13 @@ class SelfPlayTrainer:
 
                 def wrapper(p, ls, ts, tc, tpi):
                     decision = original(p, ls, ts, tc, tpi)
-                    
+
                     # Check if this play is a renege
                     from eucher.rules import RulesEngine
+
                     rules = RulesEngine()
                     is_renege = not rules.can_play_card(decision, p.hand, ls, ts)
-                    
+
                     game_state = {
                         "trick_number": getattr(game, "_current_trick_number", 0),
                         "tricks_won_team0": getattr(game, "_current_tricks_won", [0, 0])[0],
@@ -142,7 +145,9 @@ class SelfPlayTrainer:
                         "tricks_won_team0": getattr(game, "_current_tricks_won", [0, 0])[0],
                         "tricks_won_team1": getattr(game, "_current_tricks_won", [0, 0])[1],
                     }
-                    self.data_collector.record_discard_decision(pid, player.hand, decision, game_state)
+                    self.data_collector.record_discard_decision(
+                        pid, player.hand, decision, game_state
+                    )
                     return decision
 
                 return wrapper
@@ -160,7 +165,6 @@ class SelfPlayTrainer:
             tricks_won = getattr(game, "_current_tricks_won", [0, 0])
             tricks_won_history.append(tricks_won.copy())
 
-            scores = game.get_scores()
             winner = game.get_winner()
 
             if winner is not None or not continue_game:
@@ -170,18 +174,25 @@ class SelfPlayTrainer:
         renege_occurred = getattr(game, "_renege_occurred", False)
         renege_player_id = getattr(game, "_renege_player_id", None)
         self.data_collector.record_game_outcome(
-            game_id, game.get_scores(), tricks_won_history, winner, renege_occurred, renege_player_id
+            game_id,
+            game.get_scores(),
+            tricks_won_history,
+            winner,
+            renege_occurred,
+            renege_player_id,
         )
-        
+
         # Save full game replay
         try:
             # Game already has game_uuid set from seed=game_id above
             from eucher.game_file import save_game
-            game_replay_file = save_game(game, self.data_collector.output_dir)
+
+            save_game(game, self.data_collector.output_dir)
             self.data_collector.saved_game_replays.append(game_id)
         except Exception as e:
             # Don't fail if game replay save fails, but log it
             import sys
+
             print(f"Warning: Failed to save game replay for {game_id}: {e}", file=sys.stderr)
 
     @timed_operation("SelfPlayTrainer.run_training_round")
@@ -190,6 +201,7 @@ class SelfPlayTrainer:
         num_games: int = 100,
         player_combinations: Optional[List[List[Tuple[str, str]]]] = None,
         save_data: bool = True,
+        show_progress: bool = True,
     ) -> None:
         """
         Run a round of training games with various player combinations.
@@ -202,21 +214,57 @@ class SelfPlayTrainer:
             List of player configurations to test. If None, uses default combinations.
         save_data : bool
             Whether to save collected data at the end. Set False for batched saves.
+        show_progress : bool
+            Whether to display a tqdm progress bar for game generation.
         """
         if player_combinations is None:
             player_combinations = self._get_default_combinations()
 
-        print(f"Running {len(player_combinations)} player combinations...")
-        for combo_idx, combo in enumerate(player_combinations):
-            print(f"\nCombination {combo_idx + 1}/{len(player_combinations)}: {combo}")
-            for game_num in range(num_games):
-                if (game_num + 1) % 10 == 0:
-                    print(f"  Game {game_num + 1}/{num_games}")
-                self.run_game_with_collection(combo)
+        total_games = len(player_combinations) * num_games
+        if show_progress:
+            with tqdm(total=total_games, desc="Generating games", unit="game") as progress:
+                self._play_combinations(player_combinations, num_games, progress)
+        else:
+            print(f"Running {len(player_combinations)} player combinations...")
+            self._play_combinations(player_combinations, num_games, progress=None)
 
         if save_data:
             print("\nSaving collected data...")
             self.data_collector.save_data()
+
+    def _play_combinations(
+        self,
+        player_combinations: List[List[Tuple[str, str]]],
+        num_games: int,
+        progress: Optional[tqdm],
+    ) -> None:
+        """
+        Play each player combination for the requested number of games.
+
+        Parameters
+        ----------
+        player_combinations : List[List[Tuple[str, str]]]
+            Player configurations to run.
+        num_games : int
+            Number of games to run per combination.
+        progress : Optional[tqdm]
+            Progress bar to update after each game. Prints status when omitted.
+        """
+        combination_count = len(player_combinations)
+        for combo_idx, combo in enumerate(player_combinations):
+            if progress is None:
+                print(f"\nCombination {combo_idx + 1}/{combination_count}: {combo}")
+            else:
+                combo_label = "/".join(profile_type for _, profile_type in combo)
+                progress.set_postfix_str(
+                    f"combo {combo_idx + 1}/{combination_count} [{combo_label}]"
+                )
+            for game_num in range(num_games):
+                if progress is None and (game_num + 1) % 10 == 0:
+                    print(f"  Game {game_num + 1}/{num_games}")
+                self.run_game_with_collection(combo)
+                if progress is not None:
+                    progress.update(1)
 
     def _get_default_combinations(self) -> List[List[Tuple[str, str]]]:
         """
@@ -229,21 +277,50 @@ class SelfPlayTrainer:
         """
         return [
             # All ML players
-            [("ML1", "ml_sklearn"), ("ML2", "ml_sklearn"), ("ML3", "ml_sklearn"), ("ML4", "ml_sklearn")],
+            [
+                ("ML1", "ml_sklearn"),
+                ("ML2", "ml_sklearn"),
+                ("ML3", "ml_sklearn"),
+                ("ML4", "ml_sklearn"),
+            ],
             # ML vs Random
-            [("ML1", "ml_sklearn"), ("Random1", "random"), ("ML2", "ml_sklearn"), ("Random2", "random")],
+            [
+                ("ML1", "ml_sklearn"),
+                ("Random1", "random"),
+                ("ML2", "ml_sklearn"),
+                ("Random2", "random"),
+            ],
             # ML with AI partner vs Random opponents
-            [("ML1", "ml_sklearn"), ("AI1", "ai"), ("Random1", "random"), ("Random2", "random")],
+            [
+                ("ML1", "ml_sklearn"),
+                ("AI1", "ai"),
+                ("Random1", "random"),
+                ("Random2", "random"),
+            ],
             # ML with Random partner vs AI and Random opponents
-            [("ML1", "ml_sklearn"), ("Random1", "random"), ("AI1", "ai"), ("Random2", "random")],
+            [
+                ("ML1", "ml_sklearn"),
+                ("Random1", "random"),
+                ("AI1", "ai"),
+                ("Random2", "random"),
+            ],
             # ML vs Heuristic
-            [("ML1", "ml_sklearn"), ("Heuristic1", "heuristic"), ("ML2", "ml_sklearn"), ("Heuristic2", "heuristic")],
+            [
+                ("ML1", "ml_sklearn"),
+                ("Heuristic1", "heuristic"),
+                ("ML2", "ml_sklearn"),
+                ("Heuristic2", "heuristic"),
+            ],
             # Mixed: ML, AI, Random, Heuristic
-            [("ML1", "ml_sklearn"), ("AI1", "ai"), ("Random1", "random"), ("Heuristic1", "heuristic")],
+            [
+                ("ML1", "ml_sklearn"),
+                ("AI1", "ai"),
+                ("Random1", "random"),
+                ("Heuristic1", "heuristic"),
+            ],
         ]
 
 
 if __name__ == "__main__":
     trainer = SelfPlayTrainer()
     trainer.run_training_round(num_games=50)
-

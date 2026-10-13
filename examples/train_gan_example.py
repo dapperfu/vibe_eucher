@@ -7,8 +7,8 @@ This script trains the GAN model on collected training data.
 
 from pathlib import Path
 
-from eucher.players.computer.ml.ml_config import MLConfig
 from eucher.training.train_gan import train_gan_for_decision_type
+from plugins.ml.ml_config import MLConfig
 
 
 def main() -> None:

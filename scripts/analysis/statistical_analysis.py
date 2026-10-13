@@ -23,11 +23,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from eucher.cards import Card, Deck, Rank, Suit
 from eucher.game import Game
 from eucher.players import Player
-from eucher.players.profiles import PlayerProfile, HeuristicPlayer
+from eucher.players.profiles import HeuristicPlayer, PlayerProfile
 
 # Conditional import for PyTorch player (only needed for full game simulations)
 try:
-    from eucher.players.computer.ml.pytorch.pytorch_player import PyTorchStrategicPlayer
+    from plugins.ml.pytorch.pytorch_player import PyTorchStrategicPlayer
 except ImportError:
     PyTorchStrategicPlayer = None  # type: ignore
 
@@ -480,6 +480,7 @@ def simulate_screw_dealer_hand(
         If "error" key is present, indicates the scenario didn't occur naturally.
     """
     import random
+
     from eucher.trump import TrumpSelector
 
     # Set seed if provided
@@ -738,8 +739,8 @@ def run_screw_dealer_simulation(
     # Run simulations
     if parallel:
         try:
-            from multiprocessing import Pool
             import multiprocessing as mp
+            from multiprocessing import Pool
 
             num_workers = max(1, mp.cpu_count() - 1)
             with Pool(processes=num_workers) as pool:

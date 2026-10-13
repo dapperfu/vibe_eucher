@@ -11,9 +11,9 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset
 
 from eucher.cards import Card, Rank, Suit
-from eucher.players.computer.ml.ml_config import MLConfig
-from eucher.players.computer.ml.ml_features import GameStateEncoder
-from eucher.players.computer.ml.ml_model import EucherMLModel
+from plugins.ml.ml_config import MLConfig
+from plugins.ml.ml_features import GameStateEncoder
+from plugins.ml.ml_model import EucherMLModel
 
 
 class EuchreDataset(Dataset):

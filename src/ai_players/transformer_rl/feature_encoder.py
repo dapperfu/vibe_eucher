@@ -12,9 +12,8 @@ from typing import Dict, List, Optional
 import torch
 
 from eucher.cards import Card, Rank, Suit
-
-from eucher.players.computer.ml.pytorch.feature_encoder import EuchreFeatureEncoder
-from eucher.players.computer.ml.pytorch.game_state_tracker import TrickHistoryTracker
+from plugins.ml.pytorch.feature_encoder import EuchreFeatureEncoder
+from plugins.ml.pytorch.game_state_tracker import TrickHistoryTracker
 from src.ai_players.transformer_rl.deduction_engine import DeductionEngine
 
 

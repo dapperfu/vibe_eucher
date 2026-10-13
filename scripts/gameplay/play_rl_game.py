@@ -8,8 +8,8 @@ from pathlib import Path
 from typing import Optional
 
 from eucher.game import Game
-from eucher.players.computer.ml.ml_config import MLConfig
 from eucher.tui import TextTUI
+from plugins.ml.ml_config import MLConfig
 
 
 def play_rl_game(risk_factor: float = 0.5, model_path: Optional[Path] = None) -> None:
@@ -38,7 +38,8 @@ def play_rl_game(risk_factor: float = 0.5, model_path: Optional[Path] = None) ->
     # Load and display training statistics if available
     try:
         import torch
-        from eucher.players.computer.ml.ml_models_rl import RLAgent
+
+        from plugins.ml.models.ml_models_rl import RLAgent
 
         agent = RLAgent()
         stats = agent.load(model_path)

@@ -4,7 +4,6 @@ import argparse
 import re
 from pathlib import Path
 
-from eucher.players.computer.ml.ml_config import MLConfig
 from eucher.training.convergence_tracker import ConvergenceTracker
 from eucher.training.self_play import SelfPlayTrainer
 from eucher.training.train_gan import train_gan_for_decision_type
@@ -12,17 +11,21 @@ from eucher.training.train_rl import train_rl_through_self_play
 from eucher.training.train_supervised import train_all_models
 from eucher.training.training_orchestrator import TrainingOrchestrator
 from eucher.training.training_scheduler import TrainingScheduler
+from plugins.ml.ml_config import MLConfig
 
 
 def main() -> None:
-    """Main training script."""
+    """Train ML models for Euchre."""
     parser = argparse.ArgumentParser(description="Train ML models for Euchre")
     parser.add_argument(
         "--mode",
         type=str,
         choices=["self_play", "train", "train_gan", "train_rl", "both"],
         default="both",
-        help="Training mode: self_play (collect data), train (train sklearn), train_gan, train_rl, or both",
+        help=(
+            "Training mode: self_play (collect data), train (train sklearn), "
+            "train_gan, train_rl, or both"
+        ),
     )
     parser.add_argument(
         "--model_type",
@@ -127,7 +130,10 @@ def main() -> None:
             elif unit == "d":
                 duration_days = value
         else:
-            print(f"Warning: Invalid duration format '{args.duration}'. Expected format: '30m', '2h', or '1d'")
+            print(
+                f"Warning: Invalid duration format '{args.duration}'. "
+                "Expected format: '30m', '2h', or '1d'"
+            )
 
     # Create training scheduler
     scheduler = TrainingScheduler(
@@ -177,32 +183,23 @@ def main() -> None:
 
         game_count = 0
         try:
-            while True:
-                # Check if should continue
-                if args.until_converged or args.duration:
-                    if not orchestrator.should_continue():
-                        break
-                else:
-                    if game_count >= args.num_games:
-                        break
-
-                # Run training round
-                trainer.run_training_round(num_games=1)
-                game_count += 1
-
-                # Record game result (simplified - would get actual result from game)
-                if args.until_converged or args.duration:
+            if args.until_converged or args.duration:
+                while orchestrator.should_continue():
+                    trainer.run_training_round(num_games=1, show_progress=False)
+                    game_count += 1
                     orchestrator.record_game_result(won=(game_count % 2 == 0))
 
-                    # Update progress display
                     if progress_display:
                         progress_display.update()
                         if game_count % 10 == 0:
                             progress_display.update_live_display(live_display)
 
-                    if orchestrator.should_checkpoint():
-                        if progress_display:
-                            progress_display.console.print(f"[yellow]Checkpoint saved at game {game_count}[/yellow]")
+                    if orchestrator.should_checkpoint() and progress_display:
+                        progress_display.console.print(
+                            f"[yellow]Checkpoint saved at game {game_count}[/yellow]"
+                        )
+            else:
+                trainer.run_training_round(num_games=args.num_games, show_progress=True)
 
         finally:
             if live_display:
@@ -259,4 +256,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

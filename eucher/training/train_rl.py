@@ -9,11 +9,11 @@ import torch.nn as nn
 import torch.optim as optim
 
 from eucher.game import Game
-from eucher.players.computer.ml.ml_config import MLConfig
-from eucher.players.computer.ml.ml_features import GameStateEncoder
-from eucher.players.computer.ml.models.ml_models_rl import ExperienceReplayBuffer, RLAgent
 from eucher.training.convergence_tracker import ConvergenceTracker
 from eucher.training.training_orchestrator import TrainingOrchestrator
+from plugins.ml.ml_config import MLConfig
+from plugins.ml.ml_features import GameStateEncoder
+from plugins.ml.models.ml_models_rl import ExperienceReplayBuffer, RLAgent
 
 
 def calculate_reward(

@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional
 # torch is imported lazily only when needed for ML profiles
 from eucher.cards import Card, Rank, Suit
 from eucher.players.base import PlayerProfile
+
 # Import player classes from plugins (moved from eucher.players.computer)
 try:
     from plugins.weighted_heuristic import AIPlayer
@@ -153,7 +154,7 @@ class MLBasedProfile(PlayerProfile):
         self.game_state_provider = game_state_provider
 
         # Set risk factors (temperature thresholds)
-        from eucher.players.computer.ml.ml_config import MLConfig
+        from plugins.ml.ml_config import MLConfig
 
         config = MLConfig()
         self.trump_selection_risk = (
@@ -236,7 +237,10 @@ class MLBasedProfile(PlayerProfile):
         forbidden_suit = turned_card.suit
         suits = [None, Suit.HEARTS, Suit.DIAMONDS, Suit.CLUBS, Suit.SPADES]
 
-        from eucher.players.computer.ml.ml_decision_weights import apply_temperature_threshold, get_decision_weights_from_logits
+        from plugins.ml.ml_decision_weights import (
+            apply_temperature_threshold,
+            get_decision_weights_from_logits,
+        )
 
         weights = get_decision_weights_from_logits(call_trump_logits.squeeze(0))
         valid_indices = [i for i, suit in enumerate(suits) if suit != forbidden_suit]
@@ -293,7 +297,10 @@ class MLBasedProfile(PlayerProfile):
             features = features.unsqueeze(0).to(self.ml_model.device)
             discard_logits = self.ml_model.discard_net(features)
 
-        from eucher.players.computer.ml.ml_decision_weights import get_decision_weights_from_logits, select_action_from_weights
+        from plugins.ml.ml_decision_weights import (
+            get_decision_weights_from_logits,
+            select_action_from_weights,
+        )
 
         weights = get_decision_weights_from_logits(discard_logits.squeeze(0))
         hand_indices = list(range(len(player.hand)))
@@ -341,7 +348,10 @@ class MLBasedProfile(PlayerProfile):
 
         valid_indices = self.encoder.get_valid_card_indices(valid_cards)
 
-        from eucher.players.computer.ml.ml_decision_weights import get_decision_weights_from_logits, select_action_from_weights
+        from plugins.ml.ml_decision_weights import (
+            get_decision_weights_from_logits,
+            select_action_from_weights,
+        )
 
         weights = get_decision_weights_from_logits(card_logits.squeeze(0))
         selected_idx, _ = select_action_from_weights(weights, valid_indices, self.gameplay_risk)
@@ -603,7 +613,7 @@ class MLBasedProfile(PlayerProfile):
 
         valid_indices = self.encoder.get_valid_card_indices(valid_cards)
 
-        from eucher.players.computer.ml.ml_decision_weights import get_decision_weights_from_logits
+        from plugins.ml.ml_decision_weights import get_decision_weights_from_logits
 
         weights = get_decision_weights_from_logits(card_logits.squeeze(0))
 
@@ -673,7 +683,7 @@ class MLBasedProfile(PlayerProfile):
             features = features.unsqueeze(0).to(self.ml_model.device)
             discard_logits = self.ml_model.discard_net(features)
 
-        from eucher.players.computer.ml.ml_decision_weights import get_decision_weights_from_logits
+        from plugins.ml.ml_decision_weights import get_decision_weights_from_logits
 
         weights = get_decision_weights_from_logits(discard_logits.squeeze(0))
 

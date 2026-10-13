@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from eucher.cards import Card, Rank, Suit
-from eucher.players.computer.ml.ml_features import GameStateEncoder
 from eucher.training.decision_format import DecisionRecord, DecisionType, load_decisions
 from eucher.training.review_data import (
     DecisionReview,
@@ -15,6 +14,7 @@ from eucher.training.review_data import (
     load_reviews,
     save_reviews,
 )
+from plugins.ml.ml_features import GameStateEncoder
 
 
 class DecisionReviewer:
@@ -31,7 +31,7 @@ class DecisionReviewer:
         reviews_file : Optional[Path]
             File to save reviews.
         """
-        from eucher.players.computer.ml.ml_config import MLConfig
+        from plugins.ml.ml_config import MLConfig
 
         self.config = MLConfig()
         self.encoder = GameStateEncoder()

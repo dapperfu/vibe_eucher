@@ -7,8 +7,12 @@ import numpy as np
 import pytest
 import torch
 
-from eucher.players.computer.ml.ml_config import MLConfig
-from eucher.players.computer.ml.ml_models_gan import EuchreGANGenerator, EuchreGANDiscriminator, GANCardPlayModel
+from plugins.ml.ml_config import MLConfig
+from plugins.ml.models.ml_models_gan import (
+    EuchreGANDiscriminator,
+    EuchreGANGenerator,
+    GANCardPlayModel,
+)
 from tests.fixtures.ml_test_data import generate_game_state_features, generate_random_hand
 
 

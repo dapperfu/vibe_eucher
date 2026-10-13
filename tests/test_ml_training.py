@@ -6,11 +6,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from eucher.players.computer.ml.ml_config import MLConfig
-from eucher.players.computer.ml.ml_models_gan import GANCardPlayModel
-from eucher.players.computer.ml.ml_models_rl import RLAgent
 from eucher.training.train_gan import train_gan_model
 from eucher.training.train_rl import ExperienceReplayBuffer, train_rl_agent
+from plugins.ml.ml_config import MLConfig
+from plugins.ml.models.ml_models_gan import GANCardPlayModel
+from plugins.ml.models.ml_models_rl import RLAgent
 from tests.fixtures.ml_test_data import generate_synthetic_decisions
 
 

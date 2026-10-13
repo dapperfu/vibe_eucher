@@ -5,8 +5,13 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from eucher.cards import Card, Rank, Suit
-from eucher.players.computer.ml.ml_features import GameStateEncoder
-from eucher.training.decision_format import DecisionRecord, DecisionType, load_decisions, validate_decision
+from eucher.training.decision_format import (
+    DecisionRecord,
+    DecisionType,
+    load_decisions,
+    validate_decision,
+)
+from plugins.ml.ml_features import GameStateEncoder
 
 
 class ExpertDecisionLoader:

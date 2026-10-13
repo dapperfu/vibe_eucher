@@ -27,7 +27,7 @@ class SelfPlayTrainer:
         output_dir : Optional[Path]
             Directory for output data. If None, uses default from MLConfig.
         """
-        from eucher.players.computer.ml.ml_config import MLConfig
+        from plugins.ml.ml_config import MLConfig
 
         self.config = MLConfig()
         if data_collector is None:

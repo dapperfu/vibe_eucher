@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 
 from eucher.cards import Card, Suit
+
 from ..ml_config import MLConfig
 
 
@@ -204,7 +205,7 @@ class RLAgent:
 
         # Apply temperature threshold if provided
         if temperature is not None:
-            from eucher.players.computer.ml.ml_decision_weights import apply_temperature_threshold
+            from plugins.ml.ml_decision_weights import apply_temperature_threshold
 
             filtered_indices, filtered_weights = apply_temperature_threshold(
                 q_vals_normalized, temperature, valid_card_indices

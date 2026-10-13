@@ -7,6 +7,8 @@ import numpy as np
 
 from eucher.cards import Card, Suit
 from eucher.players.computer.base import ComputerPlayer
+from eucher.training.profiling import timed_operation
+
 from .ml_config import MLConfig
 from .ml_decision_weights import (
     apply_temperature_threshold,
@@ -20,19 +22,18 @@ from .models.ml_models_supervised import (
     OrderUpClassifier,
     PlayCardClassifier,
 )
-from eucher.training.profiling import timed_operation
 
 if TYPE_CHECKING:
     from eucher.players import Player
 
 # Optional imports for GAN and RL
 try:
-    from eucher.players.computer.ml.models.ml_models_gan import GANCardPlayModel
+    from plugins.ml.models.ml_models_gan import GANCardPlayModel
 except ImportError:
     GANCardPlayModel = None  # type: ignore
 
 try:
-    from eucher.players.computer.ml.models.ml_models_rl import RLAgent
+    from plugins.ml.models.ml_models_rl import RLAgent
 except ImportError:
     RLAgent = None  # type: ignore
 

@@ -75,7 +75,7 @@ class PyTorchStrategicPlayer(PlayerProfile):
         self.use_strategic_overrides = use_strategic_overrides
 
         # Set risk factors (temperature thresholds)
-        from eucher.players.computer.ml.ml_config import MLConfig
+        from plugins.ml.ml_config import MLConfig
 
         config = MLConfig()
         self.trump_selection_risk = (

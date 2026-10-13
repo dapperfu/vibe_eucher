@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from eucher.players.computer.ml.ml_features import GameStateEncoder
+from plugins.ml.ml_features import GameStateEncoder
 
 
 class InputDocumentationGenerator:

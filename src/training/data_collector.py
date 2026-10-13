@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 
 from eucher.cards import Card, Suit
-from eucher.players.computer.ml.ml_features import GameStateEncoder
+from plugins.ml.ml_features import GameStateEncoder
 
 try:
     from eucher.training.system_info import (
@@ -39,7 +39,7 @@ class GameDataCollector:
         output_dir : Optional[Path]
             Directory to save collected data. If None, uses default from MLConfig.
         """
-        from eucher.players.computer.ml.ml_config import MLConfig
+        from plugins.ml.ml_config import MLConfig
 
         self.config = MLConfig()
         if output_dir is None:
