@@ -8,7 +8,7 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Sequence, Tuple, Union
 
 import click
 from faker import Faker
@@ -66,6 +66,201 @@ def get_computer_types() -> list[str]:
 
 # Available computer player types (dynamically generated from plugins)
 COMPUTER_TYPES = get_computer_types()
+
+# Learned personalities. Aliases share one implementation and count once.
+_MACHINE_LEARNING_NAMES = frozenset(
+    {
+        "ml_sklearn",
+        "ml_gan",
+        "ml_rl",
+        "ml_pytorch",
+        "pytorch_ai",
+        "pytorch_strategic",
+        "eucher_zero",
+        "perceiver_muzero",
+        "euchergo",
+        "reinforcement_eucher",
+    }
+)
+_CANONICAL_MACHINE_LEARNING_NAMES = (
+    "ml_sklearn",
+    "ml_gan",
+    "ml_rl",
+    "ml_pytorch",
+    "eucher_zero",
+    "perceiver_muzero",
+    "euchergo",
+    "reinforcement_eucher",
+)
+
+
+def _split_personality_types(raw: str) -> List[str]:
+    """Split a comma-separated personality list.
+
+    Parameters
+    ----------
+    raw : str
+        Comma-separated type names.
+
+    Returns
+    -------
+    list[str]
+        Lowercased names, with empty entries removed.
+    """
+    return [part.strip().lower() for part in raw.split(",") if part.strip()]
+
+
+def _validate_personality_types(type_names: Sequence[str], role: str) -> None:
+    """Raise when a name is not a registered computer personality.
+
+    Parameters
+    ----------
+    type_names : Sequence[str]
+        Personality names to check.
+    role : str
+        Seat description used in the error, such as ``opponent``.
+
+    Raises
+    ------
+    ValueError
+        When a name is not in ``COMPUTER_TYPES``.
+    """
+    valid = {name.lower() for name in COMPUTER_TYPES}
+    for type_name in type_names:
+        if type_name not in valid:
+            valid_list = ", ".join(COMPUTER_TYPES)
+            raise ValueError(f"Invalid {role} type '{type_name}'. Valid types: {valid_list}")
+
+
+def _is_machine_learning(name: str) -> bool:
+    """Return whether a registered personality is a machine-learning player.
+
+    Parameters
+    ----------
+    name : str
+        Registered personality name.
+
+    Returns
+    -------
+    bool
+        True when the personality uses a learned model.
+    """
+    if name in _MACHINE_LEARNING_NAMES:
+        return True
+    metadata = get_registry().get(name)
+    return metadata is not None and metadata.model_name is not None
+
+
+def _preferred_personality_name(names: Sequence[str]) -> str:
+    """Pick one public name for personalities that share an implementation.
+
+    Parameters
+    ----------
+    names : Sequence[str]
+        Registered names that use the same factory.
+
+    Returns
+    -------
+    str
+        Canonical name when one of the aliases is the usual type name.
+    """
+    for preferred in _CANONICAL_MACHINE_LEARNING_NAMES:
+        if preferred in names:
+            return preferred
+    return sorted(names)[0]
+
+
+def ml_personality_names() -> List[str]:
+    """Return machine-learning personalities, one name per implementation.
+
+    ``pytorch_ai`` and ``pytorch_strategic`` are the same player as
+    ``ml_pytorch``, so the list contains ``ml_pytorch`` only.
+
+    Returns
+    -------
+    list[str]
+        Sorted personality names that can be chosen as a random partner.
+    """
+    registry = get_registry()
+    by_factory: dict[int, List[str]] = {}
+    for name in COMPUTER_TYPES:
+        lowered = name.lower()
+        if not _is_machine_learning(lowered):
+            continue
+        metadata = registry.get(lowered)
+        if metadata is None:
+            continue
+        by_factory.setdefault(id(metadata.factory), []).append(lowered)
+
+    selected = [_preferred_personality_name(group) for group in by_factory.values()]
+    return sorted(selected)
+
+
+def assign_computer_types(
+    opponent_type: Optional[str],
+    partner_type: Optional[str],
+) -> List[str]:
+    """Choose personalities for the left opponent, partner, and right opponent.
+
+    ``--opponent-type`` never sets the partner. One opponent type is used for
+    both opponents. Two types are the left-hand opponent and the right-hand
+    opponent. When ``--partner-type`` is omitted, the partner is a
+    machine-learning personality chosen with ``random.choice`` so a game seed
+    stays reproducible.
+
+    Parameters
+    ----------
+    opponent_type : Optional[str]
+        Comma-separated opponent personalities, or None to choose both at random.
+    partner_type : Optional[str]
+        Partner personality, or None to choose a machine-learning personality.
+
+    Returns
+    -------
+    list[str]
+        Types for Player 1, Player 2, and Player 3.
+
+    Raises
+    ------
+    ValueError
+        When a type name is unknown, more than two opponents are listed, or
+        no machine-learning personality is registered for a random partner.
+    """
+    if opponent_type is not None and opponent_type.strip():
+        opponent_types = _split_personality_types(opponent_type)
+        if not opponent_types:
+            raise ValueError("--opponent-type did not include a personality.")
+        if len(opponent_types) > 2:
+            raise ValueError(
+                "--opponent-type accepts one type for both opponents or two types "
+                "(left, then right). Set your partner with --partner-type."
+            )
+        _validate_personality_types(opponent_types, "opponent")
+        if len(opponent_types) == 1:
+            left, right = opponent_types[0], opponent_types[0]
+        else:
+            left, right = opponent_types[0], opponent_types[1]
+    else:
+        pool = [name.lower() for name in COMPUTER_TYPES]
+        left = random.choice(pool)
+        right = random.choice(pool)
+
+    if partner_type is not None and partner_type.strip():
+        partner_types = _split_personality_types(partner_type)
+        if len(partner_types) != 1:
+            raise ValueError("--partner-type accepts one personality.")
+        _validate_personality_types(partner_types, "partner")
+        partner = partner_types[0]
+    else:
+        choices = ml_personality_names()
+        if not choices:
+            raise ValueError(
+                "No machine-learning personalities are registered. "
+                "Pass --partner-type to choose your partner."
+            )
+        partner = random.choice(choices)
+
+    return [left, partner, right]
 
 
 @click.group()
@@ -327,7 +522,20 @@ def _play_client(
     "--model",
     type=str,
     default=None,
-    help="Computer player type(s) for opponents. Can be a single type or comma-separated list (e.g., 'heuristic' or 'euchergo,eucher_zero'). With 2 types, assigns to the 2 opponents (Players 1 and 3); partner (Player 2) uses first type.",
+    help=(
+        "Personality for the two opponents (left, then right). "
+        "One type is used for both. Two comma-separated types assign left and right. "
+        "Does not set your partner."
+    ),
+)
+@click.option(
+    "--partner-type",
+    type=str,
+    default=None,
+    help=(
+        "Personality for your partner. "
+        "When omitted, the partner is a random machine-learning personality."
+    ),
 )
 @click.option("--name", default="You", help="Human player name")
 @click.option("--seed", type=str, default=None, help="Random seed for reproducible games (integer or UUID string)")
@@ -340,13 +548,33 @@ def _play_client(
 @click.option("--client", type=str, default=None, help="Connect to server at specified IP address (e.g., --client=10.0.0.10)")
 @click.option("--port", type=int, default=8765, help="Server port number (default: 8765)")
 @click.option("--timeout", type=int, default=300, help="Client connection timeout in seconds (default: 300)")
-def play(opponent_type: Optional[str], name: str, seed: Optional[str], save_dir: Optional[str], assistant: Optional[str], xray: bool, record_decisions: Optional[str], playback_decisions: Optional[str], server: bool, client: Optional[str], port: int, timeout: int) -> None:
+def play(
+    opponent_type: Optional[str],
+    partner_type: Optional[str],
+    name: str,
+    seed: Optional[str],
+    save_dir: Optional[str],
+    assistant: Optional[str],
+    xray: bool,
+    record_decisions: Optional[str],
+    playback_decisions: Optional[str],
+    server: bool,
+    client: Optional[str],
+    port: int,
+    timeout: int,
+) -> None:
     """
-    Play a game of Euchre with 1 human player and 3 computer opponents.
+    Play a game of Euchre with 1 human player and 3 computer players.
 
-    The human player will be Player 0, and 3 computer opponents will be
-    randomly assigned names using Faker. If --opponent-type is not specified,
-    each opponent will have a randomly selected computer player type.
+    The human player is Player 0. Player 1 and Player 3 are the opponents.
+    Player 2 is the partner. Computer players are named with Faker.
+
+    --opponent-type sets the opponents only. One type is used for both
+    opponents. Two comma-separated types are the left-hand and right-hand
+    opponents. When it is omitted, each opponent is a random computer type.
+
+    --partner-type sets the partner. When it is omitted, the partner is a
+    machine-learning personality chosen at random.
 
     The seed can be an integer or a UUID string. If a UUID is provided, it will
     be used to seed the random number generator and the game will be saved as
@@ -445,38 +673,12 @@ def play(opponent_type: Optional[str], name: str, seed: Optional[str], save_dir:
         if first_name not in opponent_names and first_name != name:
             opponent_names.append(first_name)
 
-    # Determine opponent types
-    # Euchre has 4 players: Player 0 (human), Player 1 (opponent), Player 2 (partner/teammate), Player 3 (opponent)
-    if opponent_type:
-        # Parse comma-separated list of opponent types
-        type_list = [t.strip().lower() for t in opponent_type.split(",")]
-        
-        # Validate each type
-        valid_types = [t.lower() for t in COMPUTER_TYPES]
-        for opp_type in type_list:
-            if opp_type not in valid_types:
-                click.echo(f"Error: Invalid opponent type '{opp_type}'.", err=True)
-                click.echo(f"Valid types: {', '.join(COMPUTER_TYPES)}", err=True)
-                raise click.Abort()
-        
-        # Assign types to computer players:
-        # - Player 1 (opponent): first type
-        # - Player 2 (partner/teammate): first type (same as first opponent, or use first type if only 2 provided)
-        # - Player 3 (opponent): second type (if provided) or cycles
-        opponent_types = []
-        if len(type_list) == 1:
-            # Single type: all 3 computer players get the same type
-            opponent_types = [type_list[0]] * 3
-        elif len(type_list) == 2:
-            # Two types: assign to the 2 opponents (Players 1 and 3)
-            # Partner (Player 2) gets the first type
-            opponent_types = [type_list[0], type_list[0], type_list[1]]
-        else:
-            # Three or more types: assign in order (Player 1, Player 2, Player 3), cycling if needed
-            opponent_types = [type_list[i % len(type_list)] for i in range(3)]
-    else:
-        # Randomly select types for each computer player
-        opponent_types = [random.choice(COMPUTER_TYPES).lower() for _ in range(3)]
+    # Player 1 (left opponent), Player 2 (partner), Player 3 (right opponent).
+    try:
+        opponent_types = assign_computer_types(opponent_type, partner_type)
+    except ValueError as exc:
+        click.echo(f"Error: {exc}", err=True)
+        raise click.Abort()
 
     # Create player configuration: (name, profile_type)
     player_config: List[Tuple[str, str]] = [
@@ -492,8 +694,10 @@ def play(opponent_type: Optional[str], name: str, seed: Optional[str], save_dir:
     click.echo("=" * 50)
     click.echo(f"\nPlayers:")
     click.echo(f"  Player 0: {name} (Human)")
-    for i, (opp_name, opp_type) in enumerate(zip(opponent_names, opponent_types), 1):
-        click.echo(f"  Player {i}: {opp_name} ({opp_type})")
+    seat_roles = ("left opponent", "partner", "right opponent")
+    for seat, (opp_name, opp_type) in enumerate(zip(opponent_names, opponent_types), 1):
+        role = seat_roles[seat - 1]
+        click.echo(f"  Player {seat}: {opp_name} ({opp_type}, {role})")
     click.echo()
 
     # Create game

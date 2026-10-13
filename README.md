@@ -28,22 +28,26 @@ make run
 
 You are seat 0. The other three seats are, in order, the opponent on your left, your partner, and the opponent on your right.
 
-One type fills every computer seat, so you play with and against that personality:
+`--opponent-type` sets the opponents only. One type is used for both opponents. Two comma-separated types are the left-hand opponent and the right-hand opponent. That list does not set your partner.
+
+When `--partner-type` is omitted, your partner is a machine-learning personality chosen at random (`euchergo`, `eucher_zero`, `perceiver_muzero`, `reinforcement_eucher`, `ml_pytorch`, and the other learned models; aliases of the same model count once). Pass `--partner-type` to choose the partner, including a rule-based personality.
+
+Both opponents Heuristic, partner a random machine-learning personality:
 
 ```bash
 venv_vibe_eucher/bin/eucher play --opponent-type heuristic
 ```
 
-Two types give the first type to the left-hand opponent and to your partner, and the second type to the right-hand opponent:
+Left-hand opponent EucherGo, right-hand opponent EucherZero, partner a random machine-learning personality:
 
 ```bash
-venv_vibe_eucher/bin/eucher play --opponent-type heuristic,heuristic2
+venv_vibe_eucher/bin/eucher play --opponent-type euchergo,eucher_zero
 ```
 
-Three types are assigned in seat order: left-hand opponent, partner, right-hand opponent. This plays with Heuristic2 and against Heuristic:
+Play with Heuristic2 against Heuristic:
 
 ```bash
-venv_vibe_eucher/bin/eucher play --opponent-type heuristic,heuristic2,heuristic
+venv_vibe_eucher/bin/eucher play --opponent-type heuristic --partner-type heuristic2
 ```
 
 ### Personality vs personality
@@ -95,7 +99,9 @@ Computer opponents are personalities. Each one is a player plugin, selected by i
 eucher play --opponent-type heuristic
 ```
 
-A comma-separated list assigns types across the three computer seats. With two names, the first opponent and the partner use the first type, and the second opponent uses the second type:
+That seats Heuristic as both opponents. Your partner is a random machine-learning personality unless you pass `--partner-type`.
+
+Two names are the left-hand and right-hand opponents:
 
 ```bash
 eucher play --opponent-type euchergo,eucher_zero
