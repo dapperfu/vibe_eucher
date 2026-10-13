@@ -1,6 +1,7 @@
 """Script to collect training data by running games."""
 
 import argparse
+import os
 from pathlib import Path
 
 from eucher.training.self_play import SelfPlayTrainer
@@ -25,11 +26,30 @@ def main() -> None:
     parser.add_argument(
         "--data_prefix",
         type=str,
-        default="training",
-        help="Prefix for data filenames",
+        default=None,
+        help=(
+            "Write named files {prefix}_<decision>.npz. "
+            "Omit this to write UUID .npz datasets with .txt metadata."
+        ),
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=0,
+        help=(
+            "Worker processes for game simulation. "
+            "0 uses one process per CPU core (default). "
+            "1 runs games one at a time."
+        ),
     )
 
     args = parser.parse_args()
+    if args.workers < 0:
+        parser.error("--workers must be >= 0")
+    if args.workers == 0:
+        worker_count = os.cpu_count() or 1
+    else:
+        worker_count = args.workers
 
     config = MLConfig()
     output_dir = Path(args.output_dir) if args.output_dir else config.training_data_dir
@@ -39,18 +59,29 @@ def main() -> None:
     print("=" * 60)
     print(f"Output directory: {output_dir}")
     print(f"Number of games: {args.num_games}")
+    print(f"Workers: {worker_count}")
     print()
 
     trainer = SelfPlayTrainer(output_dir=output_dir)
-    trainer.run_training_round(num_games=args.num_games)
+    trainer.run_training_round(
+        num_games=args.num_games,
+        data_prefix=args.data_prefix,
+        workers=args.workers,
+    )
 
     print("\n" + "=" * 60)
     print("Data Collection Complete!")
     print("=" * 60)
     print(f"Data saved to: {output_dir}")
-    print(f"Files: {args.data_prefix}_*.json and {args.data_prefix}_*.csv")
+    if args.data_prefix:
+        print(
+            "Files: "
+            f"{args.data_prefix}_order_up.npz, {args.data_prefix}_call_trump.npz, "
+            f"{args.data_prefix}_play_card.npz, {args.data_prefix}_discard.npz"
+        )
+    else:
+        print("Files: <uuid>.npz datasets with matching <uuid>.txt metadata")
 
 
 if __name__ == "__main__":
     main()
-
