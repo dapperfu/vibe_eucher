@@ -1,6 +1,6 @@
 """TUI modules for Euchre."""
 
-from eucher.tui import TextTUI
+from eucher.tui.text_tui import TextTUI
 
 __all__ = ["TextTUI", "NetworkTUI"]
 
@@ -9,4 +9,3 @@ try:
 except ImportError:
     # NetworkTUI may not be available if network dependencies are missing
     NetworkTUI = None  # type: ignore
-

@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, TYPE_CHECKING
 
 from eucher.cards import Card, Suit
 from eucher.players import Player
-from eucher.tui import TextTUI
+from eucher.tui.text_tui import TextTUI
 from eucher.network.protocol import DecisionType, serialize_card, serialize_cards, serialize_suit
 
 if TYPE_CHECKING:
