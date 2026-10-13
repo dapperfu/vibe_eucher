@@ -1,4 +1,4 @@
-"""Tests for the trick-summary table highlight and icon key."""
+"""Tests for the plain trick-summary table and icon key."""
 
 import contextlib
 import re
@@ -121,27 +121,20 @@ def _render_rich_summary(tui: TextTUI, monkeypatch: pytest.MonkeyPatch) -> str:
     return buffer.getvalue()
 
 
-def test_rich_winner_highlight_resets_and_shows_key(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Winning cards stay readable, and their color does not run past the card."""
+def test_rich_summary_is_plain_text_with_icon_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The trick table has no color. Icons and the Winner column mark the trick."""
     rendered = _render_rich_summary(_sample_tui(), monkeypatch)
 
     assert "🎯 led the trick" in rendered
     assert "🏆 won the trick" in rendered
-    assert "🎯" in rendered
-    assert "🏆" in rendered
-    # Red foreground is what turned an entire pasted table red.
-    assert "\x1b[31m" not in rendered
-    assert "\x1b[91m" not in rendered
-    assert "\x1b[1;31m" not in rendered
-    # Black on bright yellow, closed before the trophy so the icon is not colored.
-    assert "\x1b[30;103mJ♣\x1b[0m🏆" in rendered
-    # The lead card on that trick is not given the winner highlight.
-    assert "\x1b[30;103mK♣" not in rendered
-    _assert_colors_closed(rendered)
+    assert "J♣🏆" in rendered
+    assert "K♣🎯" in rendered
+    assert "Melissa" in rendered
+    assert "\x1b[" not in rendered
 
 
-def test_plain_winner_highlight_resets_and_shows_key(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The non-Rich summary uses the same readable highlight and icon key."""
+def test_plain_summary_is_plain_text_with_icon_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The non-Rich summary is plain text with the same icon key."""
     monkeypatch.setattr("eucher.tui.text_tui.RICH_AVAILABLE", False)
     tui = _sample_tui()
 
@@ -152,7 +145,7 @@ def test_plain_winner_highlight_resets_and_shows_key(monkeypatch: pytest.MonkeyP
 
     assert "🎯 led the trick" in rendered
     assert "🏆 won the trick" in rendered
-    assert "\x1b[30;103mJ♣\x1b[0m🏆" in rendered
-    assert "\x1b[31m" not in rendered
-    assert "\x1b[91m" not in rendered
+    assert "J♣🏆" in rendered
+    body = rendered.replace("\x1b[0m", "")
+    assert "\x1b[" not in body
     _assert_colors_closed(rendered)
