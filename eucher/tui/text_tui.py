@@ -6,11 +6,23 @@ from eucher.cards import Card, Suit
 from eucher.players import Player
 
 try:
-    from rich.table import Table
     from rich.console import Console
+    from rich.table import Table
+    from rich.text import Text
+
     RICH_AVAILABLE = True
 except ImportError:
     RICH_AVAILABLE = False
+
+# Dark text on yellow stays readable on a white page and in a dark terminal.
+# Color is applied only to the winning card and name, then reset, so a copy
+# does not leave the rest of the table red.
+_WINNER_STYLE = "black on bright_yellow"
+_WINNER_ANSI = "\033[30;103m"
+_ANSI_RESET = "\033[0m"
+_LEAD_ICON = "🎯"
+_WINNER_ICON = "🏆"
+_TRICK_ICON_KEY = f"{_LEAD_ICON} led the trick    {_WINNER_ICON} won the trick"
 
 if TYPE_CHECKING:
     from eucher.assistant import AssistantHelper
@@ -459,25 +471,136 @@ class TextTUI:
         """
         return self.current_hand_log.copy()
 
+    def _trick_card_markers(self, is_lead: bool, is_winner: bool, is_renege: bool) -> str:
+        """
+        Build the lead, winner, and renege markers for one played card.
+
+        Parameters
+        ----------
+        is_lead : bool
+            True when this card was the first card of the trick.
+        is_winner : bool
+            True when this card won the trick.
+        is_renege : bool
+            True when this card was a renege.
+
+        Returns
+        -------
+        str
+            Marker text appended after the card. Empty when the card has no role.
+        """
+        markers: List[str] = []
+        if is_lead:
+            markers.append(_LEAD_ICON)
+        if is_winner:
+            markers.append(_WINNER_ICON)
+        if is_renege:
+            markers.append("[RENEGE]")
+        return "".join(markers)
+
+    def _winner_text(self, text: str) -> str:
+        """
+        Highlight winner text without leaving the terminal red.
+
+        Black on yellow stays readable on a white background. The style is
+        closed immediately so later characters, including a pasted copy, do
+        not stay colored.
+
+        Parameters
+        ----------
+        text : str
+            Text to highlight.
+
+        Returns
+        -------
+        str
+            Text wrapped in ANSI styles with an explicit reset.
+        """
+        return f"{_WINNER_ANSI}{text}{_ANSI_RESET}"
+
+    def _reset_terminal_style(self) -> None:
+        """Return the terminal to its default style after the trick summary."""
+        print(_ANSI_RESET, end="", flush=True)
+
+    def _rich_trick_card(
+        self,
+        card_str: str,
+        is_lead: bool,
+        is_winner: bool,
+        is_renege: bool,
+    ) -> "Text":
+        """
+        Format one played card for the Rich trick table.
+
+        The winner style covers only the card, not the icons after it, so the
+        color reset is attached to the card and does not run into the emoji.
+
+        Parameters
+        ----------
+        card_str : str
+            Compact card text, such as ``"K♣"``.
+        is_lead : bool
+            True when this card was the first card of the trick.
+        is_winner : bool
+            True when this card won the trick.
+        is_renege : bool
+            True when this card was a renege.
+
+        Returns
+        -------
+        Text
+            Styled card plus any lead, winner, or renege markers.
+        """
+        card_text = Text()
+        if is_winner:
+            card_text.append(card_str, style=_WINNER_STYLE)
+        elif is_renege:
+            card_text.append(card_str, style="bold red")
+        else:
+            card_text.append(card_str)
+        card_text.append(self._trick_card_markers(is_lead, is_winner, is_renege))
+        return card_text
+
     def display_trick_summary(self) -> None:
         """
         Display a tabular summary of all tricks in the hand.
-        
-        Shows columns for each player, rows for each trick, with cards played and winner.
+
+        Shows columns for each player, rows for each trick, with cards played
+        and winner. The winning card and winner name are highlighted in black
+        on yellow. A key under the table explains the lead and winner icons.
         """
         if not self.hand_tricks or self.players is None:
             return
-        
+
+        try:
+            self._display_trick_summary_body()
+        finally:
+            self._reset_terminal_style()
+
+    def _display_trick_summary_body(self) -> None:
+        """Render the trick summary table, icon key, and hand result."""
+        if self.players is None:
+            return
+
         if RICH_AVAILABLE:
             # Use Rich table for proper alignment
             console = Console()
-            table = Table(title="TRICK SUMMARY", show_header=True, header_style="bold")
-            
-            # Add columns: Trick number, then each player, then Winner
+            table = Table(
+                title="TRICK SUMMARY",
+                show_header=True,
+                header_style="bold",
+                caption=_TRICK_ICON_KEY,
+                caption_style="italic",
+                caption_justify="left",
+            )
+
+            # Add columns: Trick number, then each player, then Winner.
+            # The winner column has no column style: a column style paints the
+            # padding as well, and that color is what sticks across a copy.
             table.add_column("Trick", justify="center", style="cyan", no_wrap=True)
             for player in self.players:
                 table.add_column(player.name, justify="center", no_wrap=True)
-            table.add_column("Winner", justify="center", style="bold red", no_wrap=True)
+            table.add_column("Winner", justify="center", no_wrap=True)
             
             # Track tricks won by each team to determine euchre point
             tricks_won_by_team = [0, 0]  # Team 0, Team 1
@@ -527,41 +650,19 @@ class TextTUI:
                     if card_str == "-":
                         row_data.append("-")
                         continue
-                    
-                    # Build markers first
-                    markers = []
-                    
-                    # Check if this is the lead card (first card played)
-                    is_lead = (i == lead_player_id)
-                    if is_lead:
-                        markers.append("🎯")  # Lead card marker (target)
-                    
-                    # Check if this is the winning card
-                    is_winner = (i == winner_id)
-                    if is_winner:
-                        markers.append("🏆")  # Winner marker (trophy)
-                    
-                    # Check for renege
-                    is_renege = (renege_card is not None and renege_player_id == i)
-                    if is_renege:
-                        markers.append("[RENEGE]")
-                    
-                    # Build formatted card with markers
-                    if is_winner:
-                        # Winner gets red color, then markers
-                        formatted_card = f"[red]{card_str}[/red]" + "".join(markers)
-                    elif is_renege:
-                        # Renege gets bold red, then markers
-                        formatted_card = f"[bold red]{card_str}[/bold red]" + "".join(markers)
-                    else:
-                        # Regular card with markers
-                        formatted_card = card_str + "".join(markers)
-                    
-                    row_data.append(formatted_card)
-                
-                # Add winner name
-                winner_name = self.players[winner_id].name if winner_id < len(self.players) else f"Player {winner_id}"
-                row_data.append(f"[red]{winner_name}[/red]")
+
+                    is_lead = i == lead_player_id
+                    is_winner = i == winner_id
+                    is_renege = renege_card is not None and renege_player_id == i
+                    row_data.append(self._rich_trick_card(card_str, is_lead, is_winner, is_renege))
+
+                # Winner name only. Icons stay outside the highlight so a copy
+                # does not carry the color through the emoji.
+                if winner_id < len(self.players):
+                    winner_name = self.players[winner_id].name
+                else:
+                    winner_name = f"Player {winner_id}"
+                row_data.append(Text(winner_name, style=_WINNER_STYLE))
                 
                 table.add_row(*row_data)
             
@@ -734,47 +835,44 @@ class TextTUI:
                         row_parts.append("-" + " " * padding_needed)
                         continue
                     
-                    # Build markers
-                    markers = []
-                    
-                    # Check if this is the lead card (first card played)
-                    if i == lead_player_id:
-                        markers.append("🎯")  # Lead card marker (target)
-                    
-                    # Check if this is the winning card
-                    if i == winner_id:
-                        markers.append("🏆")  # Winner marker (trophy)
-                    
-                    # Check for renege
-                    if renege_card is not None and renege_player_id == i:
-                        markers.append(" [RENEGE]")
-                    
-                    # Combine card with markers
-                    display_str = card_str + "".join(markers)
-                    
-                    # Calculate padding needed (account for emoji width - emojis are typically 2 display chars)
-                    emoji_count = len([m for m in markers if m in ("🎯", "🏆")])
-                    display_width = len(card_str) + emoji_count * 2 + len("".join([m for m in markers if m not in ("🎯", "🏆")]))
+                    is_lead = i == lead_player_id
+                    is_winner = i == winner_id
+                    is_renege = renege_card is not None and renege_player_id == i
+                    # Keep the renege label visually separate from the card.
+                    marker_str = self._trick_card_markers(is_lead, is_winner, is_renege)
+                    if is_renege:
+                        marker_str = marker_str.replace("[RENEGE]", " [RENEGE]")
+
+                    # Emoji markers take two columns; the color codes do not.
+                    emoji_count = marker_str.count(_LEAD_ICON) + marker_str.count(_WINNER_ICON)
+                    renege_width = len(marker_str.replace(_LEAD_ICON, "").replace(_WINNER_ICON, ""))
+                    display_width = len(card_str) + emoji_count * 2 + renege_width
                     padding_needed = col_widths[i] - display_width
-                    
-                    # Apply formatting based on card role
-                    if i == winner_id:
-                        formatted_card = self._red_text(display_str) + " " * max(0, padding_needed)
-                    elif renege_card is not None and renege_player_id == i:
-                        formatted_card = self._red_text(display_str) + " " * max(0, padding_needed)
+
+                    # Color only the card. Icons stay outside the highlight so the
+                    # reset is not stranded after a wide emoji when the row is copied.
+                    if is_winner:
+                        card_part = self._winner_text(card_str)
+                    elif is_renege:
+                        card_part = self._red_text(card_str)
                     else:
-                        formatted_card = display_str + " " * max(0, padding_needed)
-                    row_parts.append(formatted_card)
-                
+                        card_part = card_str
+                    row_parts.append(card_part + marker_str + " " * max(0, padding_needed))
+
                 # Format winner column
-                winner_name = self.players[winner_id].name if winner_id < len(self.players) else f"Player {winner_id}"
+                if winner_id < len(self.players):
+                    winner_name = self.players[winner_id].name
+                else:
+                    winner_name = f"Player {winner_id}"
                 winner_padding = winner_col_width - len(winner_name)
-                formatted_winner = self._red_text(winner_name) + " " * winner_padding
+                formatted_winner = self._winner_text(winner_name) + " " * winner_padding
                 row_parts.append(formatted_winner)
-                
+
                 # Join with single space between columns
                 print(" ".join(row_parts))
-            
+
+            print(_TRICK_ICON_KEY)
+
             # Display if a team was set (euchred)
             if self.making_team is not None:
                 making_tricks = self.final_tricks_won[self.making_team]
