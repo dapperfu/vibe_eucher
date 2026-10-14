@@ -1,9 +1,9 @@
-"""Simulated deals that label only the heuristic's gray trump decisions.
+"""Simulated deals that label only the heuristic's gray decisions.
 
-Each deal is played twice from a gray bid: once calling the suit, once
-passing and letting the heuristic finish the auction. The label is which
-branch leaves that team more likely to reach 10 first. Clear bids are
-counted and then dropped, so the saved dataset contains gray areas only.
+Each gray bid is played twice: once calling, once passing. Each gray card
+play or discard is played twice as well: the heuristic card, and one close
+alternative. The label is which branch leaves that team more likely to reach
+10 first. Clear decisions are counted and then dropped.
 """
 
 import hashlib
@@ -19,7 +19,10 @@ from ..ai.gray_area import (
     ADVANTAGE_MARGIN,
     FEATURE_NAMES,
     TRICK_BAND,
+    WEIGHT_MARGIN,
+    close_alternatives,
     features_for,
+    features_for_card,
     is_gray_call,
     trump_count,
 )
@@ -40,11 +43,13 @@ class GrayDataset:
     expected_tricks: List[float]
     advantages: List[float]
     rounds: List[int]
+    kinds: List[str]
     version: str
     seed: int
     hands_played: int
     trick_band: float
     advantage_margin: float
+    weight_margin: float = WEIGHT_MARGIN
     clear_decisions: int = 0
     gray_decisions: int = 0
     split: List[int] = field(default_factory=list)
@@ -466,6 +471,7 @@ def _record(
     location: str,
     label: int,
     count: int,
+    kind: str = "call",
 ) -> None:
     """Append one gray-area row from an evaluation the heuristic already priced."""
     dataset.features.append(features_for(player, evaluation, top_card, round_number, location))
@@ -474,6 +480,7 @@ def _record(
     dataset.expected_tricks.append(evaluation.expected_tricks)
     dataset.advantages.append(evaluation.advantage)
     dataset.rounds.append(round_number)
+    dataset.kinds.append(kind)
 
 
 def collect_gray_samples(
@@ -482,6 +489,7 @@ def collect_gray_samples(
     version: str = "v1",
     trick_band: float = TRICK_BAND,
     advantage_margin: float = ADVANTAGE_MARGIN,
+    weight_margin: float = WEIGHT_MARGIN,
     progress: bool = True,
 ) -> GrayDataset:
     """Play deals and keep only the gray-area trump decisions.
@@ -498,6 +506,8 @@ def collect_gray_samples(
         Gray band around three expected tricks.
     advantage_margin : float
         Gray band around a zero win-probability edge.
+    weight_margin : float
+        How close two card weights must be before that play or discard is kept.
     progress : bool
         Show a progress bar while the deals run.
 
@@ -514,11 +524,13 @@ def collect_gray_samples(
         expected_tricks=[],
         advantages=[],
         rounds=[],
+        kinds=[],
         version=version,
         seed=seed,
         hands_played=hands,
         trick_band=trick_band,
         advantage_margin=advantage_margin,
+        weight_margin=weight_margin,
     )
     iterator: Iterable[int] = range(hands)
     if progress:
@@ -532,6 +544,7 @@ def collect_gray_samples(
         _walk_auction(
             dataset, players, dealt, upcard, dealer, team0, team1, trick_band, advantage_margin
         )
+        _record_hand_actions(dataset, dealt, upcard, dealer, team0, team1, weight_margin)
     return dataset
 
 
@@ -619,6 +632,335 @@ def _walk_auction(
         named = player.choose_trump_suit(upcard)
         if named is not None:
             return
+
+
+def _record_hand_actions(
+    dataset: GrayDataset,
+    hands: Hands,
+    upcard: Card,
+    dealer: int,
+    team0: int,
+    team1: int,
+    weight_margin: float,
+) -> None:
+    """Label gray discards and gray card plays on the heuristic's chosen contract."""
+    players = make_players(copy_hands(hands), dealer, team0, team1)
+    found = _heuristic_contract(players, upcard, dealer)
+    if found is None:
+        return
+    trump, caller, round_number = found
+    for player in players:
+        player.note_trump_call(caller, trump)
+    if round_number == 1 and trump == upcard.suit:
+        players[dealer].hand.append(Card(upcard.rank, upcard.suit))
+        _consider_discard(dataset, players, dealer, caller, trump, team0, team1, weight_margin)
+        _drop(players[dealer].hand, players[dealer].choose_card_to_discard(trump))
+    _consider_plays(dataset, players, dealer, caller, trump, team0, team1, weight_margin)
+
+
+def _heuristic_contract(
+    players: Sequence[HeuristicPlayer], upcard: Card, dealer: int
+) -> Optional[Tuple[Suit, int, int]]:
+    """Return the suit, caller, and round the heuristic table actually names."""
+    for seat in speak_order(dealer):
+        if players[seat].should_order_up(upcard):
+            return upcard.suit, seat, 1
+    for seat in speak_order(dealer):
+        named = players[seat].choose_trump_suit(upcard)
+        if named is not None:
+            return named, seat, 2
+    return None
+
+
+def _consider_discard(
+    dataset: GrayDataset,
+    players: Sequence[HeuristicPlayer],
+    dealer: int,
+    caller: int,
+    trump: Suit,
+    team0: int,
+    team1: int,
+    weight_margin: float,
+) -> None:
+    """Record a gray discard, then leave the hand for the caller to throw."""
+    player = players[dealer]
+    scored = player.discard_weights(trump)
+    chosen = player.choose_card_to_discard(trump)
+    alternatives = close_alternatives(scored, chosen, weight_margin)
+    if not alternatives:
+        dataset.clear_decisions += 1
+        return
+    dataset.gray_decisions += 1
+    baseline = _discard_value(players, dealer, chosen, caller, trump, team0, team1)
+    chosen_weight = _matching_weight(scored, chosen)
+    for card, weight in alternatives:
+        value = _discard_value(players, dealer, card, caller, trump, team0, team1)
+        _record_card(
+            dataset,
+            player,
+            card,
+            trump,
+            weight,
+            chosen_weight - weight,
+            1 + len(alternatives),
+            "discard",
+            value > baseline,
+            None,
+            False,
+            "want",
+        )
+
+
+def _consider_plays(
+    dataset: GrayDataset,
+    players: List[HeuristicPlayer],
+    dealer: int,
+    caller: int,
+    trump: Suit,
+    team0: int,
+    team1: int,
+    weight_margin: float,
+) -> None:
+    """Play the hand and label every gray card choice along the way."""
+    leader = (dealer + 1) % 4
+    for _trick in range(5):
+        lead_suit: Optional[Suit] = None
+        plays: List[Tuple[int, Card]] = []
+        for step in range(4):
+            seat = (leader + step) % 4
+            player = players[seat]
+            scored = player.play_weights(lead_suit, trump)
+            chosen = player.choose_card_to_play(lead_suit, trump)
+            alternatives = close_alternatives(scored, chosen, weight_margin)
+            actual_lead, partner_winning, urgency = _seat_context(player, trump)
+            if not alternatives:
+                dataset.clear_decisions += 1
+            else:
+                dataset.gray_decisions += 1
+                baseline = _play_value(
+                    players, seat, chosen, leader, trump, caller, team0, team1
+                )
+                chosen_weight = _matching_weight(scored, chosen)
+                for card, weight in alternatives:
+                    value = _play_value(
+                        players, seat, card, leader, trump, caller, team0, team1
+                    )
+                    _record_card(
+                        dataset,
+                        player,
+                        card,
+                        trump,
+                        weight,
+                        chosen_weight - weight,
+                        1 + len(alternatives),
+                        "play",
+                        value > baseline,
+                        actual_lead,
+                        partner_winning,
+                        urgency,
+                    )
+            _drop(player.hand, chosen)
+            if lead_suit is None:
+                lead_suit = chosen.suit
+            for other in players:
+                other.note_card_played(seat, chosen)
+            plays.append((seat, chosen))
+        leader = _award(players, plays, trump, lead_suit)
+
+
+def _discard_value(
+    players: Sequence[HeuristicPlayer],
+    dealer: int,
+    discard: Card,
+    caller: int,
+    trump: Suit,
+    team0: int,
+    team1: int,
+) -> float:
+    """Win probability for the dealer after throwing ``discard``."""
+    clones = _clone(players)
+    _drop(clones[dealer].hand, discard)
+    _play_out(clones, (dealer + 1) % 4, trump)
+    return _hand_value(clones[caller].team_tricks, dealer, caller, team0, team1)
+
+
+def _play_value(
+    players: Sequence[HeuristicPlayer],
+    seat: int,
+    card: Card,
+    leader: int,
+    trump: Suit,
+    caller: int,
+    team0: int,
+    team1: int,
+) -> float:
+    """Win probability for ``seat`` after that seat plays ``card`` now."""
+    clones = _clone(players)
+    _play_forced(clones, seat, card, leader, trump)
+    return _hand_value(clones[caller].team_tricks, seat, caller, team0, team1)
+
+
+def _play_forced(
+    players: List[HeuristicPlayer], seat: int, card: Card, leader: int, trump: Suit
+) -> None:
+    """Play ``card`` for ``seat`` and let the heuristic finish the hand."""
+    plays = list(players[seat].trick_plays)
+    lead_suit = plays[0][1].suit if plays else None
+    _drop(players[seat].hand, card)
+    if lead_suit is None:
+        lead_suit = card.suit
+    for other in players:
+        other.note_card_played(seat, card)
+    plays.append((seat, card))
+    step = len(plays)
+    for offset in range(step, 4):
+        next_seat = (leader + offset) % 4
+        played = players[next_seat].choose_card_to_play(lead_suit, trump)
+        _drop(players[next_seat].hand, played)
+        for other in players:
+            other.note_card_played(next_seat, played)
+        plays.append((next_seat, played))
+    leader = _award(players, plays, trump, lead_suit)
+    if players[leader].hand:
+        _play_out(players, leader, trump)
+
+
+def _play_out(players: Sequence[HeuristicPlayer], leader: int, trump: Suit) -> None:
+    """Play every remaining trick, starting with ``leader``."""
+    while players[leader].hand:
+        plays: List[Tuple[int, Card]] = []
+        lead_suit: Optional[Suit] = None
+        for step in range(4):
+            seat = (leader + step) % 4
+            card = players[seat].choose_card_to_play(lead_suit, trump)
+            _drop(players[seat].hand, card)
+            if lead_suit is None:
+                lead_suit = card.suit
+            for other in players:
+                other.note_card_played(seat, card)
+            plays.append((seat, card))
+        leader = _award(players, plays, trump, lead_suit)
+
+
+def _award(
+    players: Sequence[HeuristicPlayer],
+    plays: Sequence[Tuple[int, Card]],
+    trump: Suit,
+    lead_suit: Optional[Suit],
+) -> int:
+    """Give the trick to its winner and return that seat."""
+    winner_seat, winner = plays[0]
+    for seat, card in plays[1:]:
+        if card.beats(winner, trump, lead_suit):
+            winner_seat, winner = seat, card
+    for player in players:
+        player.note_trick_complete(winner_seat)
+    return winner_seat
+
+
+def _hand_value(
+    maker_tricks: int, decider: int, caller: int, team0: int, team1: int
+) -> float:
+    """Win probability for ``decider`` after the makers take ``maker_tricks``."""
+    if maker_tricks >= 5:
+        maker_points, defender_points = 2, 0
+    elif maker_tricks >= 3:
+        maker_points, defender_points = 1, 0
+    else:
+        maker_points, defender_points = 0, 2
+    if decider % 2 == caller % 2:
+        gained, against = maker_points, defender_points
+    else:
+        gained, against = defender_points, maker_points
+    mine, theirs = seat_scores(decider, team0, team1)
+    return win_probability(mine + gained, theirs + against)
+
+
+def _clone(players: Sequence[HeuristicPlayer]) -> List[HeuristicPlayer]:
+    """Copy a table so a counterfactual play cannot change the real line."""
+    clones = []
+    for player in players:
+        clone = HeuristicPlayer(player.name)
+        clone.hand = [Card(card.rank, card.suit) for card in player.hand]
+        seat = 0 if player.seat is None else player.seat
+        dealer_seat = 0 if player.dealer_seat is None else player.dealer_seat
+        clone.begin_round(seat, dealer_seat, player.team_score, player.opponent_score)
+        if player.known_trump is not None:
+            clone.note_trump_call(player.trump_caller_seat, player.known_trump)
+        clone.team_tricks = player.team_tricks
+        clone.opponent_tricks = player.opponent_tricks
+        clone.played_cards = [
+            (played_seat, Card(card.rank, card.suit)) for played_seat, card in player.played_cards
+        ]
+        clone.trick_plays = [
+            (played_seat, Card(card.rank, card.suit)) for played_seat, card in player.trick_plays
+        ]
+        clones.append(clone)
+    return clones
+
+
+def _drop(hand: List[Card], card: Card) -> None:
+    """Remove the card that matches ``card`` from ``hand``."""
+    for index, held in enumerate(hand):
+        if held.rank == card.rank and held.suit == card.suit:
+            del hand[index]
+            return
+    raise RuntimeError(f"{card} is not in the hand")
+
+
+def _matching_weight(scored: Sequence[Tuple[Card, float]], chosen: Card) -> float:
+    """Return the weight stored for ``chosen``."""
+    for card, weight in scored:
+        if card.rank == chosen.rank and card.suit == chosen.suit:
+            return weight
+    return 0.0
+
+
+def _seat_context(player: HeuristicPlayer, trump: Suit) -> Tuple[Optional[Suit], bool, str]:
+    """Lead suit, whether partner is winning, and how badly this trick is needed."""
+    plays = player._plays_before_us()
+    if not plays:
+        return None, False, player._urgency()
+    lead_suit = plays[0][1].suit
+    winner_seat, _winner = player._trick_winner(plays, trump, lead_suit)
+    return lead_suit, player._is_partner(winner_seat), player._urgency()
+
+
+def _record_card(
+    dataset: GrayDataset,
+    player: HeuristicPlayer,
+    card: Card,
+    trump: Suit,
+    weight: float,
+    gap: float,
+    close_count: int,
+    kind: str,
+    better: bool,
+    lead_suit: Optional[Suit],
+    partner_winning: bool,
+    urgency: str,
+) -> None:
+    """Append one gray play or discard row."""
+    dataset.features.append(
+        features_for_card(
+            player,
+            card,
+            trump,
+            weight,
+            gap,
+            close_count,
+            kind,
+            lead_suit=lead_suit,
+            partner_winning=partner_winning,
+            urgency=urgency,
+        )
+    )
+    dataset.labels.append(1 if better else 0)
+    dataset.trump_counts.append(trump_count(player.hand, trump))
+    dataset.expected_tricks.append(weight)
+    dataset.advantages.append(gap)
+    dataset.rounds.append(0)
+    dataset.kinds.append(kind)
 
 
 def assign_split(count: int, seed: int, val_fraction: float, test_fraction: float) -> List[int]:
@@ -723,11 +1065,13 @@ def save_gray_dataset(
         "expected_tricks": torch.tensor(dataset.expected_tricks, dtype=torch.float32),
         "advantages": torch.tensor(dataset.advantages, dtype=torch.float32),
         "rounds": torch.tensor(dataset.rounds, dtype=torch.long),
+        "kinds": list(dataset.kinds),
         "feature_names": list(FEATURE_NAMES),
         "seed": dataset.seed,
         "hands_played": dataset.hands_played,
         "trick_band": dataset.trick_band,
         "advantage_margin": dataset.advantage_margin,
+        "weight_margin": dataset.weight_margin,
         "clear_decisions": dataset.clear_decisions,
         "gray_decisions": dataset.gray_decisions,
         "checksum": checksum,
@@ -741,6 +1085,7 @@ def save_gray_dataset(
         "hands_played": dataset.hands_played,
         "trick_band": dataset.trick_band,
         "advantage_margin": dataset.advantage_margin,
+        "weight_margin": dataset.weight_margin,
         "clear_decisions": dataset.clear_decisions,
         "gray_decisions": dataset.gray_decisions,
         "feature_names": list(FEATURE_NAMES),
@@ -748,8 +1093,10 @@ def save_gray_dataset(
         "preprocessing": (
             "Keep a trump decision only when the hand has 1 to 3 trump and either "
             "the expected tricks are near 3 or the win-probability edge is inside "
-            "the advantage margin. Zero trump, four or more trump, and lopsided "
-            "trick estimates are clear heuristic decisions and are not stored."
+            "the advantage margin. Keep a card play or discard only when another "
+            "legal card is within the weight margin of the heuristic's choice. "
+            "Zero trump, four or more trump, lopsided trick estimates, and card "
+            "choices with a wide weight gap are clear and are not stored."
         ),
         "train_fraction": 1.0 - val_fraction - test_fraction,
         "val_fraction": val_fraction,

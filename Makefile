@@ -105,8 +105,8 @@ train-ml-seeded-random: ${VENV}
 train-ml-all: ${VENV}
 	${PYTHON} scripts/training/train_models.py --mode both
 
-# Heuristic gray-area tie-break. Clear bids never enter the dataset.
-data/EucherHeuristicTiebreak/v1/manifest.json: configs/EucherHeuristicTiebreak.json \
+# Heuristic gray-area tie-break. Clear bids, plays, and discards never enter the dataset.
+data/EucherHeuristicTiebreak/v2/manifest.json: configs/EucherHeuristicTiebreak.json \
 		euchre/ai/gray_area.py euchre/ai/heuristic_player.py \
 		euchre/training/gray_area_samples.py \
 		scripts/training/train_eucher_heuristic_tiebreak.py ${VENV}
@@ -114,21 +114,21 @@ data/EucherHeuristicTiebreak/v1/manifest.json: configs/EucherHeuristicTiebreak.j
 		--config configs/EucherHeuristicTiebreak.json
 
 checkpoints/EucherHeuristicTiebreak/checkpoint_best.pth: \
-		data/EucherHeuristicTiebreak/v1/manifest.json \
+		data/EucherHeuristicTiebreak/v2/manifest.json \
 		configs/EucherHeuristicTiebreak.json \
 		euchre/ai/eucher_heuristic_tiebreak.py \
 		scripts/training/train_eucher_heuristic_tiebreak.py ${VENV}
 	${PYTHON} scripts/training/train_eucher_heuristic_tiebreak.py \
 		--config configs/EucherHeuristicTiebreak.json \
-		--data-path data/EucherHeuristicTiebreak/v1
+		--data-path data/EucherHeuristicTiebreak/v2
 
 results/EucherHeuristicTiebreak/evaluation_test.json: \
 		checkpoints/EucherHeuristicTiebreak/checkpoint_best.pth \
-		data/EucherHeuristicTiebreak/v1/manifest.json \
+		data/EucherHeuristicTiebreak/v2/manifest.json \
 		scripts/training/evaluate_eucher_heuristic_tiebreak.py ${VENV}
 	${PYTHON} scripts/training/evaluate_eucher_heuristic_tiebreak.py \
 		--checkpoint checkpoints/EucherHeuristicTiebreak/checkpoint_best.pth \
-		--data-path data/EucherHeuristicTiebreak/v1 \
+		--data-path data/EucherHeuristicTiebreak/v2 \
 		--split test \
 		--output results/EucherHeuristicTiebreak/evaluation_test.json
 

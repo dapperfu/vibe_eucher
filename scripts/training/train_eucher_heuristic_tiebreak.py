@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Train EucherHeuristicTiebreak on simulated gray-area trump decisions.
+"""Train EucherHeuristicTiebreak on simulated gray-area decisions.
 
 Examples
 --------
@@ -138,6 +138,7 @@ def _apply_overrides(config: Dict[str, Any], args: argparse.Namespace) -> None:
         ("hidden_size", "model", "hidden_size"),
         ("trick_band", "model", "trick_band"),
         ("advantage_margin", "model", "advantage_margin"),
+        ("weight_margin", "model", "weight_margin"),
         ("checkpoint_interval", "checkpoint", "interval"),
     ]
     for arg_name, section, key in pairs:
@@ -175,8 +176,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
             "Train EucherHeuristicTiebreak, a micro model that breaks ties only "
-            "when the euchre heuristic is close. Clear hands, such as all hearts "
-            "with a spade turned up, are not in the training set."
+            "when the euchre heuristic is close. Clear bids, leads, follows, and "
+            "discards, such as all hearts with a spade turned up, are not in the "
+            "training set."
         )
     )
     parser.add_argument(
@@ -212,6 +214,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=float,
         default=None,
         help="Win-probability edge that still counts as a tie",
+    )
+    parser.add_argument(
+        "--weight-margin",
+        type=float,
+        default=None,
+        help="Card-weight gap that still counts as a tie",
     )
     parser.add_argument("--checkpoint-dir", default=None, help="Directory for checkpoints")
     parser.add_argument(
@@ -268,6 +276,7 @@ def main(argv: Optional[list] = None) -> None:
             version=str(config["data"]["version"]),
             trick_band=float(config["model"]["trick_band"]),
             advantage_margin=float(config["model"]["advantage_margin"]),
+            weight_margin=float(config["model"]["weight_margin"]),
         )
         manifest = save_gray_dataset(
             dataset,

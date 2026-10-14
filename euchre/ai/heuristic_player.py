@@ -19,12 +19,11 @@ the rules give the bowers — right bower, left bower, ace, king, queen, ten,
 nine — is the ranking used for every comparison.
 """
 
-from dataclasses import dataclass
 import math
-from typing import List, Optional, Sequence, Tuple
+from dataclasses import dataclass
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from ..models import Card, Player, PlayerType, Rank, Suit
-
 
 TARGET_SCORE = 10
 TRICKS_IN_ROUND = 5
@@ -100,7 +99,9 @@ def win_probability(my_score: int, opponent_score: int, target: int = TARGET_SCO
 def trick_distribution(mean: float, sigma: float = TRICK_SIGMA) -> List[float]:
     """Discrete distribution over 0..5 tricks, centered on ``mean``."""
     mean = min(float(TRICKS_IN_ROUND), max(0.0, mean))
-    weights = [math.exp(-0.5 * ((tricks - mean) / sigma) ** 2) for tricks in range(TRICKS_IN_ROUND + 1)]
+    weights = [
+        math.exp(-0.5 * ((tricks - mean) / sigma) ** 2) for tricks in range(TRICKS_IN_ROUND + 1)
+    ]
     total = sum(weights)
     return [weight / total for weight in weights]
 
@@ -299,6 +300,64 @@ class HeuristicPlayer(Player):
             raise ValueError(f"{self.name} has no card to discard")
         return self._choose_discard(self.hand, trump_suit)
 
+    def play_weights(
+        self, lead_suit: Optional[Suit], trump_suit: Optional[Suit]
+    ) -> List[Tuple[Card, float]]:
+        """Score every legal card. Higher means the heuristic would rather play it.
+
+        The gaps match the play rules. A boss trump and a side nine land far
+        apart. Two cards the rules treat as neighbors, such as the left and
+        right bower on lead, land one point apart.
+
+        Parameters
+        ----------
+        lead_suit : Suit, optional
+            The suit led to this trick. Ignored once cards are already on the table.
+        trump_suit : Suit, optional
+            Trump for this hand.
+
+        Returns
+        -------
+        List[Tuple[Card, float]]
+            One weight per legal card.
+        """
+        plays = self._plays_before_us()
+        if plays:
+            lead_suit = plays[0][1].suit
+        legal = self._legal_cards(lead_suit)
+        if len(legal) <= 1:
+            return [(card, 100.0) for card in legal]
+        if not plays:
+            return self._lead_weights(legal, trump_suit)
+        return self._answer_weights(legal, plays, lead_suit, trump_suit)
+
+    def discard_weights(self, trump_suit: Suit) -> List[Tuple[Card, float]]:
+        """Score every card as a discard. Higher means the heuristic would rather throw it.
+
+        Parameters
+        ----------
+        trump_suit : Suit
+            The trump suit after the dealer picks up the upcard.
+
+        Returns
+        -------
+        List[Tuple[Card, float]]
+            One weight per card in hand.
+        """
+        weights = []
+        for held in self.hand:
+            trump_value = held.get_trump_value(trump_suit)
+            if trump_value:
+                weights.append((held, -float(trump_value)))
+                continue
+            if held.rank == Rank.ACE:
+                weights.append((held, 15.0))
+                continue
+            mates = self._side_mates(held, trump_suit)
+            base = 50.0 if not mates else 30.0
+            weights.append((held, base - float(held.rank.value)))
+        return weights
+
     def evaluate_call(
         self,
         suit: Suit,
@@ -338,7 +397,9 @@ class HeuristicPlayer(Player):
         distribution = trick_distribution(expected)
         win_prob = 0.0
         for tricks, probability in enumerate(distribution):
-            my_score, opponent_score = maker_outcome_score(self.team_score, self.opponent_score, tricks)
+            my_score, opponent_score = maker_outcome_score(
+                self.team_score, self.opponent_score, tricks
+            )
             win_prob += probability * win_probability(my_score, opponent_score)
         pass_prob = win_probability(self.team_score, self.opponent_score)
         should_call = must_call or win_prob > pass_prob
@@ -400,23 +461,45 @@ class HeuristicPlayer(Player):
         total_slots: int,
     ) -> float:
         """Tricks the calling team can expect from this hand and the upcard."""
-        our_values = {card.get_trump_value(trump) for card in cards if card.get_trump_value(trump) > 0}
-        partner_values = {card.get_trump_value(trump) for card in partner_cards if card.get_trump_value(trump) > 0}
-        opponent_values = {card.get_trump_value(trump) for card in opponent_cards if card.get_trump_value(trump) > 0}
-        dead_values = {card.get_trump_value(trump) for card in dead_cards if card.get_trump_value(trump) > 0}
+        our_values = {
+            card.get_trump_value(trump) for card in cards if card.get_trump_value(trump) > 0
+        }
+        partner_values = {
+            card.get_trump_value(trump) for card in partner_cards if card.get_trump_value(trump) > 0
+        }
+        opponent_values = {
+            card.get_trump_value(trump)
+            for card in opponent_cards
+            if card.get_trump_value(trump) > 0
+        }
+        dead_values = {
+            card.get_trump_value(trump) for card in dead_cards if card.get_trump_value(trump) > 0
+        }
 
         we_control = self._callers_control_trump(our_values, opponent_values)
         tricks = 0.0
         for value in sorted(our_values, reverse=True):
             boss_probability = self._boss_probability(
-                value, our_values, partner_values, opponent_values, dead_values, safe_slots, total_slots
+                value,
+                our_values,
+                partner_values,
+                opponent_values,
+                dead_values,
+                safe_slots,
+                total_slots,
             )
             length = LENGTH_WITH_CONTROL if we_control else LENGTH_WITHOUT_CONTROL
             tricks += boss_probability + (1.0 - boss_probability) * length
 
         for value in partner_values:
             boss_probability = self._boss_probability(
-                value, our_values, partner_values, opponent_values, dead_values, safe_slots, total_slots
+                value,
+                our_values,
+                partner_values,
+                opponent_values,
+                dead_values,
+                safe_slots,
+                total_slots,
             )
             tricks += boss_probability
 
@@ -425,7 +508,11 @@ class HeuristicPlayer(Player):
 
         if 7 in our_values:
             tricks += RIGHT_BOWER_CONTROL
-        if 6 in our_values and 7 not in opponent_values and (7 in our_values or 7 in partner_values or 7 in dead_values):
+        if (
+            6 in our_values
+            and 7 not in opponent_values
+            and (7 in our_values or 7 in partner_values or 7 in dead_values)
+        ):
             tricks += TEAM_BOWERS_CONTROL
         if len(our_values) >= 3 and (7 in our_values or 6 in our_values):
             tricks += THREE_TRUMP_WITH_BOWER
@@ -528,7 +615,9 @@ class HeuristicPlayer(Player):
             return self.seat == self.dealer_seat
         return self.is_dealer
 
-    def _prefer(self, candidate: CallEvaluation, current: CallEvaluation, turned_down: Suit) -> bool:
+    def _prefer(
+        self, candidate: CallEvaluation, current: CallEvaluation, turned_down: Suit
+    ) -> bool:
         """Prefer the higher win probability, then the same color as the card turned down."""
         if candidate.win_probability > current.win_probability + 1e-12:
             return True
@@ -558,6 +647,131 @@ class HeuristicPlayer(Player):
             return (0, singleton, card.rank.value)
 
         return min(hand, key=key)
+
+    def _side_mates(self, held: Card, trump: Optional[Suit]) -> List[Card]:
+        """Other side cards of the same printed suit."""
+        return [
+            other
+            for other in self.hand
+            if other is not held
+            and other.suit == held.suit
+            and (not trump or other.get_trump_value(trump) == 0)
+        ]
+
+    def _lead_weights(
+        self, legal: Sequence[Card], trump: Optional[Suit]
+    ) -> List[Tuple[Card, float]]:
+        """Weights for leading a trick. Mirrors :meth:`_lead_card`."""
+        if not trump:
+            return [(card, float(card.rank.value)) for card in legal]
+        trump_cards = [card for card in legal if card.get_trump_value(trump) > 0]
+        masters = [card for card in trump_cards if self._is_boss_trump(card, trump)]
+        off_aces = [
+            card for card in legal if card.get_trump_value(trump) == 0 and card.rank == Rank.ACE
+        ]
+        if self._we_are_makers():
+            if masters:
+                return [
+                    (card, 100.0 - float(card.get_trump_value(trump)))
+                    if card in masters
+                    else (card, 0.0)
+                    for card in legal
+                ]
+            if off_aces:
+                return [(card, 80.0 if card in off_aces else 0.0) for card in legal]
+            if trump_cards:
+                return [
+                    (card, 60.0 - float(card.get_trump_value(trump)))
+                    if card in trump_cards
+                    else (card, 0.0)
+                    for card in legal
+                ]
+            return [(card, float(card.rank.value)) for card in legal]
+        if off_aces:
+            return [(card, 80.0 if card in off_aces else 0.0) for card in legal]
+        if len(trump_cards) >= 3 and masters:
+            return [
+                (card, 100.0 - float(card.get_trump_value(trump)))
+                if card in masters
+                else (card, 0.0)
+                for card in legal
+            ]
+        return self._side_lead_weights(legal, trump)
+
+    def _side_lead_weights(
+        self, legal: Sequence[Card], trump: Optional[Suit]
+    ) -> List[Tuple[Card, float]]:
+        """Low card from the longest side suit scores highest."""
+        side = [card for card in legal if not trump or card.get_trump_value(trump) == 0]
+        if not side:
+            return [(card, 20.0 - float(card.get_trump_value(trump))) for card in legal]
+        groups: Dict[Suit, List[Card]] = {}
+        for card in side:
+            groups.setdefault(card.suit, []).append(card)
+        weights = []
+        for card in legal:
+            if card not in side:
+                weights.append((card, 0.0))
+                continue
+            suit_cards = groups[card.suit]
+            high_card = max(other.rank.value for other in suit_cards)
+            suit_priority = len(suit_cards) * 100 + (20 - high_card)
+            weights.append((card, float(suit_priority - card.rank.value)))
+        return weights
+
+    def _answer_weights(
+        self,
+        legal: Sequence[Card],
+        plays: Sequence[Tuple[int, Card]],
+        lead_suit: Optional[Suit],
+        trump: Optional[Suit],
+    ) -> List[Tuple[Card, float]]:
+        """Weights for a trick already started. Mirrors :meth:`_answer_trick`."""
+        winner_seat, winner = self._trick_winner(plays, trump, lead_suit)
+        partner_winning = self._is_partner(winner_seat)
+        urgency = self._urgency()
+        beaters = [card for card in legal if card.beats(winner, trump, lead_suit)]
+        duck = (partner_winning and urgency != "must") or not beaters
+        if not duck:
+            cheapest = min(beaters, key=lambda card: self._spend_key(card, trump))
+            if self._should_save_bower(cheapest, legal, trump, urgency, plays):
+                duck = True
+        if duck:
+            return self._loser_weights(legal, trump, winner, lead_suit)
+        weights = []
+        for card in legal:
+            if card not in beaters:
+                weights.append((card, 0.0))
+                continue
+            trump_value = card.get_trump_value(trump) if trump else 0
+            if trump_value:
+                weights.append((card, 70.0 - float(trump_value)))
+            else:
+                weights.append((card, 90.0 - float(card.rank.value)))
+        return weights
+
+    def _loser_weights(
+        self,
+        legal: Sequence[Card],
+        trump: Optional[Suit],
+        winner: Card,
+        lead_suit: Optional[Suit],
+    ) -> List[Tuple[Card, float]]:
+        """Weights for ducking. A low side singleton outranks trump."""
+        ducks = [card for card in legal if not card.beats(winner, trump, lead_suit)]
+        pool = ducks or list(legal)
+        weights = []
+        for card in legal:
+            if card not in pool:
+                weights.append((card, 0.0))
+                continue
+            trump_value = card.get_trump_value(trump) if trump else 0
+            if trump_value:
+                weights.append((card, 10.0 - float(trump_value)))
+                continue
+            base = 40.0 if not self._side_mates(card, trump) else 20.0
+            weights.append((card, base - float(card.rank.value)))
+        return weights
 
     def _legal_cards(self, lead_suit: Optional[Suit]) -> List[Card]:
         """Cards this table accepts.

@@ -10,6 +10,7 @@ from euchre.ai.ai_factory import AIFactory
 from euchre.ai.eucher_heuristic_tiebreak import EucherHeuristicTiebreak, fit_tiebreak
 from euchre.ai.gray_area import (
     FEATURE_COUNT,
+    WEIGHT_MARGIN,
     feature_index,
     is_gray_call,
     trump_count,
@@ -157,6 +158,99 @@ class TestGrayGate:
         assert "heuristic_tiebreak" in AIFactory.get_available_ai_types()
 
 
+class TestCardTieBreak:
+    """Card play and the discard ask the model only when two weights are close."""
+
+    def test_one_legal_card_does_not_ask_the_model(self) -> None:
+        """Following suit with a single spade is not a tie."""
+        model = FixedModel(0.99)
+        player = seated(
+            "Ada", 0, 1, [card(Rank.ACE, Suit.SPADES), card(Rank.ACE, Suit.HEARTS)], model
+        )
+        player.note_trump_call(1, Suit.HEARTS)
+        played = player.choose_card_to_play(Suit.SPADES, Suit.HEARTS)
+        assert played.suit == Suit.SPADES
+        assert model.calls == 0
+        assert player.last_band == "clear"
+
+    def test_taking_with_the_only_winner_does_not_ask_the_model(self) -> None:
+        """The ace beats the king and the nine does not, so the ace is clear."""
+        model = FixedModel(0.01)
+        player = seated(
+            "Ada", 0, 1, [card(Rank.ACE, Suit.SPADES), card(Rank.NINE, Suit.SPADES)], model
+        )
+        player.note_trump_call(1, Suit.HEARTS)
+        player.note_card_played(1, card(Rank.KING, Suit.SPADES))
+        played = player.choose_card_to_play(Suit.SPADES, Suit.HEARTS)
+        assert played.rank == Rank.ACE
+        assert model.calls == 0
+        assert player.last_band == "clear"
+
+    def test_either_bower_on_lead_asks_the_model(self) -> None:
+        """The left and right bower are one point apart, so the model may swap them."""
+        hand = [
+            card(Rank.JACK, Suit.HEARTS),
+            card(Rank.JACK, Suit.DIAMONDS),
+            card(Rank.NINE, Suit.CLUBS),
+            card(Rank.TEN, Suit.SPADES),
+            card(Rank.NINE, Suit.SPADES),
+        ]
+        keep = seated("Ada", 0, 1, hand, FixedModel(0.01))
+        keep.note_trump_call(0, Suit.HEARTS)
+        kept = keep.choose_card_to_play(None, Suit.HEARTS)
+        assert keep.model_consulted is True
+        assert kept.suit == Suit.DIAMONDS
+
+        swap = seated("Bea", 0, 1, hand, FixedModel(0.99))
+        swap.note_trump_call(0, Suit.HEARTS)
+        swapped = swap.choose_card_to_play(None, Suit.HEARTS)
+        assert swap.model_consulted is True
+        assert swapped.suit == Suit.HEARTS
+
+    def test_a_clear_discard_ignores_the_model(self) -> None:
+        """The bare diamond nine is well ahead of every other throw."""
+        model = FixedModel(0.99)
+        player = seated(
+            "Ada",
+            0,
+            0,
+            [
+                card(Rank.JACK, Suit.HEARTS),
+                card(Rank.ACE, Suit.HEARTS),
+                card(Rank.NINE, Suit.CLUBS),
+                card(Rank.TEN, Suit.CLUBS),
+                card(Rank.NINE, Suit.DIAMONDS),
+                card(Rank.ACE, Suit.SPADES),
+            ],
+            model,
+        )
+        thrown = player.choose_card_to_discard(Suit.HEARTS)
+        assert thrown.suit == Suit.DIAMONDS
+        assert thrown.rank == Rank.NINE
+        assert model.calls == 0
+        assert player.last_band == "clear"
+
+    def test_two_singleton_discards_ask_the_model(self) -> None:
+        """Two bare nines have the same throw weight, so the model can pick either."""
+        hand = [
+            card(Rank.JACK, Suit.HEARTS),
+            card(Rank.ACE, Suit.HEARTS),
+            card(Rank.NINE, Suit.DIAMONDS),
+            card(Rank.NINE, Suit.CLUBS),
+            card(Rank.TEN, Suit.SPADES),
+            card(Rank.QUEEN, Suit.SPADES),
+        ]
+        keep = seated("Ada", 0, 0, hand, FixedModel(0.01))
+        kept = keep.choose_card_to_discard(Suit.HEARTS)
+        assert keep.model_consulted is True
+        assert kept == card(Rank.NINE, Suit.DIAMONDS)
+
+        swap = seated("Bea", 0, 0, hand, FixedModel(0.99))
+        swapped = swap.choose_card_to_discard(Suit.HEARTS)
+        assert swap.model_consulted is True
+        assert swapped == card(Rank.NINE, Suit.CLUBS)
+
+
 def _last_features(player: HeuristicTiebreakPlayer, upcard: Card) -> list:
     """Recompute the feature row for the order-up decision this player just faced."""
     from euchre.ai.gray_area import features_for
@@ -174,11 +268,16 @@ class TestGrayAreaTraining:
         dataset = collect_gray_samples(hands=40, seed=7, progress=False)
         assert dataset.clear_decisions > 0
         assert len(dataset) > 0
-        for count, expected, advantage in zip(
-            dataset.trump_counts, dataset.expected_tricks, dataset.advantages
+        assert any(kind in ("play", "discard") for kind in dataset.kinds)
+        for kind, count, expected, advantage in zip(
+            dataset.kinds, dataset.trump_counts, dataset.expected_tricks, dataset.advantages
         ):
-            assert is_gray_call(count, expected, advantage)
-            assert 1 <= count <= 3
+            if kind == "call":
+                assert is_gray_call(count, expected, advantage)
+                assert 1 <= count <= 3
+            else:
+                assert kind in ("play", "discard")
+                assert advantage <= WEIGHT_MARGIN
         manifest = save_gray_dataset(dataset, tmp_path)
         loaded = load_gray_dataset(tmp_path)
         assert manifest["checksum"] == loaded["checksum"]

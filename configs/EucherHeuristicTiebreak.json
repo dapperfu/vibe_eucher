@@ -1,21 +1,22 @@
 {
-  "_comment": "EucherHeuristicTiebreak trains only on heuristic gray-area trump decisions.",
+  "_comment": "EucherHeuristicTiebreak trains only on heuristic gray areas: close bids, plays, and discards.",
   "model": {
     "name": "EucherHeuristicTiebreak",
     "hidden_size": 16,
     "trick_band": 0.55,
     "advantage_margin": 0.012,
+    "weight_margin": 3.0,
     "call_threshold": 0.5
   },
   "data": {
-    "version": "v1",
-    "train_path": "data/EucherHeuristicTiebreak/v1",
+    "version": "v2",
+    "train_path": "data/EucherHeuristicTiebreak/v2",
     "hands": 200,
     "seed": 13,
     "val_fraction": 0.15,
     "test_fraction": 0.15,
     "source": "simulated euchre deals played by the rules-and-payoff heuristic",
-    "preprocessing": "Drop clear trump decisions. Keep 1-3 trump near three expected tricks."
+    "preprocessing": "Drop clear decisions. Keep close bids, plays, and discards."
   },
   "training": {
     "learning_rate": 0.01,

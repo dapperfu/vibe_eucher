@@ -7,7 +7,7 @@ Examples
 
     python scripts/training/evaluate_eucher_heuristic_tiebreak.py
         --checkpoint checkpoints/EucherHeuristicTiebreak/checkpoint_best.pth
-        --data-path data/EucherHeuristicTiebreak/v1
+        --data-path data/EucherHeuristicTiebreak/v2
         --split test
         --output results/EucherHeuristicTiebreak/evaluation_test.json
 """

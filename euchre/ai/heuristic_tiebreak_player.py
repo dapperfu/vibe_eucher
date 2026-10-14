@@ -1,21 +1,24 @@
-"""Heuristic player that asks a micro model only on close trump calls.
+"""Heuristic player that asks a micro model only when a decision is close.
 
-Ordering up and naming a suit stay with the rules-and-payoff heuristic when
-the hand is obvious. A gray hand, such as three hearts with hearts turned up
-while the dealer is a partner or an opponent, is passed to
-:class:`EucherHeuristicTiebreak`. Card play and the discard stay with the
-heuristic. With no checkpoint, a gray hand falls back to the heuristic too.
+Ordering up, naming a suit, leading, following, and discarding stay with the
+rules-and-payoff heuristic when one option is clearly ahead. A gray spot,
+such as three hearts with hearts turned up, or a lead of either bower, is
+passed to :class:`EucherHeuristicTiebreak`. With no checkpoint, a gray spot
+falls back to the heuristic too.
 """
 
 from pathlib import Path
-from typing import List, Optional, Protocol, Sequence
+from typing import List, Optional, Protocol, Sequence, Tuple
 
 from ..models import Card, Suit
 from .eucher_heuristic_tiebreak import default_checkpoint_path, load_tiebreak_predictor
 from .gray_area import (
     ADVANTAGE_MARGIN,
     TRICK_BAND,
+    WEIGHT_MARGIN,
+    close_alternatives,
     features_for,
+    features_for_card,
     is_gray_call,
     trump_count,
 )
@@ -23,7 +26,7 @@ from .heuristic_player import CallEvaluation, HeuristicPlayer
 
 
 class TiebreakModel(Protocol):
-    """Something that scores one gray-area call."""
+    """Something that scores one gray-area decision."""
 
     def call_probability(self, features: Sequence[float]) -> float:
         """Return the probability that calling is better than passing.
@@ -51,6 +54,7 @@ class HeuristicTiebreakPlayer(HeuristicPlayer):
         load_default: bool = True,
         trick_band: float = TRICK_BAND,
         advantage_margin: float = ADVANTAGE_MARGIN,
+        weight_margin: float = WEIGHT_MARGIN,
         call_threshold: float = 0.5,
     ) -> None:
         """Build a heuristic player with an optional tie-break model.
@@ -70,12 +74,15 @@ class HeuristicTiebreakPlayer(HeuristicPlayer):
             How close to three expected tricks still counts as gray.
         advantage_margin : float
             Win-probability edge that still counts as a tie.
+        weight_margin : float
+            How close two card weights must be before the model is asked.
         call_threshold : float
-            Call when the model's probability is at least this value.
+            Take the model's action when its probability is at least this value.
         """
         super().__init__(name)
         self.trick_band = trick_band
         self.advantage_margin = advantage_margin
+        self.weight_margin = weight_margin
         self.call_threshold = call_threshold
         self.model_consulted = False
         self.last_band = "clear"
@@ -85,7 +92,11 @@ class HeuristicTiebreakPlayer(HeuristicPlayer):
         elif checkpoint_path:
             self.model = load_tiebreak_predictor(Path(checkpoint_path))
         elif load_default and default_checkpoint_path().is_file():
-            self.model = load_tiebreak_predictor(default_checkpoint_path())
+            try:
+                self.model = load_tiebreak_predictor(default_checkpoint_path())
+            except ValueError:
+                # A leftover checkpoint from an older feature layout is not usable.
+                self.model = None
         else:
             self.model = None
 
@@ -164,6 +175,70 @@ class HeuristicTiebreakPlayer(HeuristicPlayer):
         if self.model is None:
             return self._heuristic_suit(gray, top_card.suit, forced, gray_fallback=True)
         return self._model_choose(gray, top_card, forced)
+
+    def choose_card_to_play(self, lead_suit: Optional[Suit], trump_suit: Optional[Suit]) -> Card:
+        """Play a card, asking the model when the top weights are close.
+
+        Parameters
+        ----------
+        lead_suit : Suit, optional
+            The suit led to this trick.
+        trump_suit : Suit, optional
+            Trump for this hand.
+
+        Returns
+        -------
+        Card
+            The card to play. It stays in the hand until the table removes it.
+        """
+        self._reset_decision()
+        heuristic = super().choose_card_to_play(lead_suit, trump_suit)
+        scored = self.play_weights(lead_suit, trump_suit)
+        alternatives = close_alternatives(scored, heuristic, self.weight_margin)
+        if not alternatives:
+            self.last_band = "clear"
+            self.last_reasoning = f"Play {heuristic}."
+            return heuristic
+        self.last_band = "gray"
+        if self.model is None:
+            self.last_reasoning = f"Gray area, heuristic decides. Play {heuristic}."
+            return heuristic
+        context = self._play_context(lead_suit, trump_suit)
+        return self._break_card_tie(heuristic, alternatives, scored, trump_suit, "play", context)
+
+    def choose_card_to_discard(self, trump_suit: Suit) -> Card:
+        """Discard, asking the model when two throws have nearly the same weight.
+
+        Parameters
+        ----------
+        trump_suit : Suit
+            The trump suit the dealer just accepted.
+
+        Returns
+        -------
+        Card
+            The card to throw.
+        """
+        self._reset_decision()
+        heuristic = super().choose_card_to_discard(trump_suit)
+        scored = self.discard_weights(trump_suit)
+        alternatives = close_alternatives(scored, heuristic, self.weight_margin)
+        if not alternatives:
+            self.last_band = "clear"
+            self.last_reasoning = f"Discard {heuristic}."
+            return heuristic
+        self.last_band = "gray"
+        if self.model is None:
+            self.last_reasoning = f"Gray area, heuristic decides. Discard {heuristic}."
+            return heuristic
+        return self._break_card_tie(
+            heuristic,
+            alternatives,
+            scored,
+            trump_suit,
+            "discard",
+            {"lead_suit": None, "partner_winning": False, "urgency": "want"},
+        )
 
     def _reset_decision(self) -> None:
         """Clear the record of the decision about to be made."""
@@ -354,3 +429,109 @@ class HeuristicTiebreakPlayer(HeuristicPlayer):
             f"micro model {chosen_probability:.3f}. {chosen.reasoning}"
         )
         return chosen.suit
+
+    def _play_context(
+        self, lead_suit: Optional[Suit], trump_suit: Optional[Suit]
+    ) -> dict:
+        """Lead, partner, and urgency for the card about to be played.
+
+        Parameters
+        ----------
+        lead_suit : Suit, optional
+            The suit the caller thinks was led.
+        trump_suit : Suit, optional
+            Trump. Unused except to keep the signature next to the play call.
+
+        Returns
+        -------
+        dict
+            ``lead_suit``, ``partner_winning``, and ``urgency``.
+        """
+        plays = self._plays_before_us()
+        if not plays:
+            return {"lead_suit": None, "partner_winning": False, "urgency": self._urgency()}
+        actual_lead = plays[0][1].suit
+        winner_seat, _winner = self._trick_winner(plays, trump_suit, actual_lead)
+        return {
+            "lead_suit": actual_lead,
+            "partner_winning": self._is_partner(winner_seat),
+            "urgency": self._urgency(),
+        }
+
+    def _break_card_tie(
+        self,
+        heuristic: Card,
+        alternatives: Sequence[Tuple[Card, float]],
+        scored: Sequence[Tuple[Card, float]],
+        trump: Optional[Suit],
+        kind: str,
+        context: dict,
+    ) -> Card:
+        """Pick a close card when the model prefers it to the heuristic.
+
+        Parameters
+        ----------
+        heuristic : Card
+            The card the rules would play or discard.
+        alternatives : Sequence[Tuple[Card, float]]
+            Other cards inside the weight margin.
+        scored : Sequence[Tuple[Card, float]]
+            Every legal weight, used for the gap and the close count.
+        trump : Suit, optional
+            Trump for this hand.
+        kind : str
+            ``play`` or ``discard``.
+        context : dict
+            Lead, partner, and urgency fields.
+
+        Returns
+        -------
+        Card
+            The model's card, or the heuristic card when every alternative
+            stays under the threshold.
+        """
+        model = self.model
+        if model is None:
+            return heuristic
+        heuristic_weight = _weight_of(scored, heuristic)
+        close_count = 1 + len(alternatives)
+        chosen = heuristic
+        chosen_probability = -1.0
+        for card, weight in alternatives:
+            features = features_for_card(
+                self,
+                card,
+                trump,
+                weight,
+                heuristic_weight - weight,
+                close_count,
+                kind,
+                lead_suit=context["lead_suit"],
+                partner_winning=bool(context["partner_winning"]),
+                urgency=str(context["urgency"]),
+            )
+            probability = float(model.call_probability(features))
+            self.model_consulted = True
+            if probability < self.call_threshold:
+                continue
+            if probability > chosen_probability + 1e-12:
+                chosen = card
+                chosen_probability = probability
+        if chosen_probability < 0.0:
+            self.last_reasoning = (
+                f"Tie-break keep {heuristic}. "
+                f"Micro model stayed below {self.call_threshold:.2f}."
+            )
+            return heuristic
+        self.last_model_probability = chosen_probability
+        verb = "Play" if kind == "play" else "Discard"
+        self.last_reasoning = f"Tie-break {verb} {chosen}: micro model {chosen_probability:.3f}."
+        return chosen
+
+
+def _weight_of(scored: Sequence[Tuple[Card, float]], chosen: Card) -> float:
+    """Return the weight recorded for ``chosen``."""
+    for card, weight in scored:
+        if card.rank == chosen.rank and card.suit == chosen.suit:
+            return weight
+    return 0.0

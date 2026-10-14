@@ -1,9 +1,10 @@
-"""EucherHeuristicTiebreak, a one-hidden-layer net for close trump calls.
+"""EucherHeuristicTiebreak, a one-hidden-layer net for close heuristic decisions.
 
-The net answers a single question: given a gray-area hand, is calling this
-suit better than passing? Clear hands never reach it. Training uses binary
-cross-entropy on labels from simulated deals, and checkpoints keep the
-weights, the optimizer, and the random state so a run can resume.
+The net answers a single question: is this gray-area action better than the
+heuristic's action? That action may be a trump call, a card play, or a
+discard. Clear decisions never reach it. Training uses binary cross-entropy
+on labels from simulated deals, and checkpoints keep the weights, the
+optimizer, and the random state so a run can resume.
 """
 
 import random
