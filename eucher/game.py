@@ -77,7 +77,10 @@ def parse_seed_text(seed: Optional[str]) -> Optional[Union[int, str]]:
 
 def seeded_random_training_command(seed_label: str) -> str:
     """
-    Return the command that trains on one seed against random opponents.
+    Return the command that studies one hand from this seed.
+
+    The cards match a game played with this seed. Training plays that hand,
+    not a game to 10, and rotates the dealer so each seat deals equally often.
 
     Parameters
     ----------
@@ -87,7 +90,7 @@ def seeded_random_training_command(seed_label: str) -> str:
     Returns
     -------
     str
-        Command line for the seeded random-opponent training mode.
+        Command line for the seeded hand-study mode.
     """
     return (
         "python scripts/training/train_models.py "

@@ -61,6 +61,8 @@ class GameDataCollector:
         
         # Track saved game replays
         self.saved_game_replays: List[str] = []
+        # One record per studied hand. Full-game collection leaves this empty.
+        self.hand_studies: List[Dict[str, Any]] = []
 
     def start_game(self, game_id: str) -> None:
         """
@@ -527,4 +529,5 @@ class GameDataCollector:
         self.play_card_data.clear()
         self.discard_data.clear()
         self.game_outcomes.clear()
+        self.hand_studies.clear()
 

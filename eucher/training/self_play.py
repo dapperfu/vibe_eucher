@@ -943,6 +943,16 @@ class SelfPlayTrainer:
                 self.data_collector.save_data(prefix=data_prefix, use_uuid_naming=False)
             else:
                 self.data_collector.save_data()
+        if save_data:
+            from eucher.training.hand_study import write_hand_studies
+
+            summary = write_hand_studies(
+                self.data_collector.output_dir,
+                self.data_collector.hand_studies,
+                study_version,
+                str(seed),
+            )
+            print(f"Hand studies: {summary}")
 
     def _play_seeded_random_games(
         self,
@@ -982,7 +992,7 @@ class SelfPlayTrainer:
                 if progress is not None:
                     progress.update(1)
                 elif (episode + 1) % 10 == 0 or episode + 1 == num_games:
-                    print(f"  Game {episode + 1}/{num_games}")
+                    print(f"  Hand {episode + 1}/{num_games}")
             return False
 
         episodes = list(range(num_games))
