@@ -51,6 +51,12 @@ training_data/*.hdf5
 training_data/*.parquet
 !training_data/.gitkeep
 
+# Heuristic tie-break outputs
+checkpoints/EucherHeuristicTiebreak/
+logs/EucherHeuristicTiebreak/
+results/EucherHeuristicTiebreak/
+data/EucherHeuristicTiebreak/
+
 # Model checkpoints and weights (large files, generated)
 models/**/*.pt
 models/**/*.pth
