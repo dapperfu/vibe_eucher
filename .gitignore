@@ -57,6 +57,12 @@ logs/EucherHeuristicTiebreak/
 results/EucherHeuristicTiebreak/
 data/EucherHeuristicTiebreak/
 
+# Hand-forest outputs
+checkpoints/EucherHandForest/
+logs/EucherHandForest/
+results/EucherHandForest/
+data/EucherHandForest/
+
 # Model checkpoints and weights (large files, generated)
 models/**/*.pt
 models/**/*.pth

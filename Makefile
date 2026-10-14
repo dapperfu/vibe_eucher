@@ -2,7 +2,8 @@
 	train-pytorch-ai train-pytorch-ai-self-play train-pytorch-ai-self-play-tune \
 	train-euchre-zero train-perceiver-muzero train-transformer-rl train-euchergo \
 	train-ml-supervised train-ml-gan train-ml-rl train-ml-self-play train-ml-all \
-	train-ml-seeded-random train-heuristic-tiebreak evaluate-heuristic-tiebreak
+	train-ml-seeded-random train-heuristic-tiebreak evaluate-heuristic-tiebreak \
+	train-hand-forest evaluate-hand-forest
 
 VENV := venv_vibe_eucher
 PYTHON := ${VENV}/bin/python
@@ -54,6 +55,10 @@ clean:
 	rm -rf .mypy_cache
 	rm -rf .pytest_cache
 	rm -rf *.egg-info
+	rm -rf checkpoints/EucherHandForest
+	rm -rf logs/EucherHandForest
+	rm -rf results/EucherHandForest
+	rm -rf data/EucherHandForest
 	rm -rf checkpoints/EucherHeuristicTiebreak
 	rm -rf logs/EucherHeuristicTiebreak
 	rm -rf results/EucherHeuristicTiebreak
@@ -136,6 +141,37 @@ train-heuristic-tiebreak: checkpoints/EucherHeuristicTiebreak/checkpoint_best.pt
 
 evaluate-heuristic-tiebreak: results/EucherHeuristicTiebreak/evaluation_test.json
 
+# Forests trained on hands from the hand generator.
+data/EucherHandForest/v1/manifest.json: configs/EucherHandForest.json \
+		eucher/training/hand_forest.py eucher/training/hand_study.py \
+		eucher/training/self_play.py \
+		scripts/training/train_eucher_hand_forest.py ${VENV}
+	${PYTHON} scripts/training/train_eucher_hand_forest.py --collect-only \
+		--config configs/EucherHandForest.json
+
+checkpoints/EucherHandForest/checkpoint_best.pth: \
+		data/EucherHandForest/v1/manifest.json \
+		configs/EucherHandForest.json \
+		eucher/training/hand_forest.py \
+		scripts/training/train_eucher_hand_forest.py ${VENV}
+	${PYTHON} scripts/training/train_eucher_hand_forest.py \
+		--config configs/EucherHandForest.json \
+		--data-path data/EucherHandForest/v1
+
+results/EucherHandForest/evaluation_test.json: \
+		checkpoints/EucherHandForest/checkpoint_best.pth \
+		data/EucherHandForest/v1/manifest.json \
+		scripts/training/evaluate_eucher_hand_forest.py ${VENV}
+	${PYTHON} scripts/training/evaluate_eucher_hand_forest.py \
+		--checkpoint checkpoints/EucherHandForest/checkpoint_best.pth \
+		--data-path data/EucherHandForest/v1 \
+		--split test \
+		--output results/EucherHandForest/evaluation_test.json
+
+train-hand-forest: checkpoints/EucherHandForest/checkpoint_best.pth
+
+evaluate-hand-forest: results/EucherHandForest/evaluation_test.json
+
 # Help
 help:
 	@echo "Available targets:"
@@ -168,6 +204,8 @@ help:
 	@echo "  make train-ml-all                  - Run full ML training workflow"
 	@echo "  make train-heuristic-tiebreak    - Train EucherHeuristicTiebreak on gray areas"
 	@echo "  make evaluate-heuristic-tiebreak - Score the tie-break model on held-out gray areas"
+	@echo "  make train-hand-forest           - Train EucherHandForest on generated hands"
+	@echo "  make evaluate-hand-forest        - Score EucherHandForest on held-out hands"
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  make clean      - Clean generated files"

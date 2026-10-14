@@ -1,0 +1,37 @@
+{
+  "_comment": "EucherHandForest fits one random forest per decision on hands from the hand generator.",
+  "model": {
+    "name": "EucherHandForest",
+    "architecture": "RandomForest",
+    "n_estimators": 40,
+    "max_depth": 8
+  },
+  "data": {
+    "version": "v1",
+    "train_path": "data/EucherHandForest/v1",
+    "game_seed": "1",
+    "hand_seeds": 8,
+    "replays": 4,
+    "learner": "random",
+    "seed": 13,
+    "val_fraction": 0.2,
+    "test_fraction": 0.2,
+    "source": "eucher.training.hand_study.play_training_hand",
+    "preprocessing": "Each hand seed of the game seed is dealt by the hand generator. The dealer rotates. Seat 0 decisions are the labels."
+  },
+  "training": {
+    "n_estimators": 40,
+    "max_depth": 8,
+    "random_state": 13
+  },
+  "evaluation": {
+    "metrics": ["accuracy", "precision", "recall", "f1"]
+  },
+  "checkpoint": {
+    "directory": "checkpoints/EucherHandForest",
+    "interval": 1
+  },
+  "logging": {
+    "directory": "logs/EucherHandForest"
+  }
+}
