@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from eucher.cards import Card, Deck, Rank, Suit
-from eucher.game import Game
+from eucher.game import Game, parse_seed_text
 
 
 def save_game(game: Game, output_dir: Path) -> Path:
@@ -55,6 +55,8 @@ def save_game(game: Game, output_dir: Path) -> Path:
         } if game.turned_card else None,
         "trump_selection_risk": game.trump_selection_risk,
         "gameplay_risk": game.gameplay_risk,
+        "seed_label": getattr(game, "seed_label", None),
+        "numeric_seed": getattr(game, "numeric_seed", None),
     }
 
     # Save as compressed pickle
@@ -118,10 +120,20 @@ def load_game(game_file: Union[str, Path], seed: Optional[Union[int, str]] = Non
     except Exception as e:
         raise ValueError(f"Failed to load game file: {e}") from e
 
-    # Extract UUID
+    # Extract UUID. The deal seed is stored separately so an integer seed
+    # is not replaced by the file's UUID.
     game_uuid = game_data.get("uuid")
+    file_uuid = game_uuid if isinstance(game_uuid, str) else None
+    if isinstance(seed, str):
+        seed = parse_seed_text(seed)
     if seed is None:
-        seed = game_uuid
+        saved_numeric = game_data.get("numeric_seed")
+        if saved_numeric is not None:
+            seed = int(saved_numeric)
+        else:
+            saved_label = game_data.get("seed_label")
+            parsed_label = parse_seed_text(saved_label) if isinstance(saved_label, str) else None
+            seed = file_uuid if parsed_label is None else parsed_label
 
     # Reconstruct player config
     player_config = game_data.get("player_config", [])
@@ -147,6 +159,8 @@ def load_game(game_file: Union[str, Path], seed: Optional[Union[int, str]] = Non
         gameplay_risk=game_data.get("gameplay_risk"),
         seed=seed,
     )
+    if file_uuid:
+        game.game_uuid = file_uuid
 
     # Restore game state
     game.dealer_id = game_data.get("dealer_id", 0)

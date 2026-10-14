@@ -49,6 +49,52 @@ from eucher.training.profiling import timed_operation
 from eucher.trump import TrumpSelector
 
 
+def parse_seed_text(seed: Optional[str]) -> Optional[Union[int, str]]:
+    """
+    Parse a seed typed by a player.
+
+    Parameters
+    ----------
+    seed : Optional[str]
+        Blank text, an integer, or a UUID string.
+
+    Returns
+    -------
+    Optional[Union[int, str]]
+        ``None`` when the seed was left blank, an ``int`` when the text is an
+        integer, otherwise the trimmed text.
+    """
+    if seed is None:
+        return None
+    text = seed.strip()
+    if text == "":
+        return None
+    try:
+        return int(text)
+    except ValueError:
+        return text
+
+
+def seeded_random_training_command(seed_label: str) -> str:
+    """
+    Return the command that trains on one seed against random opponents.
+
+    Parameters
+    ----------
+    seed_label : str
+        Seed printed for the game. Passing it back deals the same hands.
+
+    Returns
+    -------
+    str
+        Command line for the seeded random-opponent training mode.
+    """
+    return (
+        "python scripts/training/train_models.py "
+        f"--mode seeded_random --seed {seed_label}"
+    )
+
+
 class Game:
     """Manages the Euchre game state and flow."""
 
@@ -60,6 +106,7 @@ class Game:
         seed: Optional[Union[int, str]] = None,
         trade_in_enabled: bool = False,
         allow_untrained: bool = False,
+        seed_decisions: bool = True,
     ) -> None:
         """
         Initialize a new game.
@@ -76,9 +123,10 @@ class Game:
             Risk factor for gameplay decisions (0.0-1.0) for ML players.
             If None, uses MLConfig default.
         seed : Optional[Union[int, str]]
-            Random seed for reproducibility. Can be an integer or a UUID string.
-            If a UUID string is provided, it will be converted to a numeric seed.
-            If None, a new UUID will be generated and used as the seed.
+            Random seed for the dealt hands. Can be an integer or a UUID string.
+            The same seed deals the same hands even when players make different
+            decisions. If a UUID string is provided, it is converted to a numeric
+            seed. If None, a new UUID is generated and used as the seed.
         trade_in_enabled : bool
             If True, enables the Midwest 9-10 trade-in variant.
             Default is False.
@@ -86,37 +134,49 @@ class Game:
             When True, machine-learning personalities may be created before
             they have a trained checkpoint. Play uses the default, False,
             and those personalities raise ``UntrainedPersonalityError``.
+        seed_decisions : bool
+            When True, also seed the process-wide random generators so a replay
+            with the same personalities repeats their decisions. Deals use a
+            separate generator either way, so random choices cannot change the
+            cards. Set this False when replaying one seed many times with
+            different decisions, such as training against random opponents.
         """
         if len(player_config) != 4:
             raise ValueError("Euchre requires exactly 4 players")
 
-        # Handle seed/UUID
+        # Handle seed/UUID. ``seed_label`` is the value a player passes back
+        # to see the same hands. An integer seed must stay an integer: replaying
+        # the derived UUID would shuffle a different deck.
         if seed is None:
-            # Generate a new UUID
             self.game_uuid = str(uuid.uuid4())
+            self.seed_label = self.game_uuid
             numeric_seed = self._uuid_to_seed(self.game_uuid)
         elif isinstance(seed, str):
-            # UUID string provided
             self.game_uuid = seed
+            self.seed_label = seed
             numeric_seed = self._uuid_to_seed(seed)
         else:
-            # Integer seed provided - convert to UUID for consistency
-            # Use the integer as the seed directly, but generate a deterministic UUID
             numeric_seed = seed
-            # Create a deterministic UUID from the seed for file naming
-            # We'll use a namespace UUID approach
-            namespace = uuid.UUID('6ba7b810-9dad-11d1-80b4-00c04fd430c8')  # DNS namespace
-            self.game_uuid = str(uuid.uuid5(namespace, str(seed)))
+            self.seed_label = str(numeric_seed)
+            namespace = uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")  # DNS namespace
+            self.game_uuid = str(uuid.uuid5(namespace, self.seed_label))
 
-        # Set random seeds
-        random.seed(numeric_seed)
-        np.random.seed(numeric_seed)
+        self.numeric_seed = numeric_seed
+        # Hand number counts scored hands. Redeal number counts extra shuffles
+        # of a hand that everyone passed. Decisions do not enter this token.
+        self._hand_index = 0
+        self._redeal_index = 0
+
+        if seed_decisions:
+            random.seed(numeric_seed)
+            np.random.seed(numeric_seed)
 
         self.players: List[Player] = []
         self.dealer_id: int = 0
         self.scores: List[int] = [0, 0]  # Team 0 and Team 1 scores
         self.trump_suit: Optional[Suit] = None
         self.turned_card: Optional[Card] = None
+        self.kitty: List[Card] = []
         self.rules = RulesEngine()
         self.trump_selector: Optional[TrumpSelector] = None
         self.ai_decision_maker = AIDecisionMaker()
@@ -465,24 +525,13 @@ class Game:
             scores = self.get_scores()
             self.tui.display_scores(scores[0], scores[1])
 
-        # Deal cards
-        deck = Deck()
-        deck.shuffle()
-
-        # Deal 5 cards to each player
-        for player in self.players:
-            cards = deck.deal(5)
-            player.receive_hand(cards)
+        # Deal cards. The shuffle depends only on the game seed and which
+        # hand this is, not on choices made in earlier hands.
+        self._deal_cards()
 
         # Log initial hands
         if self.tui is not None and hasattr(self.tui, "log_initial_hands"):
             self.tui.log_initial_hands(self.players)
-
-        # Turn up one card
-        self.turned_card = deck.draw_one()
-
-        # Store kitty (remaining 3 cards in deck)
-        self.kitty = deck.cards.copy()
 
         # Log turned card
         if self.tui is not None and hasattr(self.tui, "log_turned_card"):
@@ -523,9 +572,10 @@ class Game:
                 history.get("order_up", []), history.get("call_trump", [])
             )
 
-        # If all passed, redeal
+        # If all passed, redeal the same hand number with the next redeal.
         if self.trump_suit is None:
-            return True  # Continue game, redeal
+            self._redeal_index += 1
+            return True
 
         # Check if going alone
         if self.trump_selector.going_alone:
@@ -641,11 +691,20 @@ class Game:
         # Log hand score
         if self.tui is not None and hasattr(self.tui, "log_hand_score"):
             scores = self.get_scores()
-            self.tui.log_hand_score(tricks_won, scores, making_team)
+            self.tui.log_hand_score(
+                tricks_won,
+                scores,
+                making_team,
+                going_alone=self.going_alone,
+            )
 
         # Display hand log
         if self.tui is not None and hasattr(self.tui, "display_hand_log"):
             self.tui.display_hand_log()
+
+        # The next scored hand gets the next fixed deal for this seed.
+        self._hand_index += 1
+        self._redeal_index = 0
 
         # Rotate dealer
         self.dealer_id = (self.dealer_id + 1) % 4
@@ -656,6 +715,35 @@ class Game:
 
         # Check for game end
         return not self._is_game_over()
+
+    def _deal_token(self) -> str:
+        """
+        Return the stable token for the current deal.
+
+        Returns
+        -------
+        str
+            Token passed to ``random.Random``. It is a string so the shuffle
+            does not depend on process-wide hash randomization.
+        """
+        return f"euchre-deal:{self.numeric_seed}:{self._hand_index}:{self._redeal_index}"
+
+    def _deal_cards(self) -> None:
+        """
+        Shuffle and deal the current hand, turned card, and kitty.
+
+        The shuffle generator is created from the game seed and the hand
+        index. Drawing random numbers for a decision does not move it.
+        """
+        deck = Deck()
+        deck.shuffle(random.Random(self._deal_token()))
+
+        for player in self.players:
+            cards = deck.deal(5)
+            player.receive_hand(cards)
+
+        self.turned_card = deck.draw_one()
+        self.kitty = deck.cards.copy()
 
     @timed_operation("Game._play_trick")
     def _play_trick(self) -> int:

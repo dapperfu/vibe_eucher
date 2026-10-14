@@ -1,11 +1,17 @@
 """Main training script for ML models."""
 
 import argparse
+import json
 import re
+import subprocess
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 
+from eucher.game import parse_seed_text
 from eucher.training.convergence_tracker import ConvergenceTracker
 from eucher.training.self_play import SelfPlayTrainer
+from eucher.training.system_info import get_system_info
 from eucher.training.train_gan import train_gan_for_decision_type
 from eucher.training.train_rl import train_rl_through_self_play
 from eucher.training.train_supervised import train_all_models
@@ -14,17 +20,135 @@ from eucher.training.training_scheduler import TrainingScheduler
 from plugins.ml.ml_config import MLConfig
 
 
+def _git_commit() -> str:
+    """
+    Return the current git commit, or ``unknown`` when git is unavailable.
+
+    Returns
+    -------
+    str
+        Commit hash from ``git rev-parse HEAD``.
+    """
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=Path(__file__).resolve().parents[2],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except (OSError, subprocess.CalledProcessError):
+        return "unknown"
+
+
+def _write_seeded_random_log(
+    args: argparse.Namespace,
+    data_dir: Path,
+    trainer: SelfPlayTrainer,
+    parsed_seed: object,
+) -> None:
+    """
+    Write the experiment log for one seeded random-opponent run.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed command-line arguments.
+    data_dir : Path
+        Directory that received the training data.
+    trainer : SelfPlayTrainer
+        Trainer that just finished the round.
+    parsed_seed : object
+        Deal seed used for every game.
+    """
+    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
+    log_dir = Path("logs") / "seeded_random" / run_id
+    log_dir.mkdir(parents=True, exist_ok=True)
+    collector = trainer.data_collector
+    config = {
+        "mode": "seeded_random",
+        "seed": str(parsed_seed),
+        "num_games": args.num_games,
+        "learner": args.learner,
+        "data_dir": str(data_dir),
+        "data_prefix": args.data_prefix,
+        "git_commit": _git_commit(),
+        "run_id": run_id,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    metrics = {
+        "games": len(collector.game_outcomes),
+        "order_up": len(collector.order_up_data),
+        "call_trump": len(collector.call_trump_data),
+        "play_card": len(collector.play_card_data),
+        "discard": len(collector.discard_data),
+    }
+    (log_dir / "config.json").write_text(json.dumps(config, indent=2) + "\n")
+    (log_dir / "metrics.json").write_text(json.dumps(metrics, indent=2) + "\n")
+    system_metrics = json.dumps(get_system_info(), indent=2, default=str)
+    (log_dir / "system_metrics.json").write_text(system_metrics + "\n")
+    print(f"Experiment log: {log_dir}")
+
+
+def _run_seeded_random(
+    args: argparse.Namespace,
+    parser: argparse.ArgumentParser,
+    data_dir: Path,
+) -> None:
+    """
+    Replay one played-game seed against random AI and record the learner.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed command-line arguments.
+    parser : argparse.ArgumentParser
+        Parser used to report a missing seed.
+    data_dir : Path
+        Directory for the collected decisions.
+    """
+    seed_text = args.seed if isinstance(args.seed, str) else None
+    parsed_seed = parse_seed_text(seed_text)
+    if parsed_seed is None:
+        parser.error("--seed is required for --mode seeded_random")
+    if args.num_games < 1:
+        parser.error("--num_games must be >= 1")
+
+    print("=" * 60)
+    print("Seeded training against random AI")
+    print("=" * 60)
+    print(f"Deal seed: {parsed_seed}")
+    print(f"Learner seat: {args.learner} (seat 0, same cards as the human)")
+    print("Opponents: random, random, random")
+    print(f"Games: {args.num_games}")
+    print(f"Output directory: {data_dir}")
+    print()
+
+    trainer = SelfPlayTrainer(output_dir=data_dir)
+    trainer.run_seeded_random_round(
+        seed=parsed_seed,
+        num_games=args.num_games,
+        learner_type=args.learner,
+        show_progress=True,
+        data_prefix=args.data_prefix,
+    )
+    _write_seeded_random_log(args, data_dir, trainer, parsed_seed)
+    print("\nSeeded random-opponent data collection complete!")
+    print("Train a model on this data with:")
+    print("  python scripts/training/train_models.py --mode train")
+
+
 def main() -> None:
     """Train ML models for Euchre."""
     parser = argparse.ArgumentParser(description="Train ML models for Euchre")
     parser.add_argument(
         "--mode",
         type=str,
-        choices=["self_play", "train", "train_gan", "train_rl", "both"],
+        choices=["self_play", "train", "train_gan", "train_rl", "both", "seeded_random"],
         default="both",
         help=(
             "Training mode: self_play (collect data), train (train sklearn), "
-            "train_gan, train_rl, or both"
+            "train_gan, train_rl, both, or seeded_random (replay one seed "
+            "against random opponents)"
         ),
     )
     parser.add_argument(
@@ -99,6 +223,25 @@ def main() -> None:
         default=100,
         help="Save checkpoint every N games (default: 100)",
     )
+    parser.add_argument(
+        "--seed",
+        type=str,
+        default=None,
+        help=(
+            "Deal seed for --mode seeded_random (integer or UUID). "
+            "Use the seed from a game you played. Every training game is "
+            "dealt from this seed. Random opponents make different decisions."
+        ),
+    )
+    parser.add_argument(
+        "--learner",
+        type=str,
+        default="ml_sklearn",
+        help=(
+            "Personality recorded in the human seat for --mode seeded_random. "
+            "The other three players are random (default: ml_sklearn)."
+        ),
+    )
 
     args = parser.parse_args()
 
@@ -157,6 +300,10 @@ def main() -> None:
         checkpoint_interval=args.checkpoint_interval,
         checkpoint_dir=model_dir / "checkpoints",
     )
+
+    if args.mode == "seeded_random":
+        _run_seeded_random(args, parser, data_dir)
+        return
 
     if args.mode in ["self_play", "both"]:
         print("=" * 60)

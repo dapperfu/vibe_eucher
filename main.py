@@ -1,6 +1,6 @@
 """Main entry point for Euchre game."""
 
-from eucher.game import Game
+from eucher.game import Game, parse_seed_text, seeded_random_training_command
 from eucher.tui import TextTUI
 
 
@@ -31,8 +31,15 @@ def main() -> None:
     for i, (name, profile_type) in enumerate(player_config):
         print(f"  Player {i}: {name} ({profile_type})")
 
+    seed_text = input("Random seed (integer or UUID, Enter for a new game): ").strip()
+    parsed_seed = parse_seed_text(seed_text)
+
     # Create game
-    game = Game(player_config)
+    game = Game(player_config, seed=parsed_seed)
+    print(f"\nSeed: {game.seed_label}")
+    print(f"To play these same hands again, enter seed {game.seed_label}")
+    print("To train on these hands against random AI:")
+    print(f"  {seeded_random_training_command(game.seed_label)}")
 
     # Create and set TUI
     tui = TextTUI()

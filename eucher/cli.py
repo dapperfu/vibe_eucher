@@ -8,7 +8,7 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, List, Optional, Sequence, Tuple, Union
+from typing import Any, List, Optional, Sequence, Tuple
 
 import click
 from faker import Faker
@@ -39,7 +39,7 @@ from eucher.db_serializers import (
     player_to_dict,
     trick_to_dict,
 )
-from eucher.game import Game
+from eucher.game import Game, parse_seed_text, seeded_random_training_command
 from eucher.personality_training import personality_is_trained
 from eucher.plugins import get_registry
 from eucher.tui import TextTUI
@@ -317,6 +317,55 @@ def assign_computer_types(
     return [left, partner, right]
 
 
+def prompt_for_seed(seed: Optional[str]) -> Optional[str]:
+    """
+    Ask for a seed when the player did not pass ``--seed``.
+
+    A terminal gets a prompt. Pressing Enter leaves the seed unset so the
+    game generates one. Non-interactive runs keep the seed they were given.
+
+    Parameters
+    ----------
+    seed : Optional[str]
+        Seed from ``--seed``, or None when the option was omitted.
+
+    Returns
+    -------
+    Optional[str]
+        The seed text to parse, or None for a newly generated game.
+    """
+    if seed is not None:
+        return seed
+    if not sys.stdin.isatty():
+        return None
+    entered = click.prompt(
+        "Seed (integer or UUID, Enter for a new game)",
+        default="",
+        show_default=False,
+    )
+    text = str(entered).strip()
+    if text == "":
+        return None
+    return text
+
+
+def _echo_game_seed(game: Game) -> None:
+    """
+    Print the seed and the command that trains on these hands.
+
+    Parameters
+    ----------
+    game : Game
+        Game that was just created.
+    """
+    click.echo(f"Game UUID: {game.game_uuid}")
+    click.echo(f"Seed: {game.seed_label}")
+    click.echo(f"To play these same hands again, use: --seed {game.seed_label}")
+    click.echo("To train on these hands against random AI:")
+    click.echo(f"  {seeded_random_training_command(game.seed_label)}")
+    click.echo()
+
+
 @click.group()
 def cli() -> None:
     """Euchre card game CLI."""
@@ -379,17 +428,12 @@ def _play_server(
             else:
                 player_config.append((f"Player {player_id}", "human"))
         
-        # Parse seed
-        parsed_seed: Optional[Union[int, str]] = None
-        if seed is not None:
-            try:
-                parsed_seed = int(seed)
-            except ValueError:
-                parsed_seed = seed
-        
+        parsed_seed = parse_seed_text(seed)
+
         # Create game
         game = Game(player_config, seed=parsed_seed)
-        
+        _echo_game_seed(game)
+
         # Create TUI for server (handles both local and network players)
         from eucher.tui.server_network_tui import ServerNetworkTUI
         from eucher.decision_playback import DecisionPlayback
@@ -595,7 +639,16 @@ def _play_client(
     ),
 )
 @click.option("--name", default="You", help="Human player name")
-@click.option("--seed", type=str, default=None, help="Random seed for reproducible games (integer or UUID string)")
+@click.option(
+    "--seed",
+    type=str,
+    default=None,
+    help=(
+        "Seed for the dealt hands (integer or UUID). The same seed deals the "
+        "same hands when players make different decisions. Omit it in a "
+        "terminal to be asked. Enter deals a new game."
+    ),
+)
 @click.option("--save-dir", type=click.Path(file_okay=False, dir_okay=True), default=None, help="Directory to save game file")
 @click.option("--assistant", type=str, default=None, help="Assistant bot type(s) to show decision recommendations (comma-separated, e.g., 'heuristic,euchergo'). Use 'list' to see available types)")
 @click.option("--xray", is_flag=True, default=False, help="Enable xray mode to display all hidden information (all players' hands, kitty cards, etc.)")
@@ -635,9 +688,10 @@ def play(
     trained machine-learning personality chosen at random. Untrained
     personalities are not part of either draw.
 
-    The seed can be an integer or a UUID string. If a UUID is provided, it will
-    be used to seed the random number generator and the game will be saved as
-    <uuid>.gz if --save-dir is provided.
+    The seed can be an integer or a UUID string. It fixes the dealt hands.
+    Players can make different decisions without changing those hands. In a
+    terminal, omitting --seed asks for one; Enter starts a new game. With
+    --save-dir the game is saved as <uuid>.gz.
 
     Use --assistant=<bot_type> to display decision recommendations from a bot.
     Use --assistant=<bot_type1>,<bot_type2> to display recommendations from multiple bots.
@@ -647,9 +701,20 @@ def play(
     Use --server to host a game (you are Player 0).
     Use --client=<ip> to connect to a server (you select your position).
     """
-    # Handle network multiplayer modes
+    # Handle network multiplayer modes. The client does not deal, so it
+    # does not ask for a seed. The server and a local game do.
     if server:
-        _play_server(name, port, seed, save_dir, assistant, xray, record_decisions, playback_decisions)
+        seed = prompt_for_seed(seed)
+        _play_server(
+            name,
+            port,
+            seed,
+            save_dir,
+            assistant,
+            xray,
+            record_decisions,
+            playback_decisions,
+        )
         return
     elif client is not None:
         _play_client(client, port, timeout, name, assistant, xray)
@@ -684,16 +749,11 @@ def play(
             click.echo()
         
         return
-    
+
+    seed = prompt_for_seed(seed)
+
     # Parse seed - can be integer or UUID string
-    parsed_seed: Optional[Union[int, str]] = None
-    if seed is not None:
-        # Try to parse as integer first
-        try:
-            parsed_seed = int(seed)
-        except ValueError:
-            # If not an integer, treat as UUID string
-            parsed_seed = seed
+    parsed_seed = parse_seed_text(seed)
     
     # Initialize random seed if provided (for Faker compatibility)
     if parsed_seed is not None:
@@ -766,11 +826,7 @@ def play(
         click.echo(f"Error creating game: {e}", err=True)
         raise click.Abort()
 
-    # Display game UUID if available
-    if hasattr(game, 'game_uuid'):
-        click.echo(f"Game UUID: {game.game_uuid}")
-        click.echo(f"To replay this game, use: --seed {game.game_uuid}")
-        click.echo()
+    _echo_game_seed(game)
 
     # Create assistant helpers if specified
     assistant_helpers = []

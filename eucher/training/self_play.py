@@ -3,10 +3,11 @@
 import multiprocessing
 import os
 import queue
+import random
 import uuid
 from concurrent.futures import FIRST_COMPLETED, Future, ProcessPoolExecutor, wait
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple, TypedDict
+from typing import Any, Dict, List, Optional, Sequence, Tuple, TypedDict, Union
 
 from tqdm import tqdm
 
@@ -35,6 +36,7 @@ class CollectedGameData(TypedDict):
     discard: List[Dict[str, Any]]
     outcomes: List[Dict[str, Any]]
     replays: List[str]
+    hand_studies: List[Dict[str, Any]]
 
 
 def resolve_worker_count(workers: int, total_games: int) -> int:
@@ -142,10 +144,126 @@ def _take_collected_data(collector: GameDataCollector, keep_decisions: bool) -> 
         "discard": list(collector.discard_data) if keep_decisions else [],
         "outcomes": list(collector.game_outcomes),
         "replays": list(collector.saved_game_replays),
+        "hand_studies": list(collector.hand_studies),
     }
     collector.clear_data()
     collector.saved_game_replays.clear()
     return collected
+
+
+def random_opponent_lineup(learner_type: str) -> List[Tuple[str, str]]:
+    """
+    Seat a learner with three random opponents.
+
+    Seat 0 is the learner. That is the human seat in a played game, so the
+    learner is dealt the same cards as the person who used this seed.
+
+    Parameters
+    ----------
+    learner_type : str
+        Personality whose decisions are recorded.
+
+    Returns
+    -------
+    List[Tuple[str, str]]
+        Four ``(name, profile)`` seats. Seats 1, 2, and 3 are ``random``.
+    """
+    return [
+        ("Learner", learner_type),
+        ("RandomLeft", "random"),
+        ("RandomPartner", "random"),
+        ("RandomRight", "random"),
+    ]
+
+
+def apply_decision_seed(deal_seed: Union[int, str], episode: int) -> int:
+    """
+    Seed decision RNGs so one deal can be played many different ways.
+
+    Parameters
+    ----------
+    deal_seed : Union[int, str]
+        Seed that fixes the dealt hands.
+    episode : int
+        Which replay of that deal this is. Each episode gets its own decisions.
+
+    Returns
+    -------
+    int
+        Seed applied to ``random`` and NumPy.
+    """
+    import numpy as np
+
+    mixer = random.Random(f"euchre-decisions:{deal_seed}:{episode}")
+    decision_seed = mixer.randint(0, 2**31 - 1)
+    random.seed(decision_seed)
+    np.random.seed(decision_seed)
+    return decision_seed
+
+
+def _split_episodes(episodes: Sequence[int], workers: int) -> List[List[int]]:
+    """
+    Deal episode indexes across workers in round-robin order.
+
+    Parameters
+    ----------
+    episodes : Sequence[int]
+        Episode indexes to play.
+    workers : int
+        Number of non-empty chunks to produce.
+
+    Returns
+    -------
+    List[List[int]]
+        One chunk of episodes per worker.
+    """
+    chunks: List[List[int]] = [[] for _ in range(workers)]
+    for index, episode in enumerate(episodes):
+        chunks[index % workers].append(episode)
+    return [chunk for chunk in chunks if chunk]
+
+
+def _play_seeded_batch(
+    deal_seed: Union[int, str],
+    episodes: List[int],
+    learner_type: str,
+    save_data: bool,
+) -> CollectedGameData:
+    """
+    Play a batch of seeded random-opponent games inside a worker process.
+
+    Parameters
+    ----------
+    deal_seed : Union[int, str]
+        Seed for the dealt hands. Every episode uses this same seed.
+    episodes : List[int]
+        Replay indexes. Each one gets a different decision seed.
+    learner_type : str
+        Personality recorded from seat 0.
+    save_data : bool
+        When True, write this batch's datasets before returning.
+
+    Returns
+    -------
+    CollectedGameData
+        Outcomes, replay ids, and decision rows when they were not saved here.
+
+    Raises
+    ------
+    RuntimeError
+        If the worker initializer did not run.
+    """
+    if _worker_trainer is None or _worker_progress is None:
+        raise RuntimeError("Game worker was not initialized")
+    collector = _worker_trainer.data_collector
+    collector.clear_data()
+    collector.saved_game_replays.clear()
+    for episode in episodes:
+        _worker_trainer.run_seeded_random_game(deal_seed, episode, learner_type)
+        _worker_progress.put(1)
+    if save_data:
+        collector.save_data()
+    return _take_collected_data(collector, keep_decisions=not save_data)
 
 
 def _play_collected_games(
@@ -311,7 +429,11 @@ class SelfPlayTrainer:
 
     @timed_operation("SelfPlayTrainer.run_game_with_collection")
     def run_game_with_collection(
-        self, player_config: List[Tuple[str, str]], collect_from_players: Optional[List[int]] = None
+        self,
+        player_config: List[Tuple[str, str]],
+        collect_from_players: Optional[List[int]] = None,
+        seed: Optional[Union[int, str]] = None,
+        seed_decisions: bool = True,
     ) -> None:
         """
         Run a game and collect training data.
@@ -322,12 +444,26 @@ class SelfPlayTrainer:
             List of (name, profile_type) tuples for each player.
         collect_from_players : Optional[List[int]]
             List of player IDs to collect data from. If None, collects from all computer players.
+        seed : Optional[Union[int, str]]
+            Deal seed. When omitted, the game id is the seed, so each game
+            deals a new set of hands. Pass a seed to replay one set of hands.
+        seed_decisions : bool
+            When False, this method does not reseed decision randomness. The
+            caller can seed that itself so repeated deals diverge in play.
         """
         game_id = str(uuid.uuid4())
         self.data_collector.start_game(game_id)
 
-        # Create game with the same UUID as game_id for consistency
-        game = Game(player_config, seed=game_id, allow_untrained=True)
+        # A repeated deal seed must not reuse one replay filename.
+        deal_seed: Union[int, str] = game_id if seed is None else seed
+        game = Game(
+            player_config,
+            seed=deal_seed,
+            allow_untrained=True,
+            seed_decisions=seed_decisions,
+        )
+        if seed is not None:
+            game.game_uuid = game_id
 
         # Determine which players to collect from
         if collect_from_players is None:
@@ -455,7 +591,6 @@ class SelfPlayTrainer:
 
         # Save full game replay
         try:
-            # Game already has game_uuid set from seed=game_id above
             from eucher.game_file import save_game
 
             save_game(game, self.data_collector.output_dir)
@@ -695,6 +830,191 @@ class SelfPlayTrainer:
         collector.discard_data.extend(collected["discard"])
         collector.game_outcomes.extend(collected["outcomes"])
         collector.saved_game_replays.extend(collected["replays"])
+        collector.hand_studies.extend(collected["hand_studies"])
+
+    def run_seeded_random_game(
+        self,
+        deal_seed: Union[int, str],
+        episode: int,
+        learner_type: str = "ml_sklearn",
+    ) -> None:
+        """
+        Play one hand of the learner against random AI on a fixed deal seed.
+
+        The learner sits in seat 0, the same seat as the human in ``eucher play``.
+        Only the learner's decisions are stored as training rows. The hand
+        study records every seat and every legal option. Random opponents use
+        a decision seed that changes with ``episode``, so each hand starts
+        from the same cards and then diverges. The dealer is ``episode % 4``.
+
+        Parameters
+        ----------
+        deal_seed : Union[int, str]
+            Seed for the dealt hands.
+        episode : int
+            Replay index. Zero is the first replay.
+        learner_type : str
+            Personality recorded for training.
+        """
+        from eucher.training.hand_study import dealer_for_episode, play_training_hand
+
+        play_training_hand(
+            seed=deal_seed,
+            dealer=dealer_for_episode(episode),
+            episode=episode,
+            learner_type=learner_type,
+            collector=self.data_collector,
+        )
+
+    def run_seeded_random_round(
+        self,
+        seed: Union[int, str],
+        num_games: int = 100,
+        learner_type: str = "ml_sklearn",
+        save_data: bool = True,
+        show_progress: bool = True,
+        data_prefix: Optional[str] = None,
+        workers: int = 1,
+        study_version: str = "v1",
+    ) -> None:
+        """
+        Replay one deal seed, one hand at a time, and record the learner.
+
+        Every hand is dealt from ``seed``. Decision randomness changes per
+        hand, so the cards match while the choices do not. The dealer rotates
+        through the four seats. A full game to 10 is not played.
+
+        Parameters
+        ----------
+        seed : Union[int, str]
+            Deal seed from a played game.
+        num_games : int
+            How many times to replay that seed.
+        learner_type : str
+            Personality in the human seat. Its decisions are recorded.
+        save_data : bool
+            Whether to save collected data at the end.
+        show_progress : bool
+            Whether to display a tqdm progress bar.
+        data_prefix : Optional[str]
+            If set, write ``{data_prefix}_<decision>.npz`` files. Otherwise
+            write UUID ``.npz`` datasets.
+        workers : int
+            Processes used to simulate hands. ``0`` uses one process per CPU
+            core. ``1`` runs hands in this process.
+        study_version : str
+            Version stored with the hand-study summary.
+
+        Raises
+        ------
+        ValueError
+            If ``num_games`` is less than 1 or ``workers`` is negative.
+        """
+        if num_games < 1:
+            raise ValueError(f"num_games must be >= 1, got {num_games}")
+        worker_count = resolve_worker_count(workers, num_games)
+        save_in_workers = save_data and data_prefix is None
+        saved_by_workers = False
+        if show_progress:
+            if worker_count > 1:
+                print(f"Worker processes: {worker_count}")
+            with tqdm(total=num_games, desc="Seeded hands", unit="hand") as progress:
+                saved_by_workers = self._play_seeded_random_games(
+                    seed,
+                    num_games,
+                    learner_type,
+                    progress,
+                    worker_count,
+                    save_in_workers,
+                )
+        else:
+            saved_by_workers = self._play_seeded_random_games(
+                seed,
+                num_games,
+                learner_type,
+                None,
+                worker_count,
+                save_in_workers,
+            )
+
+        if save_data and not saved_by_workers:
+            print("\nSaving collected data...")
+            if data_prefix:
+                self.data_collector.save_data(prefix=data_prefix, use_uuid_naming=False)
+            else:
+                self.data_collector.save_data()
+
+    def _play_seeded_random_games(
+        self,
+        seed: Union[int, str],
+        num_games: int,
+        learner_type: str,
+        progress: Optional[tqdm],
+        worker_count: int,
+        save_data: bool,
+    ) -> bool:
+        """
+        Play seeded random-opponent games in this process or on a pool.
+
+        Parameters
+        ----------
+        seed : Union[int, str]
+            Deal seed shared by every game.
+        num_games : int
+            Number of replays.
+        learner_type : str
+            Personality recorded from seat 0.
+        progress : Optional[tqdm]
+            Progress bar to update after each game.
+        worker_count : int
+            Process count. ``1`` keeps the simulation in this process.
+        save_data : bool
+            Whether workers should write dataset files themselves.
+
+        Returns
+        -------
+        bool
+            True when worker processes already wrote the dataset files.
+        """
+        if worker_count <= 1:
+            for episode in range(num_games):
+                self.run_seeded_random_game(seed, episode, learner_type)
+                if progress is not None:
+                    progress.update(1)
+                elif (episode + 1) % 10 == 0 or episode + 1 == num_games:
+                    print(f"  Game {episode + 1}/{num_games}")
+            return False
+
+        episodes = list(range(num_games))
+        chunks = _split_episodes(episodes, worker_count)
+        if progress is not None:
+            progress.set_postfix_str(f"{len(chunks)} workers")
+
+        context = multiprocessing.get_context("spawn")
+        progress_queue = context.Queue()
+        previous_env = _push_single_thread_env()
+        executor = ProcessPoolExecutor(
+            max_workers=len(chunks),
+            mp_context=context,
+            initializer=_init_game_worker,
+            initargs=(str(self.data_collector.output_dir), progress_queue),
+        )
+        try:
+            futures = [
+                executor.submit(_play_seeded_batch, seed, chunk, learner_type, save_data)
+                for chunk in chunks
+            ]
+            completed = _track_progress(futures, progress_queue, progress, num_games)
+            for future in futures:
+                self._merge_collected_game(future.result())
+            if progress is not None and completed < num_games:
+                progress.update(num_games - completed)
+        finally:
+            executor.shutdown(wait=True, cancel_futures=True)
+            progress_queue.close()
+            progress_queue.join_thread()
+            _restore_env(previous_env)
+        return save_data
 
     def _get_default_combinations(self) -> List[List[Tuple[str, str]]]:
         """

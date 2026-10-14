@@ -1,6 +1,7 @@
 """Card and Deck classes for Euchre game."""
 
 import os
+import random
 import sys
 from enum import Enum
 from typing import List, Optional
@@ -347,11 +348,21 @@ class Deck:
 
         self.cards = [Card(suit, rank) for suit in suits for rank in ranks]
 
-    def shuffle(self) -> None:
-        """Shuffle the deck."""
-        import random
+    def shuffle(self, rng: Optional[random.Random] = None) -> None:
+        """
+        Shuffle the deck.
 
-        random.shuffle(self.cards)
+        Parameters
+        ----------
+        rng : Optional[random.Random]
+            Generator used for this shuffle. When omitted, the process-wide
+            ``random`` module is used. Pass a generator when the deal must stay
+            fixed even if players later draw other random numbers.
+        """
+        if rng is None:
+            random.shuffle(self.cards)
+        else:
+            rng.shuffle(self.cards)
 
     def deal(self, num_cards: int) -> List[Card]:
         """

@@ -1,7 +1,8 @@
 .PHONY: venv install test lint type-check format clean run help \
 	train-pytorch-ai train-pytorch-ai-self-play train-pytorch-ai-self-play-tune \
 	train-euchre-zero train-perceiver-muzero train-transformer-rl train-euchergo \
-	train-ml-supervised train-ml-gan train-ml-rl train-ml-self-play train-ml-all
+	train-ml-supervised train-ml-gan train-ml-rl train-ml-self-play train-ml-all \
+	train-ml-seeded-random train-heuristic-tiebreak evaluate-heuristic-tiebreak
 
 VENV := venv_vibe_eucher
 PYTHON := ${VENV}/bin/python
@@ -53,6 +54,10 @@ clean:
 	rm -rf .mypy_cache
 	rm -rf .pytest_cache
 	rm -rf *.egg-info
+	rm -rf checkpoints/EucherHeuristicTiebreak
+	rm -rf logs/EucherHeuristicTiebreak
+	rm -rf results/EucherHeuristicTiebreak
+	rm -rf data/EucherHeuristicTiebreak
 	find . -type d -name __pycache__ -exec rm -r {} + 2>/dev/null || true
 	find . -type f -name "*.pyc" -delete
 
@@ -90,8 +95,46 @@ train-ml-rl: ${VENV}
 train-ml-self-play: ${VENV}
 	${PYTHON} scripts/training/train_models.py --mode self_play
 
+# Replay one played-game seed against random AI.
+# Usage: make train-ml-seeded-random SEED=42
+#        make train-ml-seeded-random SEED=42 NUM_GAMES=50
+train-ml-seeded-random: ${VENV}
+	${PYTHON} scripts/training/train_models.py --mode seeded_random --seed "${SEED}" \
+		--num_games "$(or ${NUM_GAMES},100)"
+
 train-ml-all: ${VENV}
 	${PYTHON} scripts/training/train_models.py --mode both
+
+# Heuristic gray-area tie-break. Clear bids never enter the dataset.
+data/EucherHeuristicTiebreak/v1/manifest.json: configs/EucherHeuristicTiebreak.json \
+		euchre/ai/gray_area.py euchre/ai/heuristic_player.py \
+		euchre/training/gray_area_samples.py \
+		scripts/training/train_eucher_heuristic_tiebreak.py ${VENV}
+	${PYTHON} scripts/training/train_eucher_heuristic_tiebreak.py --collect-only \
+		--config configs/EucherHeuristicTiebreak.json
+
+checkpoints/EucherHeuristicTiebreak/checkpoint_best.pth: \
+		data/EucherHeuristicTiebreak/v1/manifest.json \
+		configs/EucherHeuristicTiebreak.json \
+		euchre/ai/eucher_heuristic_tiebreak.py \
+		scripts/training/train_eucher_heuristic_tiebreak.py ${VENV}
+	${PYTHON} scripts/training/train_eucher_heuristic_tiebreak.py \
+		--config configs/EucherHeuristicTiebreak.json \
+		--data-path data/EucherHeuristicTiebreak/v1
+
+results/EucherHeuristicTiebreak/evaluation_test.json: \
+		checkpoints/EucherHeuristicTiebreak/checkpoint_best.pth \
+		data/EucherHeuristicTiebreak/v1/manifest.json \
+		scripts/training/evaluate_eucher_heuristic_tiebreak.py ${VENV}
+	${PYTHON} scripts/training/evaluate_eucher_heuristic_tiebreak.py \
+		--checkpoint checkpoints/EucherHeuristicTiebreak/checkpoint_best.pth \
+		--data-path data/EucherHeuristicTiebreak/v1 \
+		--split test \
+		--output results/EucherHeuristicTiebreak/evaluation_test.json
+
+train-heuristic-tiebreak: checkpoints/EucherHeuristicTiebreak/checkpoint_best.pth
+
+evaluate-heuristic-tiebreak: results/EucherHeuristicTiebreak/evaluation_test.json
 
 # Help
 help:
@@ -121,7 +164,10 @@ help:
 	@echo "  make train-ml-gan                  - Train GAN models"
 	@echo "  make train-ml-rl                   - Train RL models"
 	@echo "  make train-ml-self-play            - Collect self-play data (tqdm progress)"
+	@echo "  make train-ml-seeded-random       - Replay SEED against random AI (SEED= required)"
 	@echo "  make train-ml-all                  - Run full ML training workflow"
+	@echo "  make train-heuristic-tiebreak    - Train EucherHeuristicTiebreak on gray areas"
+	@echo "  make evaluate-heuristic-tiebreak - Score the tie-break model on held-out gray areas"
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  make clean      - Clean generated files"
